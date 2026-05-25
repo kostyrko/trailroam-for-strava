@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+out/
+coverage/
+.angular/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+
+# Chrome extension local artifacts
+*.crx
+
+# Editor and OS files
+.DS_Store
+.idea/
+.vscode/
+
+# Test and cache output
+.cache/
+.nyc_output/
+playwright-report/
+test-results/

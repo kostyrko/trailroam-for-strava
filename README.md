@@ -2,7 +2,7 @@
 
 Chrome extension MVP for importing Strava activity data with the user's logged-in browser session, storing it locally, and showing routes in a full-page extension app.
 
-This repository is currently at the initial project setup stage.
+This repository is currently set up as an Angular application. Chrome extension packaging is planned in later MVP tasks.
 
 ## MVP Constraints
 
@@ -14,4 +14,26 @@ This repository is currently at the initial project setup stage.
 
 ## Development
 
-Implementation tasks are tracked in the project docs repository.
+Install dependencies:
+
+```bash
+npm install
+```
+
+Run the Angular development server:
+
+```bash
+npm start
+```
+
+Build the app:
+
+```bash
+npm run build
+```
+
+Run tests:
+
+```bash
+npm test
+```

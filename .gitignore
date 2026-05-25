@@ -5,6 +5,8 @@ node_modules/
 dist/
 build/
 out/
+out-tsc/
+bazel-out/
 coverage/
 .angular/
 
@@ -27,13 +29,30 @@ pnpm-debug.log*
 # Chrome extension local artifacts
 *.crx
 
-# Editor and OS files
-.DS_Store
+# IDEs and editors
 .idea/
 .vscode/
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+.history/*
 
-# Test and cache output
+# Miscellaneous
+.sass-cache/
 .cache/
 .nyc_output/
+.playwright-mcp/
 playwright-report/
 test-results/
+/connect.lock
+/libpeerconnection.log
+testem.log
+/typings
+__screenshots__/
+
+# System files
+.DS_Store
+Thumbs.db

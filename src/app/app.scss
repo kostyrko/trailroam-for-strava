@@ -1,8 +1,10 @@
 .app-shell {
-  align-items: center;
+  align-items: start;
   background: #f7faf8;
   color: #14211b;
-  display: flex;
+  display: grid;
+  gap: 32px;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 480px);
   min-height: 100dvh;
   padding: 48px;
 }
@@ -34,8 +36,21 @@ h1 {
   margin: 24px 0 0;
 }
 
+button {
+  margin-top: 32px;
+}
+
+.material-card {
+  width: 100%;
+}
+
+.material-table {
+  width: 100%;
+}
+
 @media (max-width: 640px) {
   .app-shell {
+    grid-template-columns: 1fr;
     padding: 28px;
   }
 }

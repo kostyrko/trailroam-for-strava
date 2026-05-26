@@ -1,56 +1,50 @@
 .app-shell {
-  align-items: start;
   background: #f7faf8;
   color: #14211b;
-  display: grid;
-  gap: 32px;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 480px);
+  display: flex;
+  flex-direction: column;
   min-height: 100dvh;
-  padding: 48px;
 }
 
-.intro {
-  max-width: 720px;
+.app-header {
+  align-items: center;
+  border-bottom: 1px solid #dce6df;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  padding: 18px 32px;
 }
 
-.eyebrow {
-  color: #4f6f5d;
-  font-size: 0.875rem;
+.brand {
+  color: #14211b;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  margin: 0 0 16px;
-  text-transform: uppercase;
+  text-decoration: none;
 }
 
-h1 {
-  font-size: clamp(2.25rem, 6vw, 4.75rem);
-  font-weight: 700;
-  line-height: 1;
-  margin: 0;
+.app-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-.summary {
-  color: #53645b;
-  font-size: 1.125rem;
-  line-height: 1.6;
-  margin: 24px 0 0;
+.app-nav a {
+  border-radius: 6px;
+  color: #314b3f;
+  padding: 8px 12px;
+  text-decoration: none;
 }
 
-button {
-  margin-top: 32px;
-}
-
-.material-card {
-  width: 100%;
-}
-
-.material-table {
-  width: 100%;
+.app-nav a:hover,
+.app-nav a.active {
+  background: #e3eee7;
+  color: #14211b;
 }
 
 @media (max-width: 640px) {
-  .app-shell {
-    grid-template-columns: 1fr;
-    padding: 28px;
+  .app-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 16px;
+    padding: 18px 20px;
   }
 }

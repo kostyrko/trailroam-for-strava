@@ -1,35 +1,13 @@
 <main class="app-shell">
-  <section class="intro">
-    <p class="eyebrow">Chrome extension MVP</p>
-    <h1>{{ title() }}</h1>
-    <p class="summary">
-      Angular app shell ready for the full-page Trailroam extension experience.
-    </p>
-    <button matButton="filled" type="button" (click)="openReadinessDialog()">
-      Check Material dialog
-    </button>
-  </section>
+  <header class="app-header">
+    <a class="brand" routerLink="/map">Trailroam for Strava</a>
 
-  <mat-card appearance="outlined" class="material-card">
-    <mat-card-header>
-      <mat-card-title>Angular Material readiness</mat-card-title>
-      <mat-card-subtitle>Base components configured for later MVP screens</mat-card-subtitle>
-    </mat-card-header>
-    <mat-card-content>
-      <table mat-table [dataSource]="componentChecks" class="material-table">
-        <ng-container matColumnDef="component">
-          <th mat-header-cell *matHeaderCellDef>Component</th>
-          <td mat-cell *matCellDef="let check">{{ check.component }}</td>
-        </ng-container>
+    <nav class="app-nav" aria-label="Primary navigation">
+      <a routerLink="/activities" routerLinkActive="active">Activities</a>
+      <a routerLink="/map" routerLinkActive="active">Map</a>
+      <a routerLink="/settings" routerLinkActive="active">Settings</a>
+    </nav>
+  </header>
 
-        <ng-container matColumnDef="status">
-          <th mat-header-cell *matHeaderCellDef>Status</th>
-          <td mat-cell *matCellDef="let check">{{ check.status }}</td>
-        </ng-container>
-
-        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-        <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
-      </table>
-    </mat-card-content>
-  </mat-card>
+  <router-outlet />
 </main>

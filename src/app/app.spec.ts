@@ -25,4 +25,17 @@ describe('App', () => {
     const links = [...compiled.querySelectorAll('nav a')].map((link) => link.textContent?.trim());
     expect(links).toEqual(['Activities', 'Map', 'Settings']);
   });
+
+  it('should render header sync action slot', async () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const compiled = fixture.nativeElement as HTMLElement;
+    const syncButton = compiled.querySelector<HTMLButtonElement>('.sync-menu-trigger');
+
+    expect(compiled.querySelector('.brand')?.textContent).toContain('Trailroam for Strava');
+    expect(compiled.querySelector('.header-actions')).toBeTruthy();
+    expect(syncButton?.textContent).toContain('Sync new activities');
+    expect(syncButton?.getAttribute('aria-haspopup')).toBe('menu');
+  });
 });

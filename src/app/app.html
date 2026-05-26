@@ -1,13 +1,26 @@
 <main class="app-shell">
   <header class="app-header">
-    <a class="brand" routerLink="/map">Trailroam for Strava</a>
+    <div class="brand-group">
+      <a class="brand" routerLink="/map">Trailroam for Strava</a>
+      <span class="app-context">Chrome extension</span>
+    </div>
 
     <nav class="app-nav" aria-label="Primary navigation">
       <a routerLink="/activities" routerLinkActive="active">Activities</a>
       <a routerLink="/map" routerLinkActive="active">Map</a>
       <a routerLink="/settings" routerLinkActive="active">Settings</a>
     </nav>
+
+    <div class="header-actions" aria-label="Sync controls">
+      <span class="sync-status">Ready</span>
+      <button class="sync-menu-trigger" type="button" aria-haspopup="menu" aria-expanded="false">
+        Sync new activities
+        <span aria-hidden="true">v</span>
+      </button>
+    </div>
   </header>
 
-  <router-outlet />
+  <section class="app-content" aria-label="Trailroam workspace">
+    <router-outlet />
+  </section>
 </main>

@@ -3,6 +3,7 @@ import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/route
 import { of } from 'rxjs';
 import { App } from './app';
 import { ActivitiesPage, MapPage, SettingsPage, routes } from './app.routes';
+import { MapLibreService } from './map/maplibre.service';
 import { LocalDataService } from './storage/local-data.service';
 
 describe('App', () => {
@@ -73,7 +74,13 @@ describe('ActivitiesPage', () => {
 });
 
 describe('MapPage', () => {
+  let createMap: ReturnType<typeof vi.fn>;
+  let removeMap: ReturnType<typeof vi.fn>;
+
   function configureMapPage(queryParams: Record<string, string> = {}): void {
+    removeMap = vi.fn();
+    createMap = vi.fn().mockReturnValue({ remove: removeMap });
+
     TestBed.configureTestingModule({
       imports: [MapPage],
       providers: [
@@ -81,6 +88,12 @@ describe('MapPage', () => {
           provide: ActivatedRoute,
           useValue: {
             queryParamMap: of(convertToParamMap(queryParams)),
+          },
+        },
+        {
+          provide: MapLibreService,
+          useValue: {
+            createMap,
           },
         },
       ],
@@ -94,6 +107,8 @@ describe('MapPage', () => {
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('.map-shell')).toBeTruthy();
+    expect(createMap).toHaveBeenCalledOnce();
     expect(compiled.querySelector('.empty-state')?.textContent).toContain('No routes yet');
     expect(compiled.querySelector('.empty-state')?.textContent).toContain('Sync new activities');
   });
@@ -105,6 +120,8 @@ describe('MapPage', () => {
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('.map-shell')).toBeFalsy();
+    expect(createMap).not.toHaveBeenCalled();
     expect(compiled.querySelector('.warning-state')?.textContent).toContain('Basemap unavailable');
     expect(compiled.querySelector('.warning-state')?.textContent).toContain('local activities and routes are unaffected');
   });

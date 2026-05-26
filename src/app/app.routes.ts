@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Routes } from '@angular/router';
 import { map } from 'rxjs';
+import { MapLibreMapComponent } from './map/maplibre-map.component';
 import { LocalDataService } from './storage/local-data.service';
 
 @Component({
@@ -26,6 +27,7 @@ export class ActivitiesPage {}
 
 @Component({
   selector: 'app-map-page',
+  imports: [MapLibreMapComponent],
   template: `
     <section class="route-page" aria-labelledby="map-title">
       <p class="eyebrow">Map</p>
@@ -45,6 +47,8 @@ export class ActivitiesPage {}
           <button class="primary-action" type="button">Retry map load</button>
         </article>
       } @else {
+        <app-maplibre-map />
+
         <article class="empty-state" aria-labelledby="map-empty-title">
           <p class="empty-state-kicker">No routes yet</p>
           <h2 id="map-empty-title">Synced GPS routes will appear here.</h2>

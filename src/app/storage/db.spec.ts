@@ -1,4 +1,5 @@
-import 'fake-indexeddb/auto';
+import Dexie from 'dexie';
+import { IDBKeyRange, indexedDB } from 'fake-indexeddb';
 import { TrailroamDatabase } from './db';
 import { createRepositories } from './repositories';
 import {
@@ -15,6 +16,8 @@ describe('TrailroamDatabase', () => {
   let db: TrailroamDatabase;
 
   beforeEach(async () => {
+    Dexie.dependencies.indexedDB = indexedDB;
+    Dexie.dependencies.IDBKeyRange = IDBKeyRange;
     db = new TrailroamDatabase(`trailroam_test_${Date.now()}_${Math.random()}`);
     await db.open();
   });

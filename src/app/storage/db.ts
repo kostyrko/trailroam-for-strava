@@ -29,5 +29,3 @@ export class TrailroamDatabase extends Dexie {
     });
   }
 }
-
-export const appDb = new TrailroamDatabase();

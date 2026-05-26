@@ -2,7 +2,8 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { App } from './app';
-import { ActivitiesPage, MapPage, routes } from './app.routes';
+import { ActivitiesPage, MapPage, SettingsPage, routes } from './app.routes';
+import { LocalDataService } from './storage/local-data.service';
 
 describe('App', () => {
   beforeEach(async () => {
@@ -106,5 +107,70 @@ describe('MapPage', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('.warning-state')?.textContent).toContain('Basemap unavailable');
     expect(compiled.querySelector('.warning-state')?.textContent).toContain('local activities and routes are unaffected');
+  });
+});
+
+describe('SettingsPage', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function configureSettingsPage(clearSyncedLocalData = vi.fn().mockResolvedValue(undefined)): void {
+    TestBed.configureTestingModule({
+      imports: [SettingsPage],
+      providers: [
+        {
+          provide: LocalDataService,
+          useValue: {
+            clearSyncedLocalData,
+          },
+        },
+      ],
+    });
+  }
+
+  it('should render clear synced local data action', () => {
+    configureSettingsPage();
+
+    const fixture = TestBed.createComponent(SettingsPage);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('.danger-state')?.textContent).toContain('Clear synced local data');
+    expect(compiled.querySelector('.danger-state')?.textContent).toContain('Settings and access state are kept');
+  });
+
+  it('should ask for confirmation before clearing synced local data', async () => {
+    const clearSyncedLocalData = vi.fn().mockResolvedValue(undefined);
+    configureSettingsPage(clearSyncedLocalData);
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+
+    const fixture = TestBed.createComponent(SettingsPage);
+    fixture.detectChanges();
+    (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.danger-action')?.click();
+    await fixture.whenStable();
+
+    expect(confirm).toHaveBeenCalledWith(
+      'This will delete imported activities and routes from this browser. It will not delete anything from Strava.',
+    );
+    expect(clearSyncedLocalData).not.toHaveBeenCalled();
+  });
+
+  it('should clear synced local data and update status after confirmation', async () => {
+    const clearSyncedLocalData = vi.fn().mockResolvedValue(undefined);
+    configureSettingsPage(clearSyncedLocalData);
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    const fixture = TestBed.createComponent(SettingsPage);
+    fixture.detectChanges();
+    (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.danger-action')?.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(clearSyncedLocalData).toHaveBeenCalledOnce();
+    expect(compiled.querySelector('[role="status"]')?.textContent).toContain(
+      'Imported activities, routes, and sync state were cleared.',
+    );
   });
 });

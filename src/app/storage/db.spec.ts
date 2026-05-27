@@ -245,6 +245,136 @@ describe('TrailroamDatabase', () => {
     });
   });
 
+  describe('activity routes upsert', () => {
+    function createRoute(overrides: Partial<ActivityRouteRecord> = {}): ActivityRouteRecord {
+      const now = new Date().toISOString();
+      return {
+        activityId: 'strava:100',
+        providerActivityId: '100',
+        coordinates: [[19.94, 50.06]],
+        pointCount: 1,
+        bounds: { west: 19.94, south: 50.06, east: 19.94, north: 50.06 },
+        syncedAt: now,
+        updatedAt: now,
+        ...overrides,
+      };
+    }
+
+    it('should insert a new route record and return inserted: true', async () => {
+      const repositories = createRepositories(db);
+      const route = createRoute();
+
+      const result = await repositories.activityRoutes.upsert(route);
+
+      expect(result.inserted).toBe(true);
+      expect(result.route.activityId).toBe('strava:100');
+    });
+
+    it('should return inserted: false for an existing route record', async () => {
+      const repositories = createRepositories(db);
+      const route = createRoute();
+
+      await repositories.activityRoutes.upsert(route);
+      const result = await repositories.activityRoutes.upsert(route);
+
+      expect(result.inserted).toBe(false);
+    });
+
+    it('should preserve syncedAt from the existing record', async () => {
+      const repositories = createRepositories(db);
+      const route = createRoute();
+
+      await repositories.activityRoutes.upsert(route);
+
+      const updatedRoute = createRoute({ coordinates: [[19.95, 50.07], [19.96, 50.08]], pointCount: 2 });
+      const result = await repositories.activityRoutes.upsert(updatedRoute);
+
+      expect(result.route.syncedAt).toBe(route.syncedAt);
+    });
+
+    it('should update updatedAt on existing records', async () => {
+      const repositories = createRepositories(db);
+      const route = createRoute();
+
+      await repositories.activityRoutes.upsert(route);
+
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      const updatedRoute = createRoute({ coordinates: [[19.95, 50.07]], pointCount: 1 });
+      const result = await repositories.activityRoutes.upsert(updatedRoute);
+
+      expect(new Date(result.route.updatedAt).getTime()).toBeGreaterThan(
+        new Date(route.updatedAt).getTime(),
+      );
+    });
+
+    it('should not duplicate routes when upserting multiple times', async () => {
+      const repositories = createRepositories(db);
+
+      await repositories.activityRoutes.upsert(createRoute());
+      await repositories.activityRoutes.upsert(createRoute({ coordinates: [[19.95, 50.07]], pointCount: 1 }));
+      await repositories.activityRoutes.upsert(createRoute({ coordinates: [[19.96, 50.08]], pointCount: 1 }));
+
+      const all = await repositories.activityRoutes.list();
+      expect(all).toHaveLength(1);
+    });
+  });
+
+  describe('updateRouteSyncStatus', () => {
+    function createActivity(overrides: Partial<ActivityRecord> = {}): ActivityRecord {
+      const now = new Date().toISOString();
+      return {
+        id: 'strava:100',
+        provider: 'strava',
+        providerActivityId: '100',
+        name: 'Morning Ride',
+        sportType: 'Ride',
+        activityCategory: 'ride',
+        startDate: '2026-05-01T08:00:00.000Z',
+        hasRoute: false,
+        routeSyncStatus: 'not_attempted',
+        importedAt: now,
+        updatedAt: now,
+        ...overrides,
+      };
+    }
+
+    it('should update hasRoute and routeSyncStatus on an existing activity', async () => {
+      const repositories = createRepositories(db);
+      await repositories.activities.put(createActivity());
+
+      await repositories.activities.updateRouteSyncStatus('strava:100', true, 'route_synced');
+
+      const activity = await repositories.activities.get('strava:100');
+      expect(activity?.hasRoute).toBe(true);
+      expect(activity?.routeSyncStatus).toBe('route_synced');
+    });
+
+    it('should update updatedAt when changing route sync status', async () => {
+      const repositories = createRepositories(db);
+      await repositories.activities.put(createActivity());
+
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      await repositories.activities.updateRouteSyncStatus('strava:100', false, 'no_route');
+
+      const activity = await repositories.activities.get('strava:100');
+      expect(activity?.routeSyncStatus).toBe('no_route');
+      expect(activity?.updatedAt).not.toBe(activity?.importedAt);
+    });
+
+    it('should only update hasRoute and routeSyncStatus, not other fields', async () => {
+      const repositories = createRepositories(db);
+      const activity = createActivity({ name: 'Original Name', distanceMeters: 5000 });
+      await repositories.activities.put(activity);
+
+      await repositories.activities.updateRouteSyncStatus('strava:100', false, 'no_route');
+
+      const updated = await repositories.activities.get('strava:100');
+      expect(updated?.name).toBe('Original Name');
+      expect(updated?.distanceMeters).toBe(5000);
+    });
+  });
+
   it('should keep existing settings after reopening the database', async () => {
     const databaseName = db.name;
     const repositories = createRepositories(db);

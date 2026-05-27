@@ -28,6 +28,7 @@ pnpm-debug.log*
 
 # Chrome extension local artifacts
 *.crx
+artifacts/
 
 # IDEs and editors
 .idea/

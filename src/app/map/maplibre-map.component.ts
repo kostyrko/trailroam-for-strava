@@ -3,6 +3,7 @@ import {
   Component,
   ElementRef,
   EventEmitter,
+  NgZone,
   OnDestroy,
   Output,
   ViewChild,
@@ -35,6 +36,7 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
   private readonly mapLibreService = inject(MapLibreService);
   private readonly basemapProviderService = inject(BasemapProviderService);
   private readonly routeRendererService = inject(RouteRendererService);
+  private readonly ngZone = inject(NgZone);
   private isDestroyed = false;
   private map: Map | null = null;
 
@@ -45,7 +47,7 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
       const basemapProvider = this.basemapProviderService.getSelectedProvider();
       map = await this.mapLibreService.createMap(this.mapContainer.nativeElement, basemapProvider);
     } catch {
-      this.basemapLoadFailed.emit();
+      this.emitBasemapLoadFailed();
       return;
     }
 
@@ -55,11 +57,13 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
     }
 
     map.once('error', () => {
-      this.basemapLoadFailed.emit();
+      this.emitBasemapLoadFailed();
     });
     map.once('load', () => {
       this.routeRendererService.renderMockRoutes(map, (route) => {
-        this.routeSelected.emit(route);
+        this.ngZone.run(() => {
+          this.routeSelected.emit(route);
+        });
       });
     });
 
@@ -70,5 +74,11 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
     this.isDestroyed = true;
     this.map?.remove();
     this.map = null;
+  }
+
+  private emitBasemapLoadFailed(): void {
+    this.ngZone.run(() => {
+      this.basemapLoadFailed.emit();
+    });
   }
 }

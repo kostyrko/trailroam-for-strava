@@ -12,6 +12,8 @@
     "tabs"
   ],
   "host_permissions": [
+    "https://www.strava.com/*",
+    "https://strava.com/*",
     "https://tiles.openfreemap.org/*"
   ]
 }

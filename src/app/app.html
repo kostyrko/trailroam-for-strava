@@ -56,6 +56,37 @@
     }
   }
 
+  @if (syncSummary(); as summary) {
+    <section class="sync-summary" aria-labelledby="sync-summary-title" role="status">
+      <div>
+        <p class="sync-summary-kicker">Sync completed</p>
+        <p id="sync-summary-title">
+          @if (summary.importedCount) {
+            Imported: {{ summary.importedCount }}
+          }
+          @if (summary.updatedCount) {
+            · Updated: {{ summary.updatedCount }}
+          }
+          @if (summary.routesSyncedCount) {
+            · Routes: {{ summary.routesSyncedCount }}
+          }
+          @if (summary.skippedCount) {
+            · Skipped: {{ summary.skippedCount }}
+          }
+          @if (summary.failedCount) {
+            · Failed: {{ summary.failedCount }}
+          }
+          @if (summary.lastErrorMessage) {
+            · Error: {{ summary.lastErrorMessage }}
+          }
+        </p>
+      </div>
+      <button class="sync-summary-dismiss" type="button" (click)="dismissSyncSummary()" aria-label="Dismiss sync summary">
+        Dismiss
+      </button>
+    </section>
+  }
+
   <section class="app-content" aria-label="Trailroam workspace">
     <router-outlet />
   </section>

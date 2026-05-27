@@ -7,6 +7,7 @@ import { MapLibreService } from './map/maplibre.service';
 import { MOCK_ROUTES } from './map/mock-routes';
 import { RouteRendererService } from './map/route-renderer.service';
 import { LocalDataService } from './storage/local-data.service';
+import { TRAILROAM_REPOSITORIES } from './storage/repositories/repositories.token';
 import { StravaSessionService, type SessionStatus } from './strava/strava-session.service';
 
 function flushMicrotasks(): Promise<void> {
@@ -14,7 +15,10 @@ function flushMicrotasks(): Promise<void> {
 }
 
 describe('App', () => {
-  function configureApp(checkSession: () => Promise<SessionStatus>): void {
+  function configureApp(
+    checkSession: () => Promise<SessionStatus>,
+    syncStateGet: () => any = () => undefined,
+  ): void {
     TestBed.configureTestingModule({
       imports: [App],
       providers: [
@@ -22,6 +26,16 @@ describe('App', () => {
         {
           provide: StravaSessionService,
           useValue: { checkSession },
+        },
+        {
+          provide: TRAILROAM_REPOSITORIES,
+          useValue: {
+            activities: { put: vi.fn(), get: vi.fn(), list: vi.fn(), clear: vi.fn(), upsert: vi.fn() },
+            activityRoutes: { put: vi.fn(), get: vi.fn(), list: vi.fn(), clear: vi.fn() },
+            syncState: { put: vi.fn(), get: vi.fn().mockImplementation(syncStateGet), clear: vi.fn() },
+            settings: { put: vi.fn(), get: vi.fn(), clear: vi.fn(), getOrCreateDefault: vi.fn() },
+            accessState: { put: vi.fn(), get: vi.fn(), clear: vi.fn(), getOrCreateDefault: vi.fn() },
+          },
         },
       ],
     });
@@ -153,6 +167,99 @@ describe('App', () => {
     await flushMicrotasks();
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.session-alert')).toBeFalsy();
+  });
+
+  describe('sync summary', () => {
+    it('should not show sync summary when there are no results', async () => {
+      configureApp(() => Promise.resolve('logged_in'), () => undefined);
+      const fixture = TestBed.createComponent(App);
+      fixture.detectChanges();
+      await flushMicrotasks();
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('.sync-summary')).toBeFalsy();
+    });
+
+    it('should show sync summary when there are sync results', async () => {
+      configureApp(
+        () => Promise.resolve('logged_in'),
+        () => ({
+          id: 'default',
+          status: 'completed',
+          importedCount: 5,
+          updatedCount: 2,
+          routesSyncedCount: 3,
+          skippedCount: 1,
+          failedCount: 0,
+        }),
+      );
+      const fixture = TestBed.createComponent(App);
+      fixture.detectChanges();
+      await flushMicrotasks();
+      fixture.detectChanges();
+
+      const summary = fixture.nativeElement.querySelector('.sync-summary') as HTMLElement;
+      expect(summary).toBeTruthy();
+      expect(summary.textContent).toContain('Sync completed');
+      expect(summary.textContent).toContain('Imported: 5');
+      expect(summary.textContent).toContain('Updated: 2');
+      expect(summary.textContent).toContain('Routes: 3');
+      expect(summary.textContent).toContain('Skipped: 1');
+      expect(summary.textContent).not.toContain('Failed');
+    });
+
+    it('should dismiss sync summary when dismiss button is clicked', async () => {
+      configureApp(
+        () => Promise.resolve('logged_in'),
+        () => ({
+          id: 'default',
+          status: 'completed',
+          importedCount: 3,
+          updatedCount: 0,
+          routesSyncedCount: 1,
+          skippedCount: 0,
+          failedCount: 0,
+        }),
+      );
+      const fixture = TestBed.createComponent(App);
+      fixture.detectChanges();
+      await flushMicrotasks();
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('.sync-summary')).toBeTruthy();
+
+      const dismissButton = fixture.nativeElement.querySelector('.sync-summary-dismiss') as HTMLButtonElement;
+      dismissButton.click();
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('.sync-summary')).toBeFalsy();
+    });
+
+    it('should show error message in sync summary when sync failed', async () => {
+      configureApp(
+        () => Promise.resolve('logged_in'),
+        () => ({
+          id: 'default',
+          status: 'failed',
+          importedCount: 2,
+          updatedCount: 0,
+          routesSyncedCount: 0,
+          skippedCount: 0,
+          failedCount: 1,
+          lastErrorCode: 'ACTIVITY_ROUTE_FETCH_FAILED',
+          lastErrorMessage: 'Failed to fetch route for activity 123',
+        }),
+      );
+      const fixture = TestBed.createComponent(App);
+      fixture.detectChanges();
+      await flushMicrotasks();
+      fixture.detectChanges();
+
+      const summary = fixture.nativeElement.querySelector('.sync-summary') as HTMLElement;
+      expect(summary).toBeTruthy();
+      expect(summary.textContent).toContain('Failed: 1');
+      expect(summary.textContent).toContain('Error: Failed to fetch route for activity 123');
+    });
   });
 });
 

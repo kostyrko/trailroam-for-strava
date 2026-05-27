@@ -189,6 +189,46 @@
   white-space: nowrap;
 }
 
+.sync-summary {
+  align-items: center;
+  background: #e6f7ef;
+  border-bottom: 1px solid #a3d4bb;
+  color: #14412e;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  padding: 12px 24px;
+}
+
+.sync-summary-kicker {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 0 0 2px;
+}
+
+.sync-summary p {
+  margin: 0;
+}
+
+.sync-summary-dismiss {
+  background: transparent;
+  border: 1px solid #7cb89a;
+  border-radius: 6px;
+  color: #1f6f50;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  min-height: 32px;
+  padding: 5px 11px;
+  white-space: nowrap;
+}
+
+.sync-summary-dismiss:hover {
+  background: #d0efe0;
+}
+
 @media (max-width: 640px) {
   .app-header {
     align-items: stretch;

@@ -4,6 +4,7 @@ import {
   StravaSessionService,
   type SessionStatus,
 } from './strava/strava-session.service';
+import { SyncSummaryService, type SyncSummary } from './storage/sync-summary.service';
 
 @Component({
   selector: 'app-root',
@@ -13,12 +14,15 @@ import {
 })
 export class App {
   private readonly stravaSessionService = inject(StravaSessionService);
+  private readonly syncSummaryService = inject(SyncSummaryService);
 
   protected readonly sessionStatus = signal<SessionStatus>('unknown_error');
   protected readonly isCheckingSession = signal(false);
+  protected readonly syncSummary = signal<SyncSummary | null>(null);
 
   constructor() {
     this.checkSession();
+    this.loadSyncSummary();
   }
 
   protected checkSession(): void {
@@ -33,6 +37,10 @@ export class App {
       .finally(() => {
         this.isCheckingSession.set(false);
       });
+  }
+
+  protected dismissSyncSummary(): void {
+    this.syncSummary.set(null);
   }
 
   protected get statusLabel(): string {
@@ -51,5 +59,13 @@ export class App {
 
   protected get canSync(): boolean {
     return this.sessionStatus() === 'logged_in';
+  }
+
+  private async loadSyncSummary(): Promise<void> {
+    try {
+      const summary = await this.syncSummaryService.getSummary();
+      this.syncSummary.set(summary.hasResults ? summary : null);
+    } catch {
+    }
   }
 }

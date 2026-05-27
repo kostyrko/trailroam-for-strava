@@ -1,4 +1,5 @@
 import { Component, computed, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
 import type { ActivityRecord } from '../storage/storage.models';
 
@@ -80,7 +81,7 @@ function routeStatusLabel(status: string): string {
             </thead>
             <tbody>
               @for (activity of items; track activity.id) {
-                <tr class="activity-row">
+                <tr class="activity-row" [class.clickable]="activity.hasRoute" [class.no-route]="!activity.hasRoute" (click)="navigateToActivity(activity)">
                   <td class="cell-date">{{ formatDate(activity.startDate) }}</td>
                   <td class="cell-name">
                     <span class="preview-trigger"
@@ -157,6 +158,18 @@ function routeStatusLabel(status: string): string {
       border-top: 1px solid #eef5f0;
       padding: 10px 14px;
       vertical-align: middle;
+    }
+
+    .activity-row.clickable {
+      cursor: pointer;
+    }
+
+    .activity-row.clickable:hover {
+      background: #e6f7ef;
+    }
+
+    .activity-row.no-route {
+      cursor: default;
     }
 
     .activity-row:hover {
@@ -278,6 +291,7 @@ function routeStatusLabel(status: string): string {
 })
 export class ActivitiesPageComponent {
   private readonly repositories = inject(TRAILROAM_REPOSITORIES);
+  private readonly router = inject(Router);
 
   protected readonly status = signal<'loading' | 'empty' | 'loaded'>('loading');
   protected readonly activities = signal<ActivityRecord[] | null>(null);
@@ -295,6 +309,12 @@ export class ActivitiesPageComponent {
     if (page < 1 || page > this.totalPages()) { return; }
     this.currentPage.set(page);
     this.loadPage(page);
+  }
+
+  protected navigateToActivity(activity: ActivityRecord): void {
+    if (activity.hasRoute) {
+      this.router.navigate(['/map'], { queryParams: { activityId: activity.id } });
+    }
   }
 
   protected formatDistance = formatDistance;

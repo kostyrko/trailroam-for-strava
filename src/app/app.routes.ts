@@ -1,83 +1,8 @@
-import { Component, computed, inject, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, Routes } from '@angular/router';
-import { map } from 'rxjs';
+import { Component, inject, signal } from '@angular/core';
+import { Routes } from '@angular/router';
 import { ActivitiesPageComponent } from './activities/activities-page.component';
-import { MapLibreMapComponent } from './map/maplibre-map.component';
-import { type MockRoute } from './map/mock-routes';
+import { MapPage } from './map/map-page.component';
 import { LocalDataService } from './storage/local-data.service';
-
-@Component({
-  selector: 'app-map-page',
-  imports: [MapLibreMapComponent],
-  template: `
-    <section class="route-page" aria-labelledby="map-title">
-      <p class="eyebrow">Map</p>
-      <h1 id="map-title">Map</h1>
-
-      @if (selectedActivityId()) {
-        <p class="route-state">Selected activity: {{ selectedActivityId() }}</p>
-      }
-
-      @if (selectedMockRoute()) {
-        <p class="route-state" role="status">Selected route: {{ selectedMockRoute()?.name }}</p>
-      }
-
-      @if (hasBasemapError()) {
-        <article class="empty-state warning-state" aria-labelledby="basemap-error-title" role="alert">
-          <p class="empty-state-kicker">Basemap unavailable</p>
-          <h2 id="basemap-error-title">The map background could not load.</h2>
-          <p>
-            Your local activities and routes are unaffected. Check your connection and try loading the map again.
-          </p>
-          <button class="primary-action" type="button" (click)="retryBasemapLoad()">Retry map load</button>
-        </article>
-      } @else {
-        <app-maplibre-map
-          (basemapLoadFailed)="showBasemapError()"
-          (routeSelected)="selectMockRoute($event)"
-        />
-
-        <article class="empty-state" aria-labelledby="map-empty-title">
-          <p class="empty-state-kicker">No routes yet</p>
-          <h2 id="map-empty-title">Synced GPS routes will appear here.</h2>
-          <p>
-            Start a sync to import Strava activities and show available route lines on this map.
-          </p>
-          <button class="primary-action" type="button">Sync new activities</button>
-        </article>
-      }
-    </section>
-  `,
-})
-export class MapPage {
-  private readonly route = inject(ActivatedRoute);
-  private readonly activityId = toSignal(
-    this.route.queryParamMap.pipe(map((params) => params.get('activityId'))),
-    { initialValue: null },
-  );
-  private readonly basemapError = toSignal(
-    this.route.queryParamMap.pipe(map((params) => params.get('basemapError') === 'true')),
-    { initialValue: false },
-  );
-  private readonly mapBasemapError = signal(false);
-  protected readonly selectedMockRoute = signal<MockRoute | null>(null);
-
-  protected readonly selectedActivityId = computed(() => this.activityId());
-  protected readonly hasBasemapError = computed(() => this.basemapError() || this.mapBasemapError());
-
-  protected showBasemapError(): void {
-    this.mapBasemapError.set(true);
-  }
-
-  protected retryBasemapLoad(): void {
-    this.mapBasemapError.set(false);
-  }
-
-  protected selectMockRoute(route: MockRoute): void {
-    this.selectedMockRoute.set(route);
-  }
-}
 
 @Component({
   selector: 'app-settings-page',

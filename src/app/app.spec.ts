@@ -3,7 +3,8 @@ import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/route
 import { of } from 'rxjs';
 import { App } from './app';
 import { ActivitiesPageComponent } from './activities/activities-page.component';
-import { MapPage, SettingsPage, routes } from './app.routes';
+import { MapPage } from './map/map-page.component';
+import { SettingsPage, routes } from './app.routes';
 import { MapLibreService } from './map/maplibre.service';
 import { MOCK_ROUTES } from './map/mock-routes';
 import { RouteRendererService } from './map/route-renderer.service';
@@ -365,7 +366,7 @@ describe('MapPage', () => {
     expect(createMap).toHaveBeenCalledTimes(2);
   });
 
-  it('should show the selected mock route after route click selection', async () => {
+  it('should show route detail panel after route click selection', async () => {
     configureMapPage();
 
     const fixture = TestBed.createComponent(MapPage);
@@ -379,8 +380,8 @@ describe('MapPage', () => {
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('[role="status"]')?.textContent).toContain(
-      `Selected route: ${MOCK_ROUTES[0].name}`,
+    expect(compiled.querySelector('.route-detail-title')?.textContent).toContain(
+      MOCK_ROUTES[0].name,
     );
   });
 
@@ -395,6 +396,39 @@ describe('MapPage', () => {
     expect(createMap).not.toHaveBeenCalled();
     expect(compiled.querySelector('.warning-state')?.textContent).toContain('Basemap unavailable');
     expect(compiled.querySelector('.warning-state')?.textContent).toContain('local activities and routes are unaffected');
+  });
+
+  it('should show route detail panel when navigating with activityId for a known mock route', async () => {
+    configureMapPage({ activityId: 'mock-krakow-loop' });
+
+    const fixture = TestBed.createComponent(MapPage);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('.route-detail-title')?.textContent).toContain('Krakow river loop');
+    expect(compiled.querySelector('.route-detail-coords')?.textContent).toContain('GPS points');
+  });
+
+  it('should show no-route state when activityId does not match any mock route', async () => {
+    configureMapPage({ activityId: 'strava:999' });
+
+    const fixture = TestBed.createComponent(MapPage);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('.empty-state')?.textContent).toContain('No route available');
+  });
+
+  it('should clear selected activity and navigate back when clicking browse all activities', async () => {
+    configureMapPage({ activityId: 'strava:999' });
+
+    const fixture = TestBed.createComponent(MapPage);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const browseButton = compiled.querySelector('.secondary-action') as HTMLButtonElement;
+    expect(browseButton).toBeTruthy();
+    expect(browseButton.textContent).toContain('Browse all activities');
   });
 });
 

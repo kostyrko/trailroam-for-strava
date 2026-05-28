@@ -16,6 +16,10 @@ export class SettingsRepository {
     return this.db.settings.toArray();
   }
 
+  async clear(): Promise<void> {
+    await this.db.settings.clear();
+  }
+
   async getOrCreateDefault(now = new Date()): Promise<SettingsRecord> {
     const existingSettings = await this.get();
 

@@ -71,7 +71,7 @@ import { LocalDataService } from './storage/local-data.service';
         <p class="empty-state-kicker">Local data</p>
         <h2 id="restore-title">Restore local data</h2>
         <p>Restore your activities, routes, and settings from a previous backup file. This will replace your current local data.</p>
-        <button class="primary-action" type="button">Restore</button>
+        <button class="primary-action" type="button" (click)="restoreLocalData()">Restore</button>
       </article>
     </section>
   `,
@@ -81,6 +81,47 @@ export class SettingsPage {
 
   protected readonly isClearingLocalData = signal(false);
   protected readonly clearLocalDataStatus = signal<string | null>(null);
+
+  protected async restoreLocalData(): Promise<void> {
+    const file = await this.pickBackupFile();
+    if (!file) { return; }
+    const json = await file.text();
+    let backup: unknown;
+    try {
+      backup = JSON.parse(json);
+    } catch {
+      window.alert('Invalid backup file: could not parse JSON.');
+      return;
+    }
+    try {
+      this.localDataService.validateBackup(backup);
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : 'Invalid backup file.');
+      return;
+    }
+    const confirmed = window.confirm(
+      'This will replace all current local data with the backup. Are you sure?',
+    );
+    if (!confirmed) { return; }
+    const result = await this.localDataService.restore(backup as any);
+    window.alert(
+      `Restored: ${result.settingsCount} settings, ${result.accessStateCount} access state, ${result.syncStateCount} sync state, ${result.activitiesCount} activities, ${result.activityRoutesCount} routes. Refreshing...`,
+    );
+    window.location.href = 'index.html';
+  }
+
+  private pickBackupFile(): Promise<File | null> {
+    return new Promise((resolve) => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json,application/json';
+      input.onchange = () => {
+        const file = input.files?.[0] ?? null;
+        resolve(file);
+      };
+      input.click();
+    });
+  }
 
   protected async backupLocalData(): Promise<void> {
     const backup = await this.localDataService.backup();

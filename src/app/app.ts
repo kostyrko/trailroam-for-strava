@@ -78,8 +78,46 @@ export class App {
     URL.revokeObjectURL(url);
   }
 
-  protected restoreLocalData(): void {
+  protected async restoreLocalData(): Promise<void> {
     this.closeSyncMenu();
+    const file = await this.pickBackupFile();
+    if (!file) { return; }
+    const json = await file.text();
+    let backup: unknown;
+    try {
+      backup = JSON.parse(json);
+    } catch {
+      window.alert('Invalid backup file: could not parse JSON.');
+      return;
+    }
+    try {
+      this.localDataService.validateBackup(backup);
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : 'Invalid backup file.');
+      return;
+    }
+    const confirmed = window.confirm(
+      'This will replace all current local data with the backup. Are you sure?',
+    );
+    if (!confirmed) { return; }
+    const result = await this.localDataService.restore(backup as any);
+    window.alert(
+      `Restored: ${result.settingsCount} settings, ${result.accessStateCount} access state, ${result.syncStateCount} sync state, ${result.activitiesCount} activities, ${result.activityRoutesCount} routes. Refreshing...`,
+    );
+    window.location.href = 'index.html';
+  }
+
+  private pickBackupFile(): Promise<File | null> {
+    return new Promise((resolve) => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json,application/json';
+      input.onchange = () => {
+        const file = input.files?.[0] ?? null;
+        resolve(file);
+      };
+      input.click();
+    });
   }
 
   protected refreshExtension(): void {

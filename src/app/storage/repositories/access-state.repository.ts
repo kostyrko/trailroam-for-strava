@@ -15,4 +15,8 @@ export class AccessStateRepository {
   async list(): Promise<AccessStateRecord[]> {
     return this.db.access_state.toArray();
   }
+
+  async clear(): Promise<void> {
+    await this.db.access_state.clear();
+  }
 }

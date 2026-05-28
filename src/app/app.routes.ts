@@ -116,7 +116,11 @@ export class SettingsPage {
 
     try {
       await this.localDataService.clearSyncedLocalData();
-      this.clearLocalDataStatus.set('Local data cleared. Re-sync will start automatically.');
+      this.clearLocalDataStatus.set('Local data cleared. Opening Strava to re-sync...');
+      const c = (globalThis as any).chrome;
+      if (c?.tabs?.create) {
+        c.tabs.create({ url: 'https://www.strava.com/dashboard?trailroamSync=true' });
+      }
     } finally {
       this.isClearingLocalData.set(false);
     }

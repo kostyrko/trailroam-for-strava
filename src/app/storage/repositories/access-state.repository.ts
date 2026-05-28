@@ -11,4 +11,8 @@ export class AccessStateRepository {
   async get(): Promise<AccessStateRecord | undefined> {
     return this.db.access_state.get(DEFAULT_RECORD_ID);
   }
+
+  async list(): Promise<AccessStateRecord[]> {
+    return this.db.access_state.toArray();
+  }
 }

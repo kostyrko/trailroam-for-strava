@@ -64,7 +64,7 @@ import { LocalDataService } from './storage/local-data.service';
         <p class="empty-state-kicker">Local data</p>
         <h2 id="backup-title">Backup local data</h2>
         <p>Export your activities, routes, and settings to a JSON file. The backup file may contain GPS route history — store it somewhere private.</p>
-        <button class="primary-action" type="button">Backup</button>
+        <button class="primary-action" type="button" (click)="backupLocalData()">Backup</button>
       </article>
 
       <article class="empty-state" aria-labelledby="restore-title">
@@ -81,6 +81,18 @@ export class SettingsPage {
 
   protected readonly isClearingLocalData = signal(false);
   protected readonly clearLocalDataStatus = signal<string | null>(null);
+
+  protected async backupLocalData(): Promise<void> {
+    const backup = await this.localDataService.backup();
+    const json = JSON.stringify(backup, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `trailroam-backup-${backup.exportedAt.slice(0, 19).replace(/[T:]/g, '-')}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   protected async clearSyncedLocalData(): Promise<void> {
     const confirmed = window.confirm(

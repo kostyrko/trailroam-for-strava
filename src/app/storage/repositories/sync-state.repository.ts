@@ -12,6 +12,10 @@ export class SyncStateRepository {
     return this.db.sync_state.get(DEFAULT_RECORD_ID);
   }
 
+  async list(): Promise<SyncStateRecord[]> {
+    return this.db.sync_state.toArray();
+  }
+
   async clear(): Promise<void> {
     await this.db.sync_state.clear();
   }

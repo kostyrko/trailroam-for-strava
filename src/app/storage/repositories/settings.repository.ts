@@ -12,6 +12,10 @@ export class SettingsRepository {
     return this.db.settings.get(DEFAULT_RECORD_ID);
   }
 
+  async list(): Promise<SettingsRecord[]> {
+    return this.db.settings.toArray();
+  }
+
   async getOrCreateDefault(now = new Date()): Promise<SettingsRecord> {
     const existingSettings = await this.get();
 

@@ -65,8 +65,17 @@ export class App {
     await this.localDataService.clearSyncedLocalData();
   }
 
-  protected backupLocalData(): void {
+  protected async backupLocalData(): Promise<void> {
     this.closeSyncMenu();
+    const backup = await this.localDataService.backup();
+    const json = JSON.stringify(backup, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `trailroam-backup-${backup.exportedAt.slice(0, 19).replace(/[T:]/g, '-')}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   protected restoreLocalData(): void {

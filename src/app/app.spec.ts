@@ -9,25 +9,17 @@ import { MapLibreService } from './map/maplibre.service';
 import { RouteRendererService } from './map/route-renderer.service';
 import { LocalDataService } from './storage/local-data.service';
 import { TRAILROAM_REPOSITORIES } from './storage/repositories/repositories.token';
-import { StravaSessionService, type SessionStatus } from './strava/strava-session.service';
 
 function flushMicrotasks(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 describe('App', () => {
-  function configureApp(
-    checkSession: () => Promise<SessionStatus>,
-    syncStateGet: () => any = () => undefined,
-  ): void {
+  function configureApp(syncStateGet: () => any = () => undefined): void {
     TestBed.configureTestingModule({
       imports: [App],
       providers: [
         provideRouter(routes),
-        {
-          provide: StravaSessionService,
-          useValue: { checkSession },
-        },
         {
           provide: TRAILROAM_REPOSITORIES,
           useValue: {
@@ -43,13 +35,13 @@ describe('App', () => {
   }
 
   it('should create the app', () => {
-    configureApp(() => Promise.resolve('logged_in'));
+    configureApp();
     const fixture = TestBed.createComponent(App);
     expect(fixture.componentInstance).toBeTruthy();
   });
 
   it('should render primary navigation', async () => {
-    configureApp(() => Promise.resolve('logged_in'));
+    configureApp();
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
     await flushMicrotasks();
@@ -59,8 +51,8 @@ describe('App', () => {
     expect(links).toEqual(['Activities', 'Map', 'Settings']);
   });
 
-  it('should render header sync action slot', async () => {
-    configureApp(() => Promise.resolve('logged_in'));
+  it('should render header sync button', async () => {
+    configureApp();
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
     await flushMicrotasks();
@@ -74,105 +66,9 @@ describe('App', () => {
     expect(syncButton?.getAttribute('aria-haspopup')).toBe('menu');
   });
 
-  it('should show Ready status when session is logged in', async () => {
-    configureApp(() => Promise.resolve('logged_in'));
-    const fixture = TestBed.createComponent(App);
-    fixture.detectChanges();
-    await flushMicrotasks();
-    fixture.detectChanges();
-
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.sync-status')?.textContent).toContain('Ready');
-    expect(compiled.querySelector('.session-alert')).toBeFalsy();
-  });
-
-  it('should show login-required banner when session check returns login_required', async () => {
-    configureApp(() => Promise.resolve('login_required'));
-    const fixture = TestBed.createComponent(App);
-    fixture.detectChanges();
-    await flushMicrotasks();
-    fixture.detectChanges();
-
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.sync-status')?.textContent).toContain('Login required');
-    expect(compiled.querySelector('.session-alert')).toBeTruthy();
-    expect(compiled.querySelector('.session-alert')?.textContent).toContain('Please log in to Strava first.');
-    expect(compiled.querySelector('.session-alert')?.textContent).toContain('Open Strava');
-    expect(compiled.querySelector('.session-alert')?.textContent).toContain('Retry');
-  });
-
-  it('should disable sync button when session is not logged in', async () => {
-    configureApp(() => Promise.resolve('login_required'));
-    const fixture = TestBed.createComponent(App);
-    fixture.detectChanges();
-    await flushMicrotasks();
-    fixture.detectChanges();
-
-    const syncButton = fixture.nativeElement.querySelector('.sync-menu-trigger') as HTMLButtonElement;
-    expect(syncButton?.disabled).toBe(true);
-  });
-
-  it('should enable sync button when session is logged in', async () => {
-    configureApp(() => Promise.resolve('logged_in'));
-    const fixture = TestBed.createComponent(App);
-    fixture.detectChanges();
-    await flushMicrotasks();
-    fixture.detectChanges();
-
-    const syncButton = fixture.nativeElement.querySelector('.sync-menu-trigger') as HTMLButtonElement;
-    expect(syncButton?.disabled).toBe(false);
-  });
-
-  it('should show Connection error banner when session check returns unknown_error', async () => {
-    configureApp(() => Promise.resolve('unknown_error'));
-    const fixture = TestBed.createComponent(App);
-    fixture.detectChanges();
-    await flushMicrotasks();
-    fixture.detectChanges();
-
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.sync-status')?.textContent).toContain('Connection error');
-    expect(compiled.querySelector('.session-alert')).toBeTruthy();
-    expect(compiled.querySelector('.alert-hint')?.textContent).toContain('could not reach Strava');
-  });
-
-  it('should re-check session on retry button click', async () => {
-    const checkSession = vi.fn().mockResolvedValue('login_required');
-    configureApp(() => checkSession());
-    const fixture = TestBed.createComponent(App);
-    fixture.detectChanges();
-    await flushMicrotasks();
-    fixture.detectChanges();
-
-    checkSession.mockReset().mockResolvedValue('login_required');
-    const retryButton = fixture.nativeElement.querySelector('.alert-actions button:last-child') as HTMLButtonElement;
-    expect(retryButton).toBeTruthy();
-    expect(retryButton.textContent).toContain('Retry');
-    retryButton.click();
-    await flushMicrotasks();
-    fixture.detectChanges();
-    expect(checkSession).toHaveBeenCalledOnce();
-  });
-
-  it('should re-check session and dismiss banner when session is restored', async () => {
-    let callIndex = 0;
-    const results: SessionStatus[] = ['login_required', 'logged_in'];
-    configureApp(() => Promise.resolve(results[callIndex++]));
-    const fixture = TestBed.createComponent(App);
-    fixture.detectChanges();
-    await flushMicrotasks();
-    fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('.session-alert')).toBeTruthy();
-
-    fixture.nativeElement.querySelector('.alert-actions button')?.click();
-    await flushMicrotasks();
-    fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('.session-alert')).toBeFalsy();
-  });
-
   describe('sync summary', () => {
     it('should not show sync summary when there are no results', async () => {
-      configureApp(() => Promise.resolve('logged_in'), () => undefined);
+      configureApp(() => undefined);
       const fixture = TestBed.createComponent(App);
       fixture.detectChanges();
       await flushMicrotasks();
@@ -182,18 +78,15 @@ describe('App', () => {
     });
 
     it('should show sync summary when there are sync results', async () => {
-      configureApp(
-        () => Promise.resolve('logged_in'),
-        () => ({
-          id: 'default',
-          status: 'completed',
-          importedCount: 5,
-          updatedCount: 2,
-          routesSyncedCount: 3,
-          skippedCount: 1,
-          failedCount: 0,
-        }),
-      );
+      configureApp(() => ({
+        id: 'default',
+        status: 'completed',
+        importedCount: 5,
+        updatedCount: 2,
+        routesSyncedCount: 3,
+        skippedCount: 1,
+        failedCount: 0,
+      }));
       const fixture = TestBed.createComponent(App);
       fixture.detectChanges();
       await flushMicrotasks();
@@ -210,18 +103,15 @@ describe('App', () => {
     });
 
     it('should dismiss sync summary when dismiss button is clicked', async () => {
-      configureApp(
-        () => Promise.resolve('logged_in'),
-        () => ({
-          id: 'default',
-          status: 'completed',
-          importedCount: 3,
-          updatedCount: 0,
-          routesSyncedCount: 1,
-          skippedCount: 0,
-          failedCount: 0,
-        }),
-      );
+      configureApp(() => ({
+        id: 'default',
+        status: 'completed',
+        importedCount: 3,
+        updatedCount: 0,
+        routesSyncedCount: 1,
+        skippedCount: 0,
+        failedCount: 0,
+      }));
       const fixture = TestBed.createComponent(App);
       fixture.detectChanges();
       await flushMicrotasks();
@@ -237,20 +127,17 @@ describe('App', () => {
     });
 
     it('should show error message in sync summary when sync failed', async () => {
-      configureApp(
-        () => Promise.resolve('logged_in'),
-        () => ({
-          id: 'default',
-          status: 'failed',
-          importedCount: 2,
-          updatedCount: 0,
-          routesSyncedCount: 0,
-          skippedCount: 0,
-          failedCount: 1,
-          lastErrorCode: 'ACTIVITY_ROUTE_FETCH_FAILED',
-          lastErrorMessage: 'Failed to fetch route for activity 123',
-        }),
-      );
+      configureApp(() => ({
+        id: 'default',
+        status: 'failed',
+        importedCount: 2,
+        updatedCount: 0,
+        routesSyncedCount: 0,
+        skippedCount: 0,
+        failedCount: 1,
+        lastErrorCode: 'ACTIVITY_ROUTE_FETCH_FAILED',
+        lastErrorMessage: 'Failed to fetch route for activity 123',
+      }));
       const fixture = TestBed.createComponent(App);
       fixture.detectChanges();
       await flushMicrotasks();

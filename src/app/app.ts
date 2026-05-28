@@ -1,12 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import {
-  StravaSessionService,
-  type SessionStatus,
-} from './strava/strava-session.service';
 import { SyncSummaryService, type SyncSummary } from './storage/sync-summary.service';
 import { LocalDataService } from './storage/local-data.service';
-import { SyncEngineService } from './sync/sync-engine.service';
 
 @Component({
   selector: 'app-root',
@@ -15,35 +10,16 @@ import { SyncEngineService } from './sync/sync-engine.service';
   styleUrl: './app.scss',
 })
 export class App {
-  private readonly stravaSessionService = inject(StravaSessionService);
   private readonly syncSummaryService = inject(SyncSummaryService);
   private readonly localDataService = inject(LocalDataService);
-  private readonly syncEngine = inject(SyncEngineService);
 
-  protected readonly sessionStatus = signal<SessionStatus>('unknown_error');
-  protected readonly isCheckingSession = signal(false);
   protected readonly syncSummary = signal<SyncSummary | null>(null);
   protected readonly syncMenuOpen = signal(false);
-  protected readonly isSyncing = signal(false);
-  protected readonly syncProgress = this.syncEngine.progress;
+  protected readonly buildDate: string =
+    document.documentElement.getAttribute('data-build') ?? 'dev';
 
   constructor() {
-    this.checkSession();
     this.loadSyncSummary();
-  }
-
-  protected checkSession(): void {
-    this.isCheckingSession.set(true);
-    this.stravaSessionService.checkSession()
-      .then((status) => {
-        this.sessionStatus.set(status);
-      })
-      .catch(() => {
-        this.sessionStatus.set('unknown_error');
-      })
-      .finally(() => {
-        this.isCheckingSession.set(false);
-      });
   }
 
   protected toggleSyncMenu(): void {
@@ -58,45 +34,11 @@ export class App {
     this.syncSummary.set(null);
   }
 
-  protected get statusLabel(): string {
-    const status = this.sessionStatus();
-    switch (status) {
-      case 'logged_in':
-        return 'Ready';
-      case 'login_required':
-        return 'Login required';
-      case 'unknown_error':
-        return 'Connection error';
-      default:
-        return 'Unknown';
-    }
-  }
-
-  protected get canSync(): boolean {
-    return this.sessionStatus() === 'logged_in' && !this.isSyncing();
-  }
-
-  protected async syncNewActivities(): Promise<void> {
+  protected syncNewActivities(): void {
     this.closeSyncMenu();
-    if (this.isSyncing()) { return; }
-    this.isSyncing.set(true);
-    try {
-      const result = await this.syncEngine.syncNewActivities();
-      this.syncSummary.set({
-        importedCount: result.importedCount,
-        updatedCount: result.updatedCount,
-        routesSyncedCount: result.routesSyncedCount,
-        skippedCount: result.skippedCount,
-        failedCount: result.failedCount,
-        status: result.errorMessage ? 'failed' : 'completed',
-        completedAt: new Date().toISOString(),
-        lastSuccessfulSyncAt: result.errorMessage ? null : new Date().toISOString(),
-        lastErrorCode: result.errorMessage ? 'SYNC_ERROR' : null,
-        lastErrorMessage: result.errorMessage ?? null,
-        hasResults: true,
-      });
-    } finally {
-      this.isSyncing.set(false);
+    const c = (globalThis as any).chrome;
+    if (c?.tabs?.create) {
+      c.tabs.create({ url: 'https://www.strava.com/dashboard?trailroamSync=true' });
     }
   }
 
@@ -111,7 +53,7 @@ export class App {
     );
     if (!confirmed) { return; }
     await this.localDataService.clearSyncedLocalData();
-    await this.syncNewActivities();
+    this.syncNewActivities();
   }
 
   protected async clearSyncedLocalData(): Promise<void> {
@@ -129,6 +71,10 @@ export class App {
 
   protected restoreLocalData(): void {
     this.closeSyncMenu();
+  }
+
+  protected refreshExtension(): void {
+    window.location.href = 'index.html';
   }
 
   private async loadSyncSummary(): Promise<void> {

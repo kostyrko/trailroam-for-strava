@@ -7,6 +7,17 @@
     "default_title": "Trailroam for Strava",
     "default_popup": "popup.html"
   },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.strava.com/*", "https://strava.com/*"],
+      "js": ["content-script.js"],
+      "run_at": "document_idle"
+    }
+  ],
   "permissions": [
     "storage",
     "tabs"

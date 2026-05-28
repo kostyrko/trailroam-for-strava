@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { environment } from '../../environments/environment';
 
 export type SessionStatus = 'logged_in' | 'login_required' | 'unknown_error';
 
@@ -17,13 +18,9 @@ export interface StravaActivityResponse {
 }
 
 export interface ActivityListParams {
-  /** Page number (1-based) */
   page: number;
-  /** Results per page */
   perPage: number;
-  /** Only return activities before this timestamp (Unix epoch seconds) */
   before?: number;
-  /** Only return activities after this timestamp (Unix epoch seconds) */
   after?: number;
 }
 
@@ -37,72 +34,55 @@ export type RouteFetchResult =
   | { success: false; errorCode: 'NO_GPS_ROUTE' }
   | { success: false; errorCode: 'ACTIVITY_ROUTE_FETCH_FAILED' };
 
-const STRAVA_ACTIVITIES_URL = 'https://www.strava.com/athlete/training/activities';
-const STRAVA_STREAMS_URL = 'https://www.strava.com/api/v3/activities';
-
-/** Lightweight page that returns 200 + specific patterns when logged in. */
-const STRAVA_DASHBOARD_URL = 'https://www.strava.com/dashboard';
-
-const KNOWN_RESPONSE_PATTERNS: { pattern: RegExp; status: SessionStatus }[] = [
-  { pattern: /"data":\s*\[/i, status: 'logged_in' },
-  { pattern: /"activities":/i, status: 'logged_in' },
-  { pattern: /athlete\.id/i, status: 'logged_in' },
-  { pattern: /"currentUser"/i, status: 'logged_in' },
-  { pattern: /data-react-class="Dashboard"/i, status: 'logged_in' },
-  { pattern: /login|log in|sign in/i, status: 'login_required' },
-  { pattern: /strava\.com\/login/i, status: 'login_required' },
-];
+const STRAVA_ACTIVITIES_PATH = '/athlete/training/activities';
+const STRAVA_STREAMS_PATH = '/api/v3/activities';
 
 @Injectable({
   providedIn: 'root',
 })
 export class StravaSessionService {
-  /**
-   * Check whether the user has an active Strava browser session.
-   *
-   * Makes a lightweight request to a Strava endpoint that behaves differently
-   * when logged in vs logged out. The response shape is inspected rather than
-   * parsed, since exact endpoints may change.
-   */
+
   async checkSession(): Promise<SessionStatus> {
-    try {
-      const response = await fetch(STRAVA_DASHBOARD_URL, {
-        credentials: 'include',
-        method: 'HEAD',
-      });
-      return this.inferSessionFromResponse(response);
-    } catch {
+    const ext = (typeof globalThis !== 'undefined' ? (globalThis as any).chrome : undefined)
+      ?? (typeof (window as any) !== 'undefined' ? (window as any).chrome : undefined);
+
+    if (!ext?.runtime?.id) {
+      return 'unknown_error';
+    }
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) {
+        await new Promise((r) => setTimeout(r, 300));
+      }
       try {
-        return await this.checkSessionViaTextFetch();
+        const result = await ext.runtime.sendMessage('CHECK_STRAVA_SESSION');
+        if (result === 'logged_in' || result === 'login_required' || result === 'unknown_error') {
+          return result;
+        }
       } catch {
-        return 'unknown_error';
       }
     }
+
+    return 'unknown_error';
   }
 
-  /**
-   * Fetch activity list from the logged-in Strava session.
-   *
-   * Uses the athlete training activities endpoint which returns JSON when
-   * accessed with an active session.
-   */
   async fetchActivityList(params: ActivityListParams): Promise<ActivityFetchResult> {
-    const url = new URL(STRAVA_ACTIVITIES_URL);
-    url.searchParams.set('page', String(params.page));
-    url.searchParams.set('per_page', String(params.perPage));
+    const baseUrl = `${environment.stravaApiBase}${STRAVA_ACTIVITIES_PATH}`;
+    const searchParams = new URLSearchParams();
+    searchParams.set('page', String(params.page));
+    searchParams.set('per_page', String(params.perPage));
     if (params.before !== undefined) {
-      url.searchParams.set('before', String(params.before));
+      searchParams.set('before', String(params.before));
     }
     if (params.after !== undefined) {
-      url.searchParams.set('after', String(params.after));
+      searchParams.set('after', String(params.after));
     }
 
     try {
-      const response = await fetch(url.toString(), { credentials: 'include' });
-      const sessionStatus = this.inferSessionFromResponse(response);
+      const response = await fetch(`${baseUrl}?${searchParams.toString()}`, { credentials: 'include' });
 
-      if (sessionStatus !== 'logged_in') {
-        return { success: false, errorCode: 'STRAVA_LOGIN_REQUIRED', status: sessionStatus };
+      if (response.status === 401 || response.status === 302) {
+        return { success: false, errorCode: 'STRAVA_LOGIN_REQUIRED', status: 'login_required' };
       }
 
       const text = await response.text();
@@ -118,15 +98,8 @@ export class StravaSessionService {
     }
   }
 
-  /**
-   * Fetch GPS stream data for a Strava activity.
-   *
-   * Requests the `latlng` stream from the Strava API. This requires the
-   * user's session to be active, as API v3 endpoints also respect the
-   * browser session cookie.
-   */
   async fetchActivityRoute(activityId: number): Promise<RouteFetchResult> {
-    const url = `${STRAVA_STREAMS_URL}/${activityId}/streams?keys=latlng&key_by_type=true`;
+    const url = `${environment.stravaApiBase}${STRAVA_STREAMS_PATH}/${activityId}/streams?keys=latlng&key_by_type=true`;
 
     try {
       const response = await fetch(url, { credentials: 'include' });
@@ -157,9 +130,6 @@ export class StravaSessionService {
     }
   }
 
-  /**
-   * Normalize a caught error into a stable error code.
-   */
   normalizeSessionError(error: unknown): string {
     if (error instanceof TypeError) {
       return 'STRAVA_REQUEST_FAILED';
@@ -168,42 +138,6 @@ export class StravaSessionService {
       return 'STRAVA_REQUEST_FAILED';
     }
     return 'STRAVA_REQUEST_FAILED';
-  }
-
-  private inferSessionFromResponse(response: Response): SessionStatus {
-    if (!response.ok && response.status === 401) {
-      return 'login_required';
-    }
-
-    if (!response.ok && response.status === 302) {
-      return 'login_required';
-    }
-
-    if (!response.ok) {
-      return 'login_required';
-    }
-
-    return 'logged_in';
-  }
-
-  private async checkSessionViaTextFetch(): Promise<SessionStatus> {
-    const response = await fetch(STRAVA_DASHBOARD_URL, {
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      return 'login_required';
-    }
-
-    const text = await response.text();
-
-    for (const { pattern, status } of KNOWN_RESPONSE_PATTERNS) {
-      if (pattern.test(text)) {
-        return status;
-      }
-    }
-
-    return 'unknown_error';
   }
 
   private parseActivityList(text: string): StravaActivityResponse[] | null {

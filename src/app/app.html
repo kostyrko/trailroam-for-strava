@@ -1,4 +1,4 @@
-<main class="app-shell" (click)="closeSyncMenu()">
+<main class="app-shell">
   <header class="app-header">
     <div class="brand-group">
       <a class="brand" routerLink="/map">Trailroam for Strava</a>
@@ -12,37 +12,20 @@
     </nav>
 
     <div class="header-actions" aria-label="Sync controls">
-      <span class="sync-status" [class.status-ok]="sessionStatus() === 'logged_in'" [class.status-warn]="sessionStatus() !== 'logged_in' && !isCheckingSession()">
-        @if (isCheckingSession()) {
-          Checking session…
-        } @else if (isSyncing()) {
-          Syncing…
-        } @else {
-          {{ statusLabel }}
-        }
-      </span>
-
-      <div class="sync-menu-wrapper" (click)="$event.stopPropagation()">
-        @if (isSyncing()) {
-          <button class="sync-menu-trigger" type="button" disabled>
-            Syncing…
-          </button>
-        } @else {
-          <button
-            class="sync-menu-trigger"
-            type="button"
-            aria-haspopup="menu"
-            [attr.aria-expanded]="syncMenuOpen()"
-            [disabled]="!canSync"
-            (click)="toggleSyncMenu()"
-          >
-            Sync
-            <span aria-hidden="true">v</span>
-          </button>
-        }
+      <div class="sync-menu-wrapper">
+        <button
+          class="sync-menu-trigger"
+          type="button"
+          aria-haspopup="menu"
+          [attr.aria-expanded]="syncMenuOpen()"
+          (click)="toggleSyncMenu()"
+        >
+          Sync
+          <span aria-hidden="true">v</span>
+        </button>
 
         @if (syncMenuOpen()) {
-          <ul class="sync-dropdown" role="menu" aria-label="Sync and data management">
+          <ul class="sync-dropdown" role="menu" aria-label="Sync and data management" (click)="$event.stopPropagation()">
             <li role="none">
               <button class="dropdown-item" role="menuitem" (click)="syncNewActivities()">
                 Sync new activities
@@ -81,29 +64,6 @@
     </div>
   </header>
 
-  @if (sessionStatus() !== 'logged_in') {
-    @if (sessionStatus() === 'login_required' || sessionStatus() === 'unknown_error') {
-      <section class="session-alert" aria-labelledby="session-alert-title" role="alert">
-        <div>
-          <p class="alert-kicker">Strava login required</p>
-          <h2 id="session-alert-title">Please log in to Strava first.</h2>
-          <p>Open strava.com, sign in, then return to Trailroam for Strava.</p>
-          @if (sessionStatus() === 'unknown_error') {
-            <p class="alert-hint">The extension could not reach Strava. Make sure you are connected to the internet.</p>
-          }
-        </div>
-        <div class="alert-actions">
-          <a class="secondary-action" href="https://www.strava.com/login" target="_blank" rel="noreferrer">
-            Open Strava
-          </a>
-          <button class="secondary-action" type="button" (click)="checkSession()" [disabled]="isCheckingSession()">
-            {{ isCheckingSession() ? 'Checking…' : 'Retry' }}
-          </button>
-        </div>
-      </section>
-    }
-  }
-
   @if (syncSummary(); as summary) {
     <section class="sync-summary" aria-labelledby="sync-summary-title" role="status">
       <div>
@@ -138,4 +98,11 @@
   <section class="app-content" aria-label="Trailroam workspace">
     <router-outlet />
   </section>
+
+  <footer class="app-footer">
+    <span class="build-version">build {{ buildDate }}</span>
+    <button class="footer-reload-btn" type="button" (click)="refreshExtension()" title="Reload extension" aria-label="Reload extension">
+      ↻ Reload
+    </button>
+  </footer>
 </main>

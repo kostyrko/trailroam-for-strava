@@ -9,8 +9,22 @@ function createTextResponse(body: string, init?: ResponseInit): Response {
   return new Response(body, init);
 }
 
+function mockChromeRuntime(mockSendMessage: ReturnType<typeof vi.fn>) {
+  const originalGlobal = (globalThis as any).chrome;
+  (globalThis as any).chrome = {
+    runtime: {
+      id: 'test-extension-id',
+      sendMessage: mockSendMessage,
+    },
+  };
+  return () => {
+    (globalThis as any).chrome = originalGlobal;
+  };
+}
+
 describe('StravaSessionService', () => {
   let service: StravaSessionService;
+  let restoreChrome: (() => void) | null = null;
 
   beforeEach(() => {
     TestBed.configureTestingModule({});
@@ -18,49 +32,54 @@ describe('StravaSessionService', () => {
     vi.restoreAllMocks();
   });
 
+  afterEach(() => {
+    restoreChrome?.();
+    restoreChrome = null;
+  });
+
   describe('checkSession', () => {
-    it('should return logged_in when fetch succeeds with OK status', async () => {
-      vi.spyOn(globalThis, 'fetch').mockResolvedValue(createMockResponse({ status: 200 }));
+    it('should return logged_in when background returns logged_in', async () => {
+      const sendMessage = vi.fn().mockResolvedValue('logged_in');
+      restoreChrome = mockChromeRuntime(sendMessage);
 
       await expect(service.checkSession()).resolves.toBe('logged_in');
     });
 
-    it('should return login_required when fetch returns 401', async () => {
-      vi.spyOn(globalThis, 'fetch').mockResolvedValue(createMockResponse({ status: 401 }));
+    it('should return login_required when background returns login_required', async () => {
+      const sendMessage = vi.fn().mockResolvedValue('login_required');
+      restoreChrome = mockChromeRuntime(sendMessage);
 
       await expect(service.checkSession()).resolves.toBe('login_required');
     });
 
-    it('should return login_required when fetch returns 302 redirect', async () => {
-      vi.spyOn(globalThis, 'fetch').mockResolvedValue(createMockResponse({ status: 302 }));
-
-      await expect(service.checkSession()).resolves.toBe('login_required');
-    });
-
-    it('should return login_required when fetch returns a non-OK status', async () => {
-      vi.spyOn(globalThis, 'fetch').mockResolvedValue(createMockResponse({ status: 500 }));
-
-      await expect(service.checkSession()).resolves.toBe('login_required');
-    });
-
-    it('should return login_required when HEAD fetch fails but text check detects login page', async () => {
-      const headReject = vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new TypeError('Failed to fetch'));
-      vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-        createTextResponse('<html><title>Strava: Log In</title></html>', { status: 200 }),
-      );
-
-      await expect(service.checkSession()).resolves.toBe('login_required');
-
-      expect(headReject).toHaveBeenCalledWith(
-        'https://www.strava.com/dashboard',
-        expect.objectContaining({ method: 'HEAD' }),
-      );
-    });
-
-    it('should return unknown_error when HEAD fails and text check also fails', async () => {
-      vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('Both requests failed'));
+    it('should return unknown_error when background returns unknown_error', async () => {
+      const sendMessage = vi.fn().mockResolvedValue('unknown_error');
+      restoreChrome = mockChromeRuntime(sendMessage);
 
       await expect(service.checkSession()).resolves.toBe('unknown_error');
+    });
+
+    it('should return unknown_error when chrome.runtime is unavailable', async () => {
+      await expect(service.checkSession()).resolves.toBe('unknown_error');
+    });
+
+    it('should retry on sendMessage failure', async () => {
+      const sendMessage = vi.fn()
+        .mockRejectedValueOnce(new Error('first fail'))
+        .mockRejectedValueOnce(new Error('second fail'))
+        .mockResolvedValueOnce('logged_in');
+      restoreChrome = mockChromeRuntime(sendMessage);
+
+      await expect(service.checkSession()).resolves.toBe('logged_in');
+      expect(sendMessage).toHaveBeenCalledTimes(3);
+    });
+
+    it('should return unknown_error after all retries fail', async () => {
+      const sendMessage = vi.fn().mockRejectedValue(new Error('always fails'));
+      restoreChrome = mockChromeRuntime(sendMessage);
+
+      await expect(service.checkSession()).resolves.toBe('unknown_error');
+      expect(sendMessage).toHaveBeenCalledTimes(3);
     });
   });
 
@@ -105,11 +124,13 @@ describe('StravaSessionService', () => {
       const params: ActivityListParams = { page: 2, perPage: 10, before: 1700000000, after: 1600000000 };
       await service.fetchActivityList(params);
 
-      const url = new URL(requestedUrl);
-      expect(url.searchParams.get('page')).toBe('2');
-      expect(url.searchParams.get('per_page')).toBe('10');
-      expect(url.searchParams.get('before')).toBe('1700000000');
-      expect(url.searchParams.get('after')).toBe('1600000000');
+      const qIndex = requestedUrl.indexOf('?');
+      const qs = qIndex >= 0 ? requestedUrl.slice(qIndex + 1) : '';
+      const searchParams = new URLSearchParams(qs);
+      expect(searchParams.get('page')).toBe('2');
+      expect(searchParams.get('per_page')).toBe('10');
+      expect(searchParams.get('before')).toBe('1700000000');
+      expect(searchParams.get('after')).toBe('1600000000');
     });
 
     it('should return STRAVA_LOGIN_REQUIRED when session is not active', async () => {

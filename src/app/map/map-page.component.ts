@@ -11,6 +11,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { map } from 'rxjs';
 import { MapLibreMapComponent } from './maplibre-map.component';
 import { type MapRouteFeature } from './mock-routes';
+import { FiltersService, ACTIVITY_CATEGORIES } from '../shared/filters.service';
 import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
 
 function formatDistance(meters: number | undefined): string {
@@ -44,6 +45,25 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
     <section class="route-page" aria-labelledby="map-title">
       <p class="eyebrow">Map</p>
       <h1 id="map-title">Map</h1>
+
+      <div class="map-filters">
+        <label class="filter-group">
+          <span class="filter-label">Activity type</span>
+          <select
+            class="filter-select"
+            [value]="filtersService.categoryFilter() ?? ''"
+            (change)="onCategoryChange($any($event.target).value)"
+          >
+            <option value="">All types</option>
+            @for (cat of ACTIVITY_CATEGORIES; track cat) {
+              <option [value]="cat">{{ cat }}</option>
+            }
+          </select>
+          @if (filtersService.categoryFilter()) {
+            <button class="filter-clear" type="button" (click)="onCategoryChange('')">Clear</button>
+          }
+        </label>
+      </div>
 
       @if (performanceWarning(); as warning) {
         <article class="empty-state warning-state" role="alert">
@@ -199,12 +219,58 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
       padding: 3px 7px;
       text-transform: capitalize;
     }
+
+    .map-filters {
+      margin-top: 16px;
+    }
+
+    .filter-group {
+      align-items: center;
+      display: flex;
+      gap: 8px;
+    }
+
+    .filter-label {
+      color: #4f6f5d;
+      font-size: 0.8125rem;
+      font-weight: 700;
+    }
+
+    .filter-select {
+      background: #ffffff;
+      border: 1px solid #dce6df;
+      border-radius: 6px;
+      color: #14211b;
+      font: inherit;
+      font-size: 0.875rem;
+      min-height: 36px;
+      padding: 6px 10px;
+    }
+
+    .filter-clear {
+      background: transparent;
+      border: 1px solid #dce6df;
+      border-radius: 6px;
+      color: #314b3f;
+      cursor: pointer;
+      font: inherit;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      min-height: 32px;
+      padding: 5px 11px;
+    }
+
+    .filter-clear:hover {
+      background: #eef5f0;
+    }
   `],
 })
 export class MapPage implements AfterViewInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly repositories = inject(TRAILROAM_REPOSITORIES);
+  protected readonly filtersService = inject(FiltersService);
+  protected readonly ACTIVITY_CATEGORIES = ACTIVITY_CATEGORIES;
 
   @ViewChild(MapLibreMapComponent)
   private readonly mapComponent!: MapLibreMapComponent;
@@ -221,10 +287,17 @@ export class MapPage implements AfterViewInit {
   private readonly allRoutes = signal<MapRouteFeature[]>([]);
   private readonly selectedMapRoute = signal<MapRouteFeature | null>(null);
 
-  protected readonly visibleRouteCount = computed(() => this.allRoutes().length);
+  protected readonly filteredRoutes = computed(() => {
+    const routes = this.allRoutes();
+    const catFilter = this.filtersService.categoryFilter();
+    if (!catFilter) { return routes; }
+    return routes.filter((r) => r.activity.activityCategory === catFilter);
+  });
+
+  protected readonly visibleRouteCount = computed(() => this.filteredRoutes().length);
 
   protected readonly visiblePointCount = computed(() =>
-    this.allRoutes().reduce((sum, r) => sum + r.coordinates.length, 0),
+    this.filteredRoutes().reduce((sum, r) => sum + r.coordinates.length, 0),
   );
 
   protected readonly performanceWarning = computed<string | null>(() => {
@@ -249,6 +322,10 @@ export class MapPage implements AfterViewInit {
     }
     return this.selectedMapRoute();
   });
+
+  protected onCategoryChange(value: string): void {
+    this.filtersService.categoryFilter.set(value === '' ? null : (value as any));
+  }
 
   protected readonly noRouteActivity = computed(() => {
     const activityId = this.selectedActivityId();
@@ -302,7 +379,7 @@ export class MapPage implements AfterViewInit {
   }
 
   private renderRoutesOnMap(): void {
-    const routes = this.allRoutes();
+    const routes = this.filteredRoutes();
     const mapComp = this.mapComponent;
 
     if (!mapComp || routes.length === 0) {

@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
+import { FiltersService, ACTIVITY_CATEGORIES } from '../shared/filters.service';
 import type { ActivityRecord } from '../storage/storage.models';
 
 const PAGE_SIZE = 50;
@@ -61,8 +62,27 @@ function routeStatusLabel(status: string): string {
           <button class="primary-action" type="button">Sync new activities</button>
         </article>
       } @else if (activities(); as items) {
+        <div class="activities-filters">
+          <label class="filter-group">
+            <span class="filter-label">Activity type</span>
+            <select
+              class="filter-select"
+              [value]="categoryFilter() ?? ''"
+              (change)="onCategoryChange($any($event.target).value)"
+            >
+              <option value="">All types</option>
+              @for (cat of ACTIVITY_CATEGORIES; track cat) {
+                <option [value]="cat">{{ cat }}</option>
+              }
+            </select>
+            @if (categoryFilter()) {
+              <button class="filter-clear" type="button" (click)="onCategoryChange('')">Clear</button>
+            }
+          </label>
+        </div>
+
         @if (totalCount() > PAGE_SIZE) {
-          <p class="activities-count">Showing {{ items.length }} of {{ totalCount() }} activities</p>
+          <p class="activities-count">Showing {{ filteredActivities()!.length }} of {{ totalCount() }} activities</p>
         } @else if (totalCount() > 0) {
           <p class="activities-count">{{ totalCount() }} activities</p>
         }
@@ -80,7 +100,7 @@ function routeStatusLabel(status: string): string {
               </tr>
             </thead>
             <tbody>
-              @for (activity of items; track activity.id) {
+              @for (activity of filteredActivities(); track activity.id) {
                 <tr class="activity-row" [class.clickable]="activity.hasRoute" [class.no-route]="!activity.hasRoute" (click)="navigateToActivity(activity)">
                   <td class="cell-date">{{ formatDate(activity.startDate) }}</td>
                   <td class="cell-name">
@@ -287,6 +307,50 @@ function routeStatusLabel(status: string): string {
     .preview-line strong {
       color: #ffffff;
     }
+
+    .activities-filters {
+      margin-top: 16px;
+    }
+
+    .filter-group {
+      align-items: center;
+      display: flex;
+      gap: 8px;
+    }
+
+    .filter-label {
+      color: #4f6f5d;
+      font-size: 0.8125rem;
+      font-weight: 700;
+    }
+
+    .filter-select {
+      background: #ffffff;
+      border: 1px solid #dce6df;
+      border-radius: 6px;
+      color: #14211b;
+      font: inherit;
+      font-size: 0.875rem;
+      min-height: 36px;
+      padding: 6px 10px;
+    }
+
+    .filter-clear {
+      background: transparent;
+      border: 1px solid #dce6df;
+      border-radius: 6px;
+      color: #314b3f;
+      cursor: pointer;
+      font: inherit;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      min-height: 32px;
+      padding: 5px 11px;
+    }
+
+    .filter-clear:hover {
+      background: #eef5f0;
+    }
   `],
 })
 export class ActivitiesPageComponent {
@@ -298,11 +362,27 @@ export class ActivitiesPageComponent {
   protected readonly currentPage = signal(1);
   protected readonly totalCount = signal(0);
   protected readonly PAGE_SIZE = PAGE_SIZE;
+  protected readonly ACTIVITY_CATEGORIES = ACTIVITY_CATEGORIES;
+
+  private readonly filtersService = inject(FiltersService);
+  protected readonly categoryFilter = this.filtersService.categoryFilter;
 
   protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.totalCount() / PAGE_SIZE)));
 
+  protected readonly filteredActivities = computed<ActivityRecord[] | null>(() => {
+    const items = this.activities();
+    const catFilter = this.categoryFilter();
+    if (!items) { return null; }
+    if (!catFilter) { return items; }
+    return items.filter((a) => a.activityCategory === catFilter);
+  });
+
   constructor() {
     this.loadPage(1);
+  }
+
+  protected onCategoryChange(value: string): void {
+    this.categoryFilter.set(value === '' ? null : (value as any));
   }
 
   protected goToPage(page: number): void {

@@ -34,6 +34,9 @@ function formatDate(iso: string): string {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+const ROUTES_WARN_THRESHOLD = 1_000;
+const POINTS_WARN_THRESHOLD = 1_000_000;
+
 @Component({
   selector: 'app-map-page',
   imports: [MapLibreMapComponent],
@@ -41,6 +44,13 @@ function formatDate(iso: string): string {
     <section class="route-page" aria-labelledby="map-title">
       <p class="eyebrow">Map</p>
       <h1 id="map-title">Map</h1>
+
+      @if (performanceWarning(); as warning) {
+        <article class="empty-state warning-state" role="alert">
+          <p class="empty-state-kicker">Performance notice</p>
+          <p>{{ warning }}</p>
+        </article>
+      }
 
       @if (hasBasemapError()) {
         <article class="empty-state warning-state" aria-labelledby="basemap-error-title" role="alert">
@@ -210,6 +220,24 @@ export class MapPage implements AfterViewInit {
   private readonly mapBasemapError = signal(false);
   private readonly allRoutes = signal<MapRouteFeature[]>([]);
   private readonly selectedMapRoute = signal<MapRouteFeature | null>(null);
+
+  protected readonly visibleRouteCount = computed(() => this.allRoutes().length);
+
+  protected readonly visiblePointCount = computed(() =>
+    this.allRoutes().reduce((sum, r) => sum + r.coordinates.length, 0),
+  );
+
+  protected readonly performanceWarning = computed<string | null>(() => {
+    const routes = this.visibleRouteCount();
+    const points = this.visiblePointCount();
+    if (routes >= ROUTES_WARN_THRESHOLD) {
+      return `Showing ${routes.toLocaleString()} routes with ${points.toLocaleString()} GPS points. The map may be slow. Try filtering by activity type or date range.`;
+    }
+    if (points >= POINTS_WARN_THRESHOLD) {
+      return `Showing ${points.toLocaleString()} GPS points across ${routes.toLocaleString()} routes. The map may be slow. Try filtering by activity type or date range.`;
+    }
+    return null;
+  });
 
   protected readonly selectedActivityId = computed(() => this.activityIdParam());
   protected readonly hasBasemapError = computed(() => this.basemapErrorParam() || this.mapBasemapError());

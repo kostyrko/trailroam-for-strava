@@ -2,18 +2,33 @@ function log(msg, data) {
   console.log('[Trailroam:bg]', msg, data !== undefined ? data : '');
 }
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  log('Received message type', message?.type);
+var STORE_ACTIVITIES_TYPE = 'TRAILROAM_STORE_ACTIVITIES';
 
-  if (message?.type === 'TRAILROAM_SYNC_ACTIVITIES') {
-    const activities = message.activities || [];
-    log('Storing ' + activities.length + ' activities to chrome.storage.local');
+function forwardToApp(type, payload) {
+  chrome.runtime.sendMessage({ type: type, payload: payload }).catch(function () {
+    log('No app tab to receive message');
+  });
+}
 
-    chrome.storage.local.set({ trailroam_sync_activities: activities }, () => {
-      log('Stored in chrome.storage.local');
-    });
+chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
+  if (!message || !message.type) return true;
 
-    sendResponse({ received: activities.length });
+  if (message.type === 'TRAILROAM_IMPORT') {
+    var activities = message.activities || [];
+    var routes = message.routes || [];
+    log('Received TRAILROAM_IMPORT: ' + activities.length + ' activities, ' + routes.length + ' route results');
+
+    // First send activities
+    forwardToApp(STORE_ACTIVITIES_TYPE, { activities: activities, routes: [] });
+
+    // Then send routes in chunks of 50 to avoid message size limits
+    var CHUNK = 50;
+    for (var i = 0; i < routes.length; i += CHUNK) {
+      var chunk = routes.slice(i, i + CHUNK);
+      forwardToApp(STORE_ACTIVITIES_TYPE, { activities: [], routes: chunk });
+    }
+
+    sendResponse({ ok: true, received: activities.length });
     return true;
   }
 

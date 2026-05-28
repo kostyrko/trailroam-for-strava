@@ -2,6 +2,9 @@ import { Component, inject, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { SyncSummaryService, type SyncSummary } from './storage/sync-summary.service';
 import { LocalDataService } from './storage/local-data.service';
+import { TRAILROAM_REPOSITORIES } from './storage/repositories/repositories.token';
+import { StravaActivityNormalizer } from './strava/strava-activity-normalizer';
+import type { StravaActivityResponse } from './strava/strava-session.service';
 
 @Component({
   selector: 'app-root',
@@ -12,6 +15,12 @@ import { LocalDataService } from './storage/local-data.service';
 export class App {
   private readonly syncSummaryService = inject(SyncSummaryService);
   private readonly localDataService = inject(LocalDataService);
+  private readonly repositories = inject(TRAILROAM_REPOSITORIES);
+  private readonly activityNormalizer = inject(StravaActivityNormalizer);
+
+  private pendingRouteCount = 0;
+  private totalRouteCount = 0;
+  private runningStoreCount = { activities: 0, routes: 0, noRoutes: 0 };
 
   protected readonly syncSummary = signal<SyncSummary | null>(null);
   protected readonly syncMenuOpen = signal(false);
@@ -20,6 +29,104 @@ export class App {
 
   constructor() {
     this.loadSyncSummary();
+    this.listenForMessages();
+  }
+
+  private listenForMessages(): void {
+    const c = (globalThis as any).chrome;
+    if (!c?.runtime?.onMessage) { return; }
+    console.log('[Trailroam] Registering runtime message listener');
+    c.runtime.onMessage.addListener((msg: any) => {
+      console.log('[Trailroam] Runtime message received', msg?.type, msg?.payload ? '(has payload)' : '(no payload)');
+      if (msg?.type === 'TRAILROAM_SYNC_DONE') {
+        console.log('[Trailroam] Sync done notification received');
+        this.loadSyncSummary();
+      }
+      if (msg?.type === 'TRAILROAM_STORE_ACTIVITIES') {
+        console.log('[Trailroam] Store activities received, count:', msg.payload?.activities?.length ?? 0);
+        this.storeImportedData(msg.payload).then(() => {
+          console.log('[Trailroam] Store activities completed');
+          this.loadSyncSummary();
+        });
+      }
+    });
+  }
+
+  private async storeImportedData(payload: any): Promise<void> {
+    const now = new Date().toISOString();
+    const rawActivities: StravaActivityResponse[] = payload?.activities ?? [];
+    const rawRoutes: Array<{ activityId: number; routeData: any }> = payload?.routes ?? [];
+
+    if (rawRoutes.length > 0) {
+      this.totalRouteCount += rawRoutes.length;
+    }
+
+    for (const raw of rawActivities) {
+      const activity = this.activityNormalizer.normalize(raw);
+      activity.importedAt = now;
+      activity.updatedAt = now;
+      await this.repositories.activities.put(activity);
+      this.runningStoreCount.activities++;
+    }
+
+    for (const item of rawRoutes) {
+      const rawRoute = item.routeData;
+      const activityId = String(item.activityId);
+
+      if (rawRoute && rawRoute.latlng && Array.isArray(rawRoute.latlng.data) && rawRoute.latlng.data.length > 0) {
+        const validCoords: [number, number][] = [];
+        for (const coord of rawRoute.latlng.data) {
+          const lat = coord[0] as number;
+          const lng = coord[1] as number;
+          if (Number.isFinite(lng) && Number.isFinite(lat) && lng >= -180 && lng <= 180 && lat >= -90 && lat <= 90) {
+            validCoords.push([lng, lat]);
+          }
+        }
+        if (validCoords.length >= 2) {
+          const route = {
+            activityId: 'strava:' + activityId,
+            providerActivityId: activityId,
+            coordinates: validCoords,
+            pointCount: validCoords.length,
+            syncedAt: now,
+            updatedAt: now,
+          };
+          await this.repositories.activityRoutes.put(route);
+
+          const existing = await this.repositories.activities.get('strava:' + activityId);
+          if (existing) {
+            existing.hasRoute = true;
+            existing.routeSyncStatus = 'route_synced';
+            existing.updatedAt = now;
+            await this.repositories.activities.put(existing);
+          }
+          this.runningStoreCount.routes++;
+        } else {
+          this.runningStoreCount.noRoutes++;
+        }
+      } else {
+        this.runningStoreCount.noRoutes++;
+      }
+
+      this.pendingRouteCount++;
+    }
+
+    const allRoutesDone = this.totalRouteCount > 0 && this.pendingRouteCount >= this.totalRouteCount;
+
+    if (allRoutesDone || rawActivities.length > 0) {
+      await this.repositories.syncState.put({
+        id: 'default',
+        status: 'completed',
+        completedAt: now,
+        lastSuccessfulSyncAt: now,
+        startedAt: now,
+        importedCount: this.runningStoreCount.activities,
+        updatedCount: 0,
+        routesSyncedCount: this.runningStoreCount.routes,
+        skippedCount: this.runningStoreCount.noRoutes,
+        failedCount: 0,
+      });
+    }
   }
 
   protected toggleSyncMenu(): void {

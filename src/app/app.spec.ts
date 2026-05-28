@@ -9,6 +9,7 @@ import { MapLibreService } from './map/maplibre.service';
 import { RouteRendererService } from './map/route-renderer.service';
 import { LocalDataService } from './storage/local-data.service';
 import { TRAILROAM_REPOSITORIES } from './storage/repositories/repositories.token';
+import { StravaActivityNormalizer } from './strava/strava-activity-normalizer';
 
 function flushMicrotasks(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));

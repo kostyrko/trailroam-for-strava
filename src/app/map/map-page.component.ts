@@ -11,7 +11,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { map } from 'rxjs';
 import { MapLibreMapComponent } from './maplibre-map.component';
 import { type MapRouteFeature } from './mock-routes';
-import { FiltersService, ACTIVITY_CATEGORIES } from '../shared/filters.service';
+import { FiltersService, ACTIVITY_CATEGORIES, isAfterOrEqual, isBeforeOrEqual } from '../shared/filters.service';
 import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
 
 function formatDistance(meters: number | undefined): string {
@@ -33,6 +33,13 @@ function formatDuration(seconds: number | undefined): string {
 function formatDate(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function formatDateInput(iso: string | null): string {
+  if (!iso) { return ''; }
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) { return ''; }
+  return d.toISOString().slice(0, 10);
 }
 
 const ROUTES_WARN_THRESHOLD = 1_000;
@@ -61,6 +68,30 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
           </select>
           @if (filtersService.categoryFilter()) {
             <button class="filter-clear" type="button" (click)="onCategoryChange('')">Clear</button>
+          }
+        </label>
+        <label class="filter-group">
+          <span class="filter-label">From</span>
+          <input
+            class="filter-input"
+            type="date"
+            [value]="formatDateInput(filtersService.dateFrom())"
+            (change)="onDateFromChange($any($event.target).value)"
+          />
+          @if (filtersService.dateFrom()) {
+            <button class="filter-clear" type="button" (click)="onDateFromChange('')">Clear</button>
+          }
+        </label>
+        <label class="filter-group">
+          <span class="filter-label">To</span>
+          <input
+            class="filter-input"
+            type="date"
+            [value]="formatDateInput(filtersService.dateTo())"
+            (change)="onDateToChange($any($event.target).value)"
+          />
+          @if (filtersService.dateTo()) {
+            <button class="filter-clear" type="button" (click)="onDateToChange('')">Clear</button>
           }
         </label>
       </div>
@@ -221,6 +252,9 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
     }
 
     .map-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
       margin-top: 16px;
     }
 
@@ -263,6 +297,17 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
     .filter-clear:hover {
       background: #eef5f0;
     }
+
+    .filter-input {
+      background: #ffffff;
+      border: 1px solid #dce6df;
+      border-radius: 6px;
+      color: #14211b;
+      font: inherit;
+      font-size: 0.875rem;
+      min-height: 36px;
+      padding: 6px 10px;
+    }
   `],
 })
 export class MapPage implements AfterViewInit {
@@ -290,8 +335,14 @@ export class MapPage implements AfterViewInit {
   protected readonly filteredRoutes = computed(() => {
     const routes = this.allRoutes();
     const catFilter = this.filtersService.categoryFilter();
-    if (!catFilter) { return routes; }
-    return routes.filter((r) => r.activity.activityCategory === catFilter);
+    const fromDate = this.filtersService.dateFrom();
+    const toDate = this.filtersService.dateTo();
+    return routes.filter((r) => {
+      if (catFilter && r.activity.activityCategory !== catFilter) { return false; }
+      if (fromDate && r.activity.startDate && !isAfterOrEqual(r.activity.startDate, fromDate)) { return false; }
+      if (toDate && r.activity.startDate && !isBeforeOrEqual(r.activity.startDate, toDate)) { return false; }
+      return true;
+    });
   });
 
   protected readonly visibleRouteCount = computed(() => this.filteredRoutes().length);
@@ -393,6 +444,9 @@ export class MapPage implements AfterViewInit {
   protected formatDistance = formatDistance;
   protected formatDuration = formatDuration;
   protected formatDate = formatDate;
+  protected formatDateInput = formatDateInput;
+  protected onDateFromChange = this.filtersService.setDateFrom.bind(this.filtersService);
+  protected onDateToChange = this.filtersService.setDateTo.bind(this.filtersService);
 
   protected showBasemapError(): void {
     this.mapBasemapError.set(true);

@@ -1,7 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
-import { FiltersService, ACTIVITY_CATEGORIES } from '../shared/filters.service';
+import { FiltersService, ACTIVITY_CATEGORIES, isAfterOrEqual, isBeforeOrEqual } from '../shared/filters.service';
 import type { ActivityRecord } from '../storage/storage.models';
 
 const PAGE_SIZE = 50;
@@ -25,6 +25,13 @@ function formatDuration(seconds: number | undefined): string {
 function formatDate(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function formatDateInput(iso: string | null): string {
+  if (!iso) { return ''; }
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) { return ''; }
+  return d.toISOString().slice(0, 10);
 }
 
 function routeStatusLabel(status: string): string {
@@ -63,22 +70,50 @@ function routeStatusLabel(status: string): string {
         </article>
       } @else if (activities(); as items) {
         <div class="activities-filters">
-          <label class="filter-group">
-            <span class="filter-label">Activity type</span>
-            <select
-              class="filter-select"
-              [value]="categoryFilter() ?? ''"
-              (change)="onCategoryChange($any($event.target).value)"
-            >
-              <option value="">All types</option>
-              @for (cat of ACTIVITY_CATEGORIES; track cat) {
-                <option [value]="cat">{{ cat }}</option>
+          <div class="filter-row">
+            <label class="filter-group">
+              <span class="filter-label">Activity type</span>
+              <select
+                class="filter-select"
+                [value]="categoryFilter() ?? ''"
+                (change)="onCategoryChange($any($event.target).value)"
+              >
+                <option value="">All types</option>
+                @for (cat of ACTIVITY_CATEGORIES; track cat) {
+                  <option [value]="cat">{{ cat }}</option>
+                }
+              </select>
+              @if (categoryFilter()) {
+                <button class="filter-clear" type="button" (click)="onCategoryChange('')">Clear</button>
               }
-            </select>
-            @if (categoryFilter()) {
-              <button class="filter-clear" type="button" (click)="onCategoryChange('')">Clear</button>
-            }
-          </label>
+            </label>
+          </div>
+          <div class="filter-row">
+            <label class="filter-group">
+              <span class="filter-label">From</span>
+              <input
+                class="filter-input"
+                type="date"
+                [value]="formatDateInput(dateFrom())"
+                (change)="onDateFromChange($any($event.target).value)"
+              />
+              @if (dateFrom()) {
+                <button class="filter-clear" type="button" (click)="onDateFromChange('')">Clear</button>
+              }
+            </label>
+            <label class="filter-group">
+              <span class="filter-label">To</span>
+              <input
+                class="filter-input"
+                type="date"
+                [value]="formatDateInput(dateTo())"
+                (change)="onDateToChange($any($event.target).value)"
+              />
+              @if (dateTo()) {
+                <button class="filter-clear" type="button" (click)="onDateToChange('')">Clear</button>
+              }
+            </label>
+          </div>
         </div>
 
         @if (totalCount() > PAGE_SIZE) {
@@ -351,6 +386,27 @@ function routeStatusLabel(status: string): string {
     .filter-clear:hover {
       background: #eef5f0;
     }
+
+    .filter-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .filter-row + .filter-row {
+      margin-top: 10px;
+    }
+
+    .filter-input {
+      background: #ffffff;
+      border: 1px solid #dce6df;
+      border-radius: 6px;
+      color: #14211b;
+      font: inherit;
+      font-size: 0.875rem;
+      min-height: 36px;
+      padding: 6px 10px;
+    }
   `],
 })
 export class ActivitiesPageComponent {
@@ -366,15 +422,23 @@ export class ActivitiesPageComponent {
 
   private readonly filtersService = inject(FiltersService);
   protected readonly categoryFilter = this.filtersService.categoryFilter;
+  protected readonly dateFrom = this.filtersService.dateFrom;
+  protected readonly dateTo = this.filtersService.dateTo;
 
   protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.totalCount() / PAGE_SIZE)));
 
   protected readonly filteredActivities = computed<ActivityRecord[] | null>(() => {
     const items = this.activities();
-    const catFilter = this.categoryFilter();
     if (!items) { return null; }
-    if (!catFilter) { return items; }
-    return items.filter((a) => a.activityCategory === catFilter);
+    const catFilter = this.categoryFilter();
+    const fromDate = this.dateFrom();
+    const toDate = this.dateTo();
+    return items.filter((a) => {
+      if (catFilter && a.activityCategory !== catFilter) { return false; }
+      if (fromDate && a.startDate && !isAfterOrEqual(a.startDate, fromDate)) { return false; }
+      if (toDate && a.startDate && !isBeforeOrEqual(a.startDate, toDate)) { return false; }
+      return true;
+    });
   });
 
   constructor() {
@@ -401,6 +465,9 @@ export class ActivitiesPageComponent {
   protected formatDuration = formatDuration;
   protected formatDate = formatDate;
   protected routeStatusLabel = routeStatusLabel;
+  protected formatDateInput = formatDateInput;
+  protected onDateFromChange = this.filtersService.setDateFrom.bind(this.filtersService);
+  protected onDateToChange = this.filtersService.setDateTo.bind(this.filtersService);
 
   private async loadPage(page: number): Promise<void> {
     this.status.set('loading');

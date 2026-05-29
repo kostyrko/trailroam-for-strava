@@ -232,7 +232,7 @@ describe('ActivitiesPageComponent', () => {
     expect(popover).toBeTruthy();
     expect(popover?.textContent).toContain('Sunset Trail Run');
     expect(popover?.textContent).toContain('run');
-    expect(popover?.textContent).toContain('12.0 km');
+    expect(popover?.textContent).toContain('12.00 km');
     expect(popover?.textContent).toContain('Moving time');
     expect(popover?.textContent).toContain('Route');
     expect(popover?.getAttribute('role')).toBe('tooltip');

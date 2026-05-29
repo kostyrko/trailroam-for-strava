@@ -16,10 +16,7 @@ import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.tok
 
 function formatDistance(meters: number | undefined): string {
   if (meters === undefined || meters === 0) { return '—'; }
-  const km = meters / 1000;
-  if (km >= 100) { return `${km.toFixed(0)} km`; }
-  if (km >= 10) { return `${km.toFixed(1)} km`; }
-  return `${km.toFixed(2)} km`;
+  return `${(meters / 1000).toFixed(2)} km`;
 }
 
 function formatDuration(seconds: number | undefined): string {

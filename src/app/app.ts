@@ -62,6 +62,9 @@ export class App {
     }
 
     for (const raw of rawActivities) {
+      if (raw.distance !== undefined) {
+        raw.distance *= 1000;
+      }
       const activity = this.activityNormalizer.normalize(raw);
       activity.importedAt = now;
       activity.updatedAt = now;

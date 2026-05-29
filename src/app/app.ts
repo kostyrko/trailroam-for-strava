@@ -65,6 +65,22 @@ export class App {
       if (raw.distance !== undefined) {
         raw.distance *= 1000;
       }
+      if (typeof raw.moving_time === 'string') {
+        const parts = (raw.moving_time as string).split(':');
+        if (parts.length === 3) {
+          raw.moving_time = Number(parts[0]) * 3600 + Number(parts[1]) * 60 + Number(parts[2]) as any;
+        } else if (parts.length === 2) {
+          raw.moving_time = Number(parts[0]) * 60 + Number(parts[1]) as any;
+        }
+      }
+      if (typeof raw.elapsed_time === 'string') {
+        const parts = (raw.elapsed_time as string).split(':');
+        if (parts.length === 3) {
+          raw.elapsed_time = Number(parts[0]) * 3600 + Number(parts[1]) * 60 + Number(parts[2]) as any;
+        } else if (parts.length === 2) {
+          raw.elapsed_time = Number(parts[0]) * 60 + Number(parts[1]) as any;
+        }
+      }
       const activity = this.activityNormalizer.normalize(raw);
       activity.importedAt = now;
       activity.updatedAt = now;

@@ -22,6 +22,7 @@ export interface SyncNewResult {
   routesSyncedCount: number;
   skippedCount: number;
   failedCount: number;
+  rateLimitedCount: number;
   errorMessage?: string;
 }
 
@@ -58,6 +59,7 @@ export class SyncEngineService {
       routesSyncedCount: 0,
       skippedCount: 0,
       failedCount: 0,
+      rateLimitedCount: 0,
     };
 
     try {
@@ -80,6 +82,7 @@ export class SyncEngineService {
         routesSyncedCount: 0,
         skippedCount: 0,
         failedCount: 0,
+        rateLimitedCount: 0,
       });
 
       const allActivities = await this.fetchAllActivityPages();
@@ -124,57 +127,7 @@ export class SyncEngineService {
       result.importedCount = imported;
       result.updatedCount = updated;
 
-      this.setProgress('fetching_routes');
-
-      const activitiesNeedingRoutes = await this.repositories.activities.list();
-      const routeItems: RouteSyncBatchItem[] = [];
-
-      for (const a of activitiesNeedingRoutes) {
-        if (a.routeSyncStatus === 'route_synced' || a.routeSyncStatus === 'fetching') {
-          continue;
-        }
-        routeItems.push({
-          activityId: a.id,
-          providerActivityId: a.providerActivityId,
-          fetchResult: { success: true, latlng: [] },
-          skipReason: undefined,
-        });
-      }
-
-      const totalRoutes = routeItems.length;
-      this.progress.update((p) => ({ ...p, totalActivities: allActivities.length, totalRoutes }));
-
-      let syncedRoutes = 0;
-      let skipped = 0;
-      let failed = 0;
-
-      const CONCURRENCY = 3;
-      for (let i = 0; i < routeItems.length; i += CONCURRENCY) {
-        if (this.cancelled) {
-          await this.saveSyncState(result, 'cancelled');
-          return { ...result, errorMessage: 'Cancelled', skippedCount: skipped + (totalRoutes - i), failedCount: failed };
-        }
-
-        const batch = routeItems.slice(i, i + CONCURRENCY);
-
-        const fetchedBatch = await Promise.all(
-          batch.map(async (item) => {
-            const fetchResult = await this.stravaSessionService.fetchActivityRoute(Number(item.providerActivityId));
-            return { ...item, fetchResult };
-          }),
-        );
-
-        const batchResult = await this.routeSyncService.syncRoutesBatch(fetchedBatch);
-        syncedRoutes += batchResult.synced;
-        skipped += batchResult.noRoute + batchResult.emptyRoute + batchResult.invalidCoordinates + batchResult.skipped;
-        failed += batchResult.failed;
-
-        this.progress.update((p) => ({ ...p, syncedRoutes: syncedRoutes + skipped + failed }));
-      }
-
-      result.routesSyncedCount = syncedRoutes;
-      result.skippedCount = skipped;
-      result.failedCount = failed;
+      await this.syncRoutesWithBackoff(result);
 
       await this.saveSyncState(result, 'completed');
       return result;
@@ -186,6 +139,90 @@ export class SyncEngineService {
       this.progress.set({ status: 'failed', phase: 'failed', fetchedActivities: 0, totalActivities: 0, syncedRoutes: 0, totalRoutes: 0, errorMessage: message });
       return result;
     }
+  }
+
+  private async syncRoutesWithBackoff(result: SyncNewResult): Promise<void> {
+    this.setProgress('fetching_routes');
+
+    this.progress.update((p) => ({ ...p, totalActivities: result.importedCount + result.updatedCount }));
+
+    const activitiesNeedingRoutes = await this.repositories.activities.list();
+    let routeItems: RouteSyncBatchItem[] = [];
+
+    for (const a of activitiesNeedingRoutes) {
+      if (a.routeSyncStatus === 'route_synced' || a.routeSyncStatus === 'fetching') {
+        continue;
+      }
+      routeItems.push({
+        activityId: a.id,
+        providerActivityId: a.providerActivityId,
+        fetchResult: { success: true, latlng: [] },
+        skipReason: undefined,
+      });
+    }
+
+    const totalRoutes = routeItems.length;
+    this.progress.update((p) => ({ ...p, totalRoutes }));
+
+    if (totalRoutes === 0) {
+      return;
+    }
+
+    let synced = 0;
+    let noRoute = 0;
+    let emptyRoute = 0;
+    let invalidCoords = 0;
+    let rateLimited = 0;
+    let failed = 0;
+    let skipped = 0;
+
+    const MAX_CONCURRENCY = 3;
+    const MIN_DELAY_MS = 600;
+    const MAX_DELAY_MS = 30_000;
+    let baseDelayMs = MIN_DELAY_MS;
+
+    while (routeItems.length > 0 && !this.cancelled) {
+      const batch = routeItems.slice(0, MAX_CONCURRENCY);
+
+      const fetchedBatch = await Promise.all(
+        batch.map(async (item) => {
+          const fetchResult = await this.stravaSessionService.fetchActivityRoute(Number(item.providerActivityId));
+          return { ...item, fetchResult };
+        }),
+      );
+
+      const batchResult = await this.routeSyncService.syncRoutesBatch(fetchedBatch);
+      synced += batchResult.synced;
+      noRoute += batchResult.noRoute;
+      emptyRoute += batchResult.emptyRoute;
+      invalidCoords += batchResult.invalidCoordinates;
+      rateLimited += batchResult.rateLimited;
+      failed += batchResult.failed;
+      skipped += batchResult.skipped;
+
+      this.progress.update((p) => ({
+        ...p,
+        syncedRoutes: synced + noRoute + emptyRoute + invalidCoords + rateLimited + failed + skipped,
+      }));
+
+      const processedInBatch = batch.length;
+      routeItems = routeItems.slice(processedInBatch);
+
+      if (batchResult.rateLimited > 0) {
+        baseDelayMs = Math.min(baseDelayMs * 2, MAX_DELAY_MS);
+      } else {
+        baseDelayMs = Math.max(MIN_DELAY_MS, Math.floor(baseDelayMs / 1.5));
+      }
+
+      if (routeItems.length > 0 && !this.cancelled) {
+        await delay(baseDelayMs);
+      }
+    }
+
+    result.routesSyncedCount = synced;
+    result.skippedCount = skipped + noRoute + emptyRoute + invalidCoords;
+    result.failedCount = failed;
+    result.rateLimitedCount = rateLimited;
   }
 
   private async fetchAllActivityPages(): Promise<any[]> {
@@ -232,9 +269,14 @@ export class SyncEngineService {
       routesSyncedCount: result.routesSyncedCount,
       skippedCount: result.skippedCount,
       failedCount: result.failedCount,
+      rateLimitedCount: result.rateLimitedCount,
       startedAt: now,
       lastErrorCode: result.errorMessage ? 'SYNC_ERROR' : undefined,
       lastErrorMessage: result.errorMessage,
     });
   }
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

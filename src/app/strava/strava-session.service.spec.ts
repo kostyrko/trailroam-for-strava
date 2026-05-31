@@ -215,6 +215,23 @@ describe('StravaSessionService', () => {
       expect(result).toEqual({ success: false, errorCode: 'STRAVA_LOGIN_REQUIRED' });
     });
 
+    it('should return STRAVA_RATE_LIMITED with retryAfterSeconds when API returns 429 with Retry-After header', async () => {
+      const headers = new Headers({ 'Retry-After': '120' });
+      vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 429, headers }));
+
+      const result = await service.fetchActivityRoute(100);
+
+      expect(result).toEqual({ success: false, errorCode: 'STRAVA_RATE_LIMITED', retryAfterSeconds: 120 });
+    });
+
+    it('should return STRAVA_RATE_LIMITED with default 60s when 429 has no Retry-After header', async () => {
+      vi.spyOn(globalThis, 'fetch').mockResolvedValue(createMockResponse({ status: 429 }));
+
+      const result = await service.fetchActivityRoute(100);
+
+      expect(result).toEqual({ success: false, errorCode: 'STRAVA_RATE_LIMITED', retryAfterSeconds: 60 });
+    });
+
     it('should return NO_GPS_ROUTE when latlng data is empty', async () => {
       const streamData = { latlng: { type: 'latlng', data: [] } };
       vi.spyOn(globalThis, 'fetch').mockResolvedValue(

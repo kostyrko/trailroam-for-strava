@@ -117,6 +117,17 @@ describe('RouteSyncService', () => {
     expect(updateRouteSyncStatus).toHaveBeenCalledWith('strava:100', false, 'route_failed');
   });
 
+  it('should set status to rate_limited on STRAVA_RATE_LIMITED', async () => {
+    const fetchResult: RouteFetchResult = { success: false, errorCode: 'STRAVA_RATE_LIMITED', retryAfterSeconds: 60 };
+
+    const result = await service.syncRoute('strava:100', '100', fetchResult);
+
+    expect(result.routeStored).toBe(false);
+    expect(result.routeSyncStatus).toBe('rate_limited');
+    expect(activityRoutesUpsert).not.toHaveBeenCalled();
+    expect(updateRouteSyncStatus).toHaveBeenCalledWith('strava:100', false, 'rate_limited');
+  });
+
   describe('syncRoutesBatch', () => {
     it('should batch process multiple routes and return aggregate counts', async () => {
       const items = [
@@ -129,6 +140,7 @@ describe('RouteSyncService', () => {
 
       expect(result.synced).toBe(2);
       expect(result.noRoute).toBe(1);
+      expect(result.rateLimited).toBe(0);
       expect(result.total).toBe(3);
     });
 
@@ -162,6 +174,21 @@ describe('RouteSyncService', () => {
       expect(result.failed).toBe(1);
       expect(result.synced).toBe(1);
       expect(result.total).toBe(2);
+    });
+
+    it('should count rate_limited items separately', async () => {
+      const items = [
+        { activityId: 'strava:1', providerActivityId: '1', fetchResult: { success: true, latlng: [[19.94, 50.06], [19.95, 50.07]] } as RouteFetchResult },
+        { activityId: 'strava:2', providerActivityId: '2', fetchResult: { success: false, errorCode: 'STRAVA_RATE_LIMITED', retryAfterSeconds: 60 } as RouteFetchResult },
+        { activityId: 'strava:3', providerActivityId: '3', fetchResult: { success: false, errorCode: 'NO_GPS_ROUTE' } as RouteFetchResult },
+      ];
+
+      const result = await service.syncRoutesBatch(items);
+
+      expect(result.synced).toBe(1);
+      expect(result.rateLimited).toBe(1);
+      expect(result.noRoute).toBe(1);
+      expect(result.total).toBe(3);
     });
 
     it('should handle empty batch gracefully', async () => {

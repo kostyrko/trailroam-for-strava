@@ -35,7 +35,8 @@ export type RouteFetchResult =
   | { success: true; latlng: [number, number][] }
   | { success: false; errorCode: string }
   | { success: false; errorCode: 'NO_GPS_ROUTE' }
-  | { success: false; errorCode: 'ACTIVITY_ROUTE_FETCH_FAILED' };
+  | { success: false; errorCode: 'ACTIVITY_ROUTE_FETCH_FAILED' }
+  | { success: false; errorCode: 'STRAVA_RATE_LIMITED'; retryAfterSeconds: number };
 
 const STRAVA_ACTIVITIES_PATH = '/athlete/training/activities';
 const STRAVA_STREAMS_PATH = '/api/v3/activities';
@@ -114,6 +115,10 @@ export class StravaSessionService {
         if (response.status === 401) {
           return { success: false, errorCode: 'STRAVA_LOGIN_REQUIRED' };
         }
+        if (response.status === 429) {
+          const retryAfter = parseRetryAfter(response.headers.get('Retry-After'));
+          return { success: false, errorCode: 'STRAVA_RATE_LIMITED', retryAfterSeconds: retryAfter };
+        }
         return { success: false, errorCode: 'ACTIVITY_ROUTE_FETCH_FAILED' };
       }
 
@@ -161,4 +166,15 @@ export class StravaSessionService {
       return null;
     }
   }
+}
+
+function parseRetryAfter(header: string | null): number {
+  if (!header) {
+    return 60;
+  }
+  const seconds = Number(header);
+  if (!isNaN(seconds) && seconds > 0) {
+    return seconds;
+  }
+  return 60;
 }

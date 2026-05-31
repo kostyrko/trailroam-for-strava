@@ -19,7 +19,8 @@ export type RouteSyncStatus =
   | 'empty_route'
   | 'route_failed'
   | 'invalid_coordinates'
-  | 'skipped';
+  | 'skipped'
+  | 'rate_limited';
 
 export interface ActivityRecord {
   id: string;
@@ -85,6 +86,7 @@ export interface SyncStateRecord {
   routesSyncedCount?: number;
   skippedCount?: number;
   failedCount?: number;
+  rateLimitedCount?: number;
   currentActivityId?: string;
   lastErrorCode?: string;
   lastErrorMessage?: string;

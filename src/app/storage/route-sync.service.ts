@@ -24,6 +24,7 @@ export interface RouteSyncBatchResult {
   noRoute: number;
   emptyRoute: number;
   invalidCoordinates: number;
+  rateLimited: number;
   failed: number;
   skipped: number;
   total: number;
@@ -42,6 +43,15 @@ export class RouteSyncService {
     providerActivityId: string,
     fetchResult: RouteFetchResult,
   ): Promise<SyncRouteResult> {
+    if (!fetchResult.success && fetchResult.errorCode === 'STRAVA_RATE_LIMITED') {
+      await this.repositories.activities.updateRouteSyncStatus(
+        activityId,
+        false,
+        'rate_limited',
+      );
+      return { routeStored: false, routeSyncStatus: 'rate_limited', route: null };
+    }
+
     const normalized = this.routeNormalizer.normalize(activityId, providerActivityId, fetchResult);
 
     if (!normalized.success) {
@@ -68,7 +78,7 @@ export class RouteSyncService {
   async syncRoutesBatch(items: RouteSyncBatchItem[]): Promise<RouteSyncBatchResult> {
     const results: SyncRouteResult[] = [];
     const counters: RouteSyncBatchResult = {
-      synced: 0, noRoute: 0, emptyRoute: 0, invalidCoordinates: 0, failed: 0, skipped: 0, total: items.length, results: [],
+      synced: 0, noRoute: 0, emptyRoute: 0, invalidCoordinates: 0, rateLimited: 0, failed: 0, skipped: 0, total: items.length, results: [],
     };
 
     for (const item of items) {
@@ -99,6 +109,9 @@ export class RouteSyncService {
             break;
           case 'skipped':
             counters.skipped++;
+            break;
+          case 'rate_limited':
+            counters.rateLimited++;
             break;
         }
       } catch {

@@ -555,7 +555,7 @@ export class ActivitiesPageComponent {
 function compareActivities(a: ActivityRecord, b: ActivityRecord, column: SortColumn): number {
   switch (column) {
     case 'date':
-      return a.startDate.localeCompare(b.startDate);
+      return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
     case 'name':
       return a.name.localeCompare(b.name);
     case 'type':

@@ -110,8 +110,8 @@ describe('ActivitiesPageComponent', () => {
     expect(compiled.querySelectorAll('.activity-row').length).toBe(2);
 
     const rows = compiled.querySelectorAll('.activity-row');
-    expect(rows[0].textContent).toContain('Morning Ride');
-    expect(rows[1].textContent).toContain('Evening Hike');
+    expect(rows[0].textContent).toContain('Evening Hike');
+    expect(rows[1].textContent).toContain('Morning Ride');
 
     expect(compiled.querySelector('.activities-count')?.textContent).toContain('2 activities');
   });
@@ -160,7 +160,7 @@ describe('ActivitiesPageComponent', () => {
 
     const compiled = fixture.nativeElement as HTMLElement;
     const headers = [...compiled.querySelectorAll('thead th')].map((h) => h.textContent?.trim());
-    expect(headers).toEqual(['Date', 'Name', 'Type', 'Distance', 'Time', 'Route']);
+    expect(headers).toEqual(['Date ▼', 'Name', 'Type', 'Distance', 'Speed', 'Time', 'Route']);
   });
 
   it('should show route badge for synced routes', async () => {
@@ -239,5 +239,91 @@ describe('ActivitiesPageComponent', () => {
     expect(popover?.textContent).toContain('Moving time');
     expect(popover?.textContent).toContain('Route');
     expect(popover?.getAttribute('role')).toBe('tooltip');
+  });
+
+  it('should sort by date descending by default', async () => {
+    const activities = [
+      createActivity({ id: 'strava:1', name: 'Old Ride', startDate: '2025-01-01T08:00:00Z', activityCategory: 'ride' }),
+      createActivity({ id: 'strava:2', name: 'New Ride', startDate: '2026-06-01T08:00:00Z', activityCategory: 'ride' }),
+    ];
+
+    TestBed.configureTestingModule({
+      imports: [ActivitiesPageComponent],
+      providers: [
+        { provide: TRAILROAM_REPOSITORIES, useValue: createMockRepositories(activities, 2) },
+      ],
+    });
+
+    const fixture = TestBed.createComponent(ActivitiesPageComponent);
+    fixture.detectChanges();
+    await flushMicrotasks();
+    fixture.detectChanges();
+
+    const rows = fixture.nativeElement.querySelectorAll('.activity-row');
+    expect(rows[0].textContent).toContain('New Ride');
+    expect(rows[1].textContent).toContain('Old Ride');
+  });
+
+  it('should toggle sort direction when clicking same column', async () => {
+    const activities = [
+      createActivity({ id: 'strava:1', name: 'Alpha', startDate: '2026-01-01T08:00:00Z', activityCategory: 'ride' }),
+      createActivity({ id: 'strava:2', name: 'Beta', startDate: '2026-06-01T08:00:00Z', activityCategory: 'ride' }),
+    ];
+
+    TestBed.configureTestingModule({
+      imports: [ActivitiesPageComponent],
+      providers: [
+        { provide: TRAILROAM_REPOSITORIES, useValue: createMockRepositories(activities, 2) },
+      ],
+    });
+
+    const fixture = TestBed.createComponent(ActivitiesPageComponent);
+    fixture.detectChanges();
+    await flushMicrotasks();
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    const nameHeader = [...compiled.querySelectorAll('thead th')].find((h) => h.textContent?.trim().startsWith('Name'))! as HTMLElement;
+    nameHeader.click();
+    fixture.detectChanges();
+
+    let rows = compiled.querySelectorAll('.activity-row');
+    expect(rows[0].textContent).toContain('Alpha');
+    expect(rows[1].textContent).toContain('Beta');
+
+    nameHeader.click();
+    fixture.detectChanges();
+
+    rows = compiled.querySelectorAll('.activity-row');
+    expect(rows[0].textContent).toContain('Beta');
+    expect(rows[1].textContent).toContain('Alpha');
+  });
+
+  it('should sort by distance numerically', async () => {
+    const activities = [
+      createActivity({ id: 'strava:1', distanceMeters: 5000 }),
+      createActivity({ id: 'strava:2', distanceMeters: 42000 }),
+    ];
+
+    TestBed.configureTestingModule({
+      imports: [ActivitiesPageComponent],
+      providers: [
+        { provide: TRAILROAM_REPOSITORIES, useValue: createMockRepositories(activities, 2) },
+      ],
+    });
+
+    const fixture = TestBed.createComponent(ActivitiesPageComponent);
+    fixture.detectChanges();
+    await flushMicrotasks();
+    fixture.detectChanges();
+
+    const distanceHeader = [...fixture.nativeElement.querySelectorAll('thead th')].find((h) => h.textContent?.trim().startsWith('Distance'))! as HTMLElement;
+    distanceHeader.click();
+    fixture.detectChanges();
+
+    const rows = fixture.nativeElement.querySelectorAll('.activity-row');
+    expect(rows[0].textContent).toContain('5.00 km');
+    expect(rows[1].textContent).toContain('42.00 km');
   });
 });

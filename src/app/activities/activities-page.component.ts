@@ -52,6 +52,8 @@ function formatDateInput(iso: string | null): string {
   return d.toISOString().slice(0, 10);
 }
 
+export type SortColumn = 'date' | 'name' | 'type' | 'distance' | 'speed' | 'time';
+
 function routeStatusLabel(status: string): string {
   switch (status) {
     case 'route_synced': return 'Route';
@@ -144,12 +146,12 @@ function routeStatusLabel(status: string): string {
           <table class="activities-table" aria-label="Imported activities">
             <thead>
               <tr>
-                <th scope="col">Date</th>
-                <th scope="col">Name</th>
-                <th scope="col">Type</th>
-                <th scope="col">Distance</th>
-                <th scope="col">Speed</th>
-                <th scope="col">Time</th>
+                <th scope="col" class="sortable" (click)="onSort('date')">Date{{ sortIndicator('date') }}</th>
+                <th scope="col" class="sortable" (click)="onSort('name')">Name{{ sortIndicator('name') }}</th>
+                <th scope="col" class="sortable" (click)="onSort('type')">Type{{ sortIndicator('type') }}</th>
+                <th scope="col" class="sortable" (click)="onSort('distance')">Distance{{ sortIndicator('distance') }}</th>
+                <th scope="col" class="sortable" (click)="onSort('speed')">Speed{{ sortIndicator('speed') }}</th>
+                <th scope="col" class="sortable" (click)="onSort('time')">Time{{ sortIndicator('time') }}</th>
                 <th scope="col">Route</th>
               </tr>
             </thead>
@@ -228,6 +230,15 @@ function routeStatusLabel(status: string): string {
       text-align: left;
       text-transform: uppercase;
       white-space: nowrap;
+    }
+
+    .activities-table th.sortable {
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .activities-table th.sortable:hover {
+      background: #dce6df;
     }
 
     .activities-table td {
@@ -440,6 +451,8 @@ export class ActivitiesPageComponent {
   protected readonly totalCount = signal(0);
   protected readonly PAGE_SIZE = PAGE_SIZE;
   protected readonly ACTIVITY_CATEGORIES = ACTIVITY_CATEGORIES;
+  protected readonly sortColumn = signal<SortColumn>('date');
+  protected readonly sortDirection = signal<-1 | 1>(-1);
 
   private readonly filtersService = inject(FiltersService);
   protected readonly categoryFilter = this.filtersService.categoryFilter;
@@ -454,12 +467,16 @@ export class ActivitiesPageComponent {
     const catFilter = this.categoryFilter();
     const fromDate = this.dateFrom();
     const toDate = this.dateTo();
-    return items.filter((a) => {
+    const filtered = items.filter((a) => {
       if (catFilter && a.activityCategory !== catFilter) { return false; }
       if (fromDate && a.startDate && !isAfterOrEqual(a.startDate, fromDate)) { return false; }
       if (toDate && a.startDate && !isBeforeOrEqual(a.startDate, toDate)) { return false; }
       return true;
     });
+
+    const col = this.sortColumn();
+    const dir = this.sortDirection();
+    return filtered.sort((a, b) => dir * compareActivities(a, b, col));
   });
 
   constructor() {
@@ -468,6 +485,20 @@ export class ActivitiesPageComponent {
 
   protected onCategoryChange(value: string): void {
     this.categoryFilter.set(value === '' ? null : (value as any));
+  }
+
+  protected onSort(column: SortColumn): void {
+    if (this.sortColumn() === column) {
+      this.sortDirection.set(this.sortDirection() === 1 ? -1 : 1);
+    } else {
+      this.sortColumn.set(column);
+      this.sortDirection.set(column === 'date' ? -1 : 1);
+    }
+  }
+
+  protected sortIndicator(column: SortColumn): string {
+    if (this.sortColumn() !== column) { return ''; }
+    return this.sortDirection() === 1 ? ' ▲' : ' ▼';
   }
 
   protected goToPage(page: number): void {
@@ -506,5 +537,22 @@ export class ActivitiesPageComponent {
     } catch {
       this.status.set('empty');
     }
+  }
+}
+
+function compareActivities(a: ActivityRecord, b: ActivityRecord, column: SortColumn): number {
+  switch (column) {
+    case 'date':
+      return a.startDate.localeCompare(b.startDate);
+    case 'name':
+      return a.name.localeCompare(b.name);
+    case 'type':
+      return a.activityCategory.localeCompare(b.activityCategory);
+    case 'distance':
+      return (a.distanceMeters ?? 0) - (b.distanceMeters ?? 0);
+    case 'speed':
+      return (a.averageSpeedMetersPerSecond ?? 0) - (b.averageSpeedMetersPerSecond ?? 0);
+    case 'time':
+      return (a.movingTimeSeconds ?? 0) - (b.movingTimeSeconds ?? 0);
   }
 }

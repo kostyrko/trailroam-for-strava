@@ -4,7 +4,7 @@ import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.tok
 import { FiltersService, ACTIVITY_CATEGORIES, CATEGORY_COLORS, isAfterOrEqual, isBeforeOrEqual } from '../shared/filters.service';
 import type { ActivityRecord } from '../storage/storage.models';
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE_OPTIONS = [5, 10, 25, 50, 100];
 
 function formatDistance(meters: number | undefined): string {
   if (meters === undefined || meters === 0) { return '—'; }
@@ -159,11 +159,13 @@ function routeStatusLabel(status: string): string {
           </div>
         </div>
 
-        @if (totalFilteredCount() > PAGE_SIZE) {
-          <p class="activities-count">Showing page {{ currentPage() }} of {{ totalPages() }} · {{ totalFilteredCount() }} activities</p>
-        } @else if (totalFilteredCount() > 0) {
-          <p class="activities-count">{{ totalFilteredCount() }} activities</p>
-        }
+        <p class="activities-count">
+          @if (totalFilteredCount() > pageSize()) {
+            Showing page {{ currentPage() }} of {{ totalPages() }} · {{ totalFilteredCount() }} activities
+          } @else {
+            {{ totalFilteredCount() }} activities
+          }
+        </p>
 
         <div class="activities-table-wrap">
           <table class="activities-table" aria-label="Imported activities">
@@ -220,6 +222,19 @@ function routeStatusLabel(status: string): string {
             </button>
           </nav>
         }
+        <div class="page-size-control">
+          <span class="filter-label">Per page</span>
+          <div class="custom-select page-size-select" tabindex="0" (click)="pageSizeMenuOpen.set(!pageSizeMenuOpen())" (keydown.enter)="pageSizeMenuOpen.set(!pageSizeMenuOpen())" (blur)="pageSizeMenuOpen.set(false)">
+            <span class="custom-select-trigger">{{ pageSize() }}<span class="select-arrow">▾</span></span>
+            @if (pageSizeMenuOpen()) {
+              <ul class="custom-select-options" (mousedown)="$event.preventDefault()">
+                @for (size of PAGE_SIZE_OPTIONS; track size) {
+                  <li role="option" (click)="onPageSizeChange(size)" [class.active]="pageSize() === size">{{ size }}</li>
+                }
+              </ul>
+            }
+          </div>
+        </div>
       }
     </section>
   `,
@@ -344,6 +359,20 @@ function routeStatusLabel(status: string): string {
       gap: 12px;
       justify-content: center;
       margin-top: 20px;
+    }
+
+    .page-size-control {
+      align-items: center;
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 12px;
+    }
+
+    .page-size-select .custom-select-trigger {
+      min-height: 32px;
+      min-width: 60px;
+      padding: 4px 10px;
     }
 
     .page-btn {
@@ -528,19 +557,21 @@ export class ActivitiesPageComponent {
   protected readonly activities = signal<ActivityRecord[] | null>(null);
   protected readonly currentPage = signal(1);
   protected readonly totalCount = signal(0);
-  protected readonly PAGE_SIZE = PAGE_SIZE;
+  protected readonly PAGE_SIZE_OPTIONS = PAGE_SIZE_OPTIONS;
+  protected readonly pageSize = signal(50);
   protected readonly ACTIVITY_CATEGORIES = ACTIVITY_CATEGORIES;
   protected readonly CATEGORY_COLORS = CATEGORY_COLORS;
   protected readonly sortColumn = signal<SortColumn>('date');
   protected readonly sortDirection = signal<-1 | 1>(-1);
   protected readonly filterMenuOpen = signal(false);
+  protected readonly pageSizeMenuOpen = signal(false);
 
   private readonly filtersService = inject(FiltersService);
   protected readonly categoryFilter = this.filtersService.categoryFilter;
   protected readonly dateFrom = this.filtersService.dateFrom;
   protected readonly dateTo = this.filtersService.dateTo;
 
-  protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.totalFilteredCount() / PAGE_SIZE)));
+  protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.totalFilteredCount() / this.pageSize())));
 
   protected readonly allFiltered = computed<ActivityRecord[]>(() => {
     const items = this.activities();
@@ -565,14 +596,20 @@ export class ActivitiesPageComponent {
     if (all.length === 0 && this.activities() !== null) { return []; }
     if (all.length === 0) { return null; }
     const page = this.currentPage();
-    const start = (page - 1) * PAGE_SIZE;
-    return all.slice(start, start + PAGE_SIZE);
+    const size = this.pageSize();
+    const start = (page - 1) * size;
+    return all.slice(start, start + size);
   });
 
   protected readonly totalFilteredCount = computed(() => this.allFiltered().length);
 
   constructor() {
     this.loadPage(1);
+  }
+
+  protected onPageSizeChange(size: number): void {
+    this.pageSize.set(size);
+    this.currentPage.set(1);
   }
 
   protected onCategoryChange(value: string): void {

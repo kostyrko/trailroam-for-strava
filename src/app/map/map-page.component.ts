@@ -68,6 +68,25 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
   selector: 'app-map-page',
   imports: [MapLibreMapComponent],
   template: `
+      @if (performanceWarning(); as warning) {
+        <article class="notice-bar warning-state" role="alert">
+          <p class="notice-bar-kicker">Performance notice</p>
+          <p>{{ warning }}</p>
+          <button class="notice-bar-dismiss" type="button" (click)="dismissPerformanceWarning()">Dismiss</button>
+        </article>
+      }
+
+      @if (hasBasemapError()) {
+        <article class="notice-bar warning-state" aria-labelledby="basemap-error-title" role="alert">
+          <p class="notice-bar-kicker">Basemap unavailable</p>
+          <h2 id="basemap-error-title">The map background could not load.</h2>
+          <p>
+            Your local activities and routes are unaffected. Check your connection and try loading the map again.
+          </p>
+          <button class="primary-action" type="button" (click)="retryBasemapLoad()">Retry map load</button>
+        </article>
+      }
+
     <section class="route-page" aria-labelledby="map-title">
       <p class="eyebrow">Map</p>
       <h1 id="map-title">Map</h1>
@@ -125,43 +144,6 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
         </label>
       </div>
 
-      @if (performanceWarning(); as warning) {
-        <article class="empty-state warning-state" role="alert">
-          <p class="empty-state-kicker">Performance notice</p>
-          <p>{{ warning }}</p>
-        </article>
-      }
-
-      @if (hasBasemapError()) {
-        <article class="empty-state warning-state" aria-labelledby="basemap-error-title" role="alert">
-          <p class="empty-state-kicker">Basemap unavailable</p>
-          <h2 id="basemap-error-title">The map background could not load.</h2>
-          <p>
-            Your local activities and routes are unaffected. Check your connection and try loading the map again.
-          </p>
-          <button class="primary-action" type="button" (click)="retryBasemapLoad()">Retry map load</button>
-        </article>
-      }
-      @if (!hasBasemapError()) {
-        <app-maplibre-map
-          (basemapLoadFailed)="showBasemapError()"
-          (routeSelected)="selectRoute($event)"
-        />
-      }
-
-      @if (noRouteActivity()) {
-        <article class="empty-state" aria-labelledby="no-route-title">
-          <p class="empty-state-kicker">No route available</p>
-          <h2 id="no-route-title">{{ noRouteActivityName() }} has no GPS route data.</h2>
-          <p>
-            This activity was recorded without GPS or the route data is not available.
-          </p>
-          <button class="secondary-action" type="button" (click)="clearSelectedActivity()">
-            Browse all activities
-          </button>
-        </article>
-      }
-
       @if (selectedRoute(); as route) {
         <article class="route-detail" aria-label="Selected route details">
           <div class="route-detail-header">
@@ -199,7 +181,27 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
         </article>
       }
 
-      @if (!hasBasemapError() && !noRouteActivity() && !selectedRoute() && !selectedActivityId()) {
+      @if (!hasBasemapError()) {
+        <app-maplibre-map
+          (basemapLoadFailed)="showBasemapError()"
+          (routeSelected)="selectRoute($event)"
+        />
+      }
+
+      @if (noRouteActivity()) {
+        <article class="empty-state" aria-labelledby="no-route-title">
+          <p class="empty-state-kicker">No route available</p>
+          <h2 id="no-route-title">{{ noRouteActivityName() }} has no GPS route data.</h2>
+          <p>
+            This activity was recorded without GPS or the route data is not available.
+          </p>
+          <button class="secondary-action" type="button" (click)="clearSelectedActivity()">
+            Browse all activities
+          </button>
+        </article>
+      }
+
+      @if (!hasBasemapError() && !noRouteActivity() && !selectedRoute() && !selectedActivityId() && allRoutes().length === 0) {
         <article class="empty-state" aria-labelledby="map-empty-title">
           <p class="empty-state-kicker">No routes yet</p>
           <h2 id="map-empty-title">Synced GPS routes will appear here.</h2>
@@ -216,9 +218,10 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
       background: #ffffff;
       border: 1px solid #dce6df;
       border-radius: 8px;
-      margin-top: 24px;
-      max-width: 480px;
+      box-sizing: border-box;
+      margin-bottom: 16px;
       padding: 20px;
+      width: 100%;
     }
 
     .route-detail-header {
@@ -292,6 +295,50 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
       flex-wrap: wrap;
       gap: 10px;
       margin-top: 16px;
+    }
+
+    .notice-bar {
+      align-items: center;
+      border-bottom: 1px solid #d2b96d;
+      display: flex;
+      gap: 18px;
+      justify-content: space-between;
+      padding: 12px 24px;
+      width: 100%;
+    }
+
+    .notice-bar.warning-state {
+      background: #fbf5e1;
+      color: #7a621a;
+    }
+
+    .notice-bar-kicker {
+      font-size: 0.75rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      margin: 0 0 2px;
+      text-transform: uppercase;
+    }
+
+    .notice-bar p {
+      margin: 0;
+    }
+
+    .notice-bar-dismiss {
+      background: transparent;
+      border: 1px solid #f0c674;
+      border-radius: 6px;
+      color: #7a621a;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 700;
+      min-height: 32px;
+      padding: 5px 11px;
+      white-space: nowrap;
+    }
+
+    .notice-bar-dismiss:hover {
+      background: #fdf3d1;
     }
 
     .filter-group {
@@ -419,9 +466,10 @@ export class MapPage implements AfterViewInit {
     { initialValue: false },
   );
   private readonly mapBasemapError = signal(false);
-  private readonly allRoutes = signal<MapRouteFeature[]>([]);
+  protected readonly allRoutes = signal<MapRouteFeature[]>([]);
   private readonly selectedMapRoute = signal<MapRouteFeature | null>(null);
   protected readonly filterMenuOpen = signal(false);
+  private readonly perfWarningDismissed = signal(false);
 
   protected readonly filteredRoutes = computed(() => {
     const routes = this.allRoutes();
@@ -443,6 +491,7 @@ export class MapPage implements AfterViewInit {
   );
 
   protected readonly performanceWarning = computed<string | null>(() => {
+    if (this.perfWarningDismissed()) { return null; }
     const routes = this.visibleRouteCount();
     const points = this.visiblePointCount();
     if (routes >= ROUTES_WARN_THRESHOLD) {
@@ -566,6 +615,10 @@ export class MapPage implements AfterViewInit {
 
   protected retryBasemapLoad(): void {
     this.mapBasemapError.set(false);
+  }
+
+  protected dismissPerformanceWarning(): void {
+    this.perfWarningDismissed.set(true);
   }
 
   protected selectRoute(route: MapRouteFeature): void {

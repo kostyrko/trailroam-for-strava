@@ -97,6 +97,19 @@ describe('SyncSummaryService', () => {
     expect(summary.lastErrorMessage).toBe('Failed to fetch route for activity 123');
   });
 
+  it('should include rateLimitedCount in summary', async () => {
+    configure(() => ({
+      id: 'default',
+      status: 'completed',
+      importedCount: 5,
+      rateLimitedCount: 3,
+    }));
+
+    const summary = await service.getSummary();
+    expect(summary.rateLimitedCount).toBe(3);
+    expect(summary.hasResults).toBe(true);
+  });
+
   it('should set status to null when sync is idle or in progress', async () => {
     configure(() => ({
       id: 'default',
@@ -118,6 +131,7 @@ describe('SyncSummaryService', () => {
       routesSyncedCount: 0,
       skippedCount: 0,
       failedCount: 0,
+      rateLimitedCount: 0,
     }));
 
     const summary = await service.getSummary();

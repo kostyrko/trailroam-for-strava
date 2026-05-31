@@ -98,7 +98,7 @@ describe('App', () => {
       expect(summary.textContent).toContain('Sync completed');
       expect(summary.textContent).toContain('Imported: 5');
       expect(summary.textContent).toContain('Updated: 2');
-      expect(summary.textContent).toContain('Routes: 3');
+      expect(summary.textContent).toContain('Route files: 3');
       expect(summary.textContent).toContain('Skipped: 1');
       expect(summary.textContent).not.toContain('Failed');
     });

@@ -56,6 +56,10 @@ export class ActivitiesRepository {
     return this.db.activities.count();
   }
 
+  async countWithRouteSyncStatus(status: RouteSyncStatus): Promise<number> {
+    return this.db.activities.where('routeSyncStatus').equals(status).count();
+  }
+
   async clear(): Promise<void> {
     await this.db.activities.clear();
   }

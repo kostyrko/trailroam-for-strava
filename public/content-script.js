@@ -49,24 +49,29 @@ async function runSync() {
     setStatus('Fetched ' + rawActivities.length + ' activities. Now fetching routes...');
 
     var activitiesWithRoutes = [];
+    var skippedRoutes = 0;
     var CONCURRENCY = 3;
 
     for (var k = 0; k < rawActivities.length; k += CONCURRENCY) {
       var batch = rawActivities.slice(k, k + CONCURRENCY);
       var batchResults = await Promise.all(batch.map(function (a) {
         return fetchActivityRoute(a.id).then(function (routeData) {
-          return { activity: a, routeData: routeData };
+          var hasGps = routeData && routeData.latlng && Array.isArray(routeData.latlng.data) && routeData.latlng.data.length > 0;
+          return { activity: a, routeData: hasGps ? routeData : null, hasGps: hasGps };
         });
       }));
 
       for (var r = 0; r < batchResults.length; r++) {
-        activitiesWithRoutes.push(batchResults[r]);
+        var br = batchResults[r];
+        activitiesWithRoutes.push(br);
+        if (!br.hasGps) skippedRoutes++;
       }
 
       setStatus('Fetched routes for ' + Math.min(k + CONCURRENCY, rawActivities.length) + '/' + rawActivities.length + ' activities');
     }
 
-    log('Fetched routes for ' + activitiesWithRoutes.length + ' activities');
+    var routeCount = activitiesWithRoutes.length - skippedRoutes;
+    log('Fetched routes: ' + routeCount + ' with GPS, ' + skippedRoutes + ' without GPS');
     setStatus('Sending all data to Trailroam...');
 
     return new Promise(function (resolve, reject) {
@@ -74,7 +79,7 @@ async function runSync() {
         type: 'TRAILROAM_IMPORT',
         activities: rawActivities,
         routes: activitiesWithRoutes.map(function (item) {
-          return { activityId: item.activity.id, routeData: item.routeData };
+          return { activityId: item.activity.id, routeData: item.hasGps ? item.routeData : null };
         })
       }, function (response) {
         if (chrome.runtime.lastError) {
@@ -85,7 +90,7 @@ async function runSync() {
         }
         log('Background response', response);
         if (response && response.ok) {
-          setStatus('Sync complete! ' + response.importedCount + ' activities, ' + response.routeCount + ' routes. You can close this tab and reload Trailroam.');
+          setStatus('Sync complete! ' + response.importedCount + ' activities' + (skippedRoutes > 0 ? (', ' + (response.importedCount - skippedRoutes) + ' with routes, ' + skippedRoutes + ' without GPS') : '') + '. You can close this tab and reload Trailroam.');
         } else {
           setStatus('Sync completed with issues. Check the background console for details.');
         }

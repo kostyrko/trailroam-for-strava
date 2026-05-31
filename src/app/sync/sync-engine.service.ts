@@ -219,7 +219,8 @@ export class SyncEngineService {
       }
     }
 
-    result.routesSyncedCount = synced;
+    const totalWithRoutes = await this.repositories.activities.countWithRouteSyncStatus('route_synced');
+    result.routesSyncedCount = totalWithRoutes;
     result.skippedCount = skipped + noRoute + emptyRoute + invalidCoords;
     result.failedCount = failed;
     result.rateLimitedCount = rateLimited;

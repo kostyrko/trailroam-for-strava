@@ -28,7 +28,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
       forwardToApp(STORE_ACTIVITIES_TYPE, { activities: [], routes: chunk });
     }
 
-    sendResponse({ ok: true, received: activities.length });
+    sendResponse({ ok: true, importedCount: activities.length, routeCount: routes.length });
     return true;
   }
 

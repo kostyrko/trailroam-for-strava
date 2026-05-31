@@ -76,10 +76,13 @@
             · Updated: {{ summary.updatedCount }}
           }
           @if (summary.routesSyncedCount) {
-            · Routes: {{ summary.routesSyncedCount }}
+            · Route files: {{ summary.routesSyncedCount }}
           }
           @if (summary.skippedCount) {
             · Skipped: {{ summary.skippedCount }}
+          }
+          @if (summary.rateLimitedCount) {
+            · Rate limited: {{ summary.rateLimitedCount }}
           }
           @if (summary.failedCount) {
             · Failed: {{ summary.failedCount }}

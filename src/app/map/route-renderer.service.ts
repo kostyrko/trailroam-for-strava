@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { type FilterSpecification, type Map as MapLibreMap, type MapLayerMouseEvent } from 'maplibre-gl';
+import { type FilterSpecification, type Map as MapLibreMap, type MapLayerMouseEvent, type GeoJSONSource } from 'maplibre-gl';
 import { type MapRouteFeature } from './mock-routes';
 
 export const ROUTES_SOURCE_ID = 'trailroam-routes';
@@ -12,20 +12,26 @@ export type RouteSelectedHandler = (route: MapRouteFeature) => void;
   providedIn: 'root',
 })
 export class RouteRendererService {
+  private map: MapLibreMap | null = null;
   private initialized = false;
 
-  renderRoutes(map: MapLibreMap, routes: MapRouteFeature[], routeSelected: RouteSelectedHandler): void {
+  init(map: MapLibreMap): void {
+    this.map = map;
+  }
+
+  renderRoutes(routes: MapRouteFeature[], routeSelected: RouteSelectedHandler): void {
+    const map = this.map;
+    if (!map) { return; }
+
     const features = routes.map((route) => ({
       type: 'Feature' as const,
       properties: { activityId: route.activityId, name: route.name },
       geometry: { type: 'LineString' as const, coordinates: route.coordinates },
     }));
 
-    if (this.initialized) {
-      const source = map.getSource(ROUTES_SOURCE_ID) as any;
-      if (source) {
-        source.setData({ type: 'FeatureCollection', features });
-      }
+    const existingSource = map.getSource(ROUTES_SOURCE_ID);
+    if (existingSource) {
+      (existingSource as GeoJSONSource).setData({ type: 'FeatureCollection', features });
       return;
     }
     this.initialized = true;
@@ -96,8 +102,36 @@ export class RouteRendererService {
     });
   }
 
-  selectRoute(map: MapLibreMap, activityId: string): void {
+  selectRoute(activityId: string): void {
+    const map = this.map;
+    if (!map) { return; }
     map.setFilter(ROUTES_SELECTED_LAYER_ID, this.buildSelectedRouteFilter(activityId));
+  }
+
+  fitToRoute(coordinates: [number, number][]): void {
+    const map = this.map;
+    if (!map || coordinates.length === 0) { return; }
+
+    const lngs = coordinates.map((c) => c[0]);
+    const lats = coordinates.map((c) => c[1]);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+
+    const fit = () => {
+      map.fitBounds(
+        [minLng, minLat, maxLng, maxLat],
+        { padding: 80, maxZoom: 15 },
+      );
+    };
+
+    if (map.isStyleLoaded()) {
+      fit();
+    } else {
+      map.once('style.load', fit);
+      setTimeout(fit, 500);
+    }
   }
 
   private buildSelectedRouteFilter(activityId: string): FilterSpecification {

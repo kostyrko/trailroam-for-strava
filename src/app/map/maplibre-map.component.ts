@@ -38,7 +38,7 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
   private readonly routeRendererService = inject(RouteRendererService);
   private readonly ngZone = inject(NgZone);
   private isDestroyed = false;
-  map: Map | null = null;
+  private pendingReadyTasks: (() => void)[] | null = [];
 
   async ngAfterViewInit(): Promise<void> {
     let map: Map;
@@ -62,40 +62,58 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
       this.emitBasemapLoadFailed();
     });
 
-    this.map = map;
+    this.routeRendererService.init(map);
 
-    if (this.pendingRoutes) {
-      this.renderRouteFeatures(this.pendingRoutes, this.pendingSelectId);
-      this.pendingRoutes = null;
-      this.pendingSelectId = undefined;
+    const drain = () => {
+      const tasks = this.pendingReadyTasks;
+      this.pendingReadyTasks = null;
+      if (tasks) {
+        for (const t of tasks) {
+          t();
+        }
+      }
+    };
+
+    if (map.isStyleLoaded()) {
+      drain();
+    } else {
+      map.once('style.load', drain);
     }
   }
 
-  private pendingRoutes: MapRouteFeature[] | null = null;
-  private pendingSelectId: string | undefined;
+  flyToBounds(coordinates: [number, number][]): void {
+    if (coordinates.length === 0) { return; }
+    if (this.pendingReadyTasks) {
+      this.pendingReadyTasks.push(() => this.flyToBounds(coordinates));
+      return;
+    }
+    this.routeRendererService.fitToRoute(coordinates);
+  }
 
   renderRouteFeatures(routes: MapRouteFeature[], selectActivityId?: string): void {
-    if (!this.map) {
-      this.pendingRoutes = routes;
-      this.pendingSelectId = selectActivityId;
+    if (this.pendingReadyTasks) {
+      this.pendingReadyTasks.push(() => this.renderRouteFeatures(routes, selectActivityId));
       return;
     }
 
-    this.routeRendererService.renderRoutes(this.map, routes, (route) => {
+    this.routeRendererService.renderRoutes(routes, (route) => {
       this.ngZone.run(() => {
         this.routeSelected.emit(route);
       });
     });
 
     if (selectActivityId) {
-      this.routeRendererService.selectRoute(this.map, selectActivityId);
+      this.routeRendererService.selectRoute(selectActivityId);
+      const selected = routes.find((r) => r.activityId === selectActivityId);
+      if (selected) {
+        this.routeRendererService.fitToRoute(selected.coordinates);
+      }
     }
   }
 
   ngOnDestroy(): void {
     this.isDestroyed = true;
-    this.map?.remove();
-    this.map = null;
+    this.pendingReadyTasks = null;
   }
 
   private emitBasemapLoadFailed(): void {

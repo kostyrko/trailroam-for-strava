@@ -130,7 +130,15 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
           </p>
           <button class="primary-action" type="button" (click)="retryBasemapLoad()">Retry map load</button>
         </article>
-      } @else if (noRouteActivity()) {
+      }
+      @if (!hasBasemapError()) {
+        <app-maplibre-map
+          (basemapLoadFailed)="showBasemapError()"
+          (routeSelected)="selectRoute($event)"
+        />
+      }
+
+      @if (noRouteActivity()) {
         <article class="empty-state" aria-labelledby="no-route-title">
           <p class="empty-state-kicker">No route available</p>
           <h2 id="no-route-title">{{ noRouteActivityName() }} has no GPS route data.</h2>
@@ -141,11 +149,6 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
             Browse all activities
           </button>
         </article>
-      } @else {
-        <app-maplibre-map
-          (basemapLoadFailed)="showBasemapError()"
-          (routeSelected)="selectRoute($event)"
-        />
       }
 
       @if (selectedRoute(); as route) {
@@ -454,13 +457,19 @@ export class MapPage implements AfterViewInit {
   private renderRoutesOnMap(): void {
     const routes = this.filteredRoutes();
     const mapComp = this.mapComponent;
-
+    const selectId = this.selectedActivityId();
     if (!mapComp || routes.length === 0) {
       return;
     }
 
-    const selectId = this.selectedActivityId();
     mapComp.renderRouteFeatures(routes, selectId ?? undefined);
+
+    if (selectId) {
+      const selected = this.selectedRoute();
+      if (selected) {
+        mapComp.flyToBounds(selected.coordinates);
+      }
+    }
   }
 
   protected computeSpeed = computeSpeed;

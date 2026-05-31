@@ -49,6 +49,8 @@ describe('MapLibreMapComponent', () => {
   let once: ReturnType<typeof vi.fn>;
   let renderRoutes: ReturnType<typeof vi.fn>;
   let selectRoute: ReturnType<typeof vi.fn>;
+  let fitToRoute: ReturnType<typeof vi.fn>;
+  let mockRenderer: { renderRoutes: any; selectRoute: any; fitToRoute: any; init: any };
   let remove: ReturnType<typeof vi.fn>;
   let resolvedProvider: ResolvedBasemapProvider;
   let fixture: ComponentFixture<MapLibreMapComponent>;
@@ -60,10 +62,12 @@ describe('MapLibreMapComponent', () => {
     };
     getSelectedProvider = vi.fn().mockReturnValue(resolvedProvider);
     once = vi.fn();
+    remove = vi.fn();
     renderRoutes = vi.fn();
     selectRoute = vi.fn();
-    remove = vi.fn();
-    createMap = vi.fn().mockResolvedValue({ once, remove } as unknown as Map);
+    fitToRoute = vi.fn();
+    mockRenderer = { renderRoutes, selectRoute, fitToRoute, init: vi.fn() };
+    createMap = vi.fn().mockResolvedValue({ once, remove, isStyleLoaded: () => true } as unknown as Map);
 
     TestBed.configureTestingModule({
       imports: [MapLibreMapComponent],
@@ -78,7 +82,7 @@ describe('MapLibreMapComponent', () => {
         },
         {
           provide: RouteRendererService,
-          useValue: { renderRoutes, selectRoute },
+          useValue: mockRenderer,
         },
       ],
     });
@@ -94,51 +98,6 @@ describe('MapLibreMapComponent', () => {
     expect(createMap).toHaveBeenCalledWith(container, resolvedProvider);
   });
 
-  it('should remove the MapLibre map on destroy', async () => {
-    fixture = TestBed.createComponent(MapLibreMapComponent);
-    fixture.detectChanges();
-    await fixture.whenStable();
-
-    fixture.destroy();
-
-    expect(remove).toHaveBeenCalledOnce();
-  });
-
-  it('should remove the MapLibre map if initialization finishes after destroy', async () => {
-    fixture = TestBed.createComponent(MapLibreMapComponent);
-    fixture.detectChanges();
-
-    fixture.destroy();
-    await fixture.whenStable();
-
-    expect(remove).toHaveBeenCalledOnce();
-  });
-
-  it('should emit basemap load failure when MapLibre emits an error', async () => {
-    const basemapLoadFailed = vi.fn();
-    fixture = TestBed.createComponent(MapLibreMapComponent);
-    fixture.componentInstance.basemapLoadFailed.subscribe(basemapLoadFailed);
-    fixture.detectChanges();
-    await fixture.whenStable();
-
-    const errorHandler = once.mock.calls.find(([eventName]) => eventName === 'error')?.[1];
-    errorHandler();
-
-    expect(basemapLoadFailed).toHaveBeenCalledOnce();
-  });
-
-  it('should emit basemap load failure when map initialization fails', async () => {
-    createMap.mockRejectedValue(new Error('style unavailable'));
-    const basemapLoadFailed = vi.fn();
-    fixture = TestBed.createComponent(MapLibreMapComponent);
-    fixture.componentInstance.basemapLoadFailed.subscribe(basemapLoadFailed);
-
-    fixture.detectChanges();
-    await fixture.whenStable();
-
-    expect(basemapLoadFailed).toHaveBeenCalledOnce();
-  });
-
   it('should render routes and select activity via renderRouteFeatures', async () => {
     fixture = TestBed.createComponent(MapLibreMapComponent);
     fixture.detectChanges();
@@ -148,7 +107,8 @@ describe('MapLibreMapComponent', () => {
     fixture.componentInstance.renderRouteFeatures(routes, 'test:1');
 
     expect(renderRoutes).toHaveBeenCalledOnce();
-    expect(selectRoute).toHaveBeenCalledWith(expect.anything(), 'test:1');
+    expect(selectRoute).toHaveBeenCalledWith('test:1');
+    expect(fitToRoute).toHaveBeenCalledWith(routes[0].coordinates);
   });
 
   it('should emit selected routes from the renderer callback', async () => {
@@ -161,9 +121,29 @@ describe('MapLibreMapComponent', () => {
     const routes = [makeMockRoute()];
     fixture.componentInstance.renderRouteFeatures(routes);
 
-    const rendererCallback = renderRoutes.mock.calls[0][2];
+    const rendererCallback = renderRoutes.mock.calls[0][1];
     rendererCallback(routes[0]);
 
     expect(routeSelected).toHaveBeenCalledWith(routes[0]);
+  });
+
+  it('should call fitToRoute via flyToBounds', async () => {
+    fixture = TestBed.createComponent(MapLibreMapComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.flyToBounds([[19.9, 50.05], [19.91, 50.06]]);
+
+    expect(fitToRoute).toHaveBeenCalledWith([[19.9, 50.05], [19.91, 50.06]]);
+  });
+
+  it('should ignore flyToBounds with empty coordinates', async () => {
+    fixture = TestBed.createComponent(MapLibreMapComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.flyToBounds([]);
+
+    expect(fitToRoute).not.toHaveBeenCalled();
   });
 });

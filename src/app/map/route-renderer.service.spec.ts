@@ -48,6 +48,7 @@ describe('RouteRendererService', () => {
   let addLayer: ReturnType<typeof vi.fn>;
   let addSource: ReturnType<typeof vi.fn>;
   let getCanvas: ReturnType<typeof vi.fn>;
+  let getSource: ReturnType<typeof vi.fn>;
   let map: Map;
   let on: ReturnType<typeof vi.fn>;
   let routeSelected: ReturnType<typeof vi.fn<RouteSelectedHandler>>;
@@ -60,6 +61,7 @@ describe('RouteRendererService', () => {
     addLayer = vi.fn();
     addSource = vi.fn();
     getCanvas = vi.fn().mockReturnValue({ style: { cursor: '' } });
+    getSource = vi.fn().mockReturnValue(null);
     on = vi.fn();
     routeSelected = vi.fn<RouteSelectedHandler>();
     setFilter = vi.fn();
@@ -67,14 +69,17 @@ describe('RouteRendererService', () => {
       addLayer,
       addSource,
       getCanvas,
+      getSource,
       on,
       setFilter,
+      isStyleLoaded: () => true,
     } as unknown as Map;
     service = new RouteRendererService();
   });
 
   it('should render each route as a separate GeoJSON feature', () => {
-    service.renderRoutes(map, mockRoutes, routeSelected);
+    service.init(map);
+    service.renderRoutes(mockRoutes, routeSelected);
 
     expect(addSource).toHaveBeenCalledWith(
       ROUTES_SOURCE_ID,
@@ -104,14 +109,16 @@ describe('RouteRendererService', () => {
   });
 
   it('should add route and selected-route layers', () => {
-    service.renderRoutes(map, mockRoutes, routeSelected);
+    service.init(map);
+    service.renderRoutes(mockRoutes, routeSelected);
 
     expect(addLayer).toHaveBeenCalledWith(expect.objectContaining({ id: ROUTES_LAYER_ID }));
     expect(addLayer).toHaveBeenCalledWith(expect.objectContaining({ id: ROUTES_SELECTED_LAYER_ID }));
   });
 
   it('should select and highlight the clicked route', () => {
-    service.renderRoutes(map, mockRoutes, routeSelected);
+    service.init(map);
+    service.renderRoutes(mockRoutes, routeSelected);
     const clickHandler = on.mock.calls.find(
       ([eventName, layerId]) => eventName === 'click' && layerId === ROUTES_LAYER_ID,
     )?.[2];

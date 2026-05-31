@@ -52,7 +52,20 @@ function formatDateInput(iso: string | null): string {
   return d.toISOString().slice(0, 10);
 }
 
-export type SortColumn = 'date' | 'name' | 'type' | 'distance' | 'speed' | 'time';
+export type SortColumn = 'date' | 'name' | 'type' | 'distance' | 'speed' | 'time' | 'route';
+
+function routeSortValue(status: string): number {
+  switch (status) {
+    case 'route_synced': return 0;
+    case 'no_route': return 1;
+    case 'empty_route': return 2;
+    case 'route_failed': return 3;
+    case 'invalid_coordinates': return 4;
+    case 'skipped': return 5;
+    case 'fetching': return 6;
+    default: return 7;
+  }
+}
 
 function routeStatusLabel(status: string): string {
   switch (status) {
@@ -152,7 +165,7 @@ function routeStatusLabel(status: string): string {
                 <th scope="col" class="sortable" (click)="onSort('distance')">Distance{{ sortIndicator('distance') }}</th>
                 <th scope="col" class="sortable" (click)="onSort('speed')">Speed{{ sortIndicator('speed') }}</th>
                 <th scope="col" class="sortable" (click)="onSort('time')">Time{{ sortIndicator('time') }}</th>
-                <th scope="col">Route</th>
+                <th scope="col" class="sortable" (click)="onSort('route')">Route{{ sortIndicator('route') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -566,5 +579,7 @@ function compareActivities(a: ActivityRecord, b: ActivityRecord, column: SortCol
       return (a.averageSpeedMetersPerSecond ?? 0) - (b.averageSpeedMetersPerSecond ?? 0);
     case 'time':
       return (a.movingTimeSeconds ?? 0) - (b.movingTimeSeconds ?? 0);
+    case 'route':
+      return routeSortValue(a.routeSyncStatus) - routeSortValue(b.routeSyncStatus);
   }
 }

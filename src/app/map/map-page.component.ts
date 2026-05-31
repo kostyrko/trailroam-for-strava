@@ -3,6 +3,7 @@ import {
   Component,
   ViewChild,
   computed,
+  effect,
   inject,
   signal,
 } from '@angular/core';
@@ -417,6 +418,10 @@ export class MapPage implements AfterViewInit {
 
   constructor() {
     this.loadRoutes();
+    effect(() => {
+      this.filteredRoutes();
+      this.renderRoutesOnMap();
+    });
   }
 
   ngAfterViewInit(): void {

@@ -4,6 +4,7 @@ import { ActivitiesPageComponent } from './activities/activities-page.component'
 import { MapPage } from './map/map-page.component';
 import { ConfirmService } from './shared/confirm.service';
 import { LocalDataService } from './storage/local-data.service';
+import { SyncHistoryService } from './storage/sync-history.service';
 
 @Component({
   selector: 'app-settings-page',
@@ -74,15 +75,96 @@ import { LocalDataService } from './storage/local-data.service';
         <p>Restore your activities, routes, and settings from a previous backup file. This will replace your current local data.</p>
         <button class="primary-action" type="button" (click)="restoreLocalData()">Restore</button>
       </article>
+
+      <article class="empty-state" aria-labelledby="sync-history-title">
+        <div class="history-header">
+          <div>
+            <p class="empty-state-kicker">History</p>
+            <h2 id="sync-history-title">Sync history</h2>
+          </div>
+          @if (syncHistory().length > 0) {
+            <button class="danger-action history-clear-btn" type="button" (click)="clearSyncHistory()">Clear sync history</button>
+          }
+        </div>
+        @if (syncHistory().length === 0) {
+          <p>No syncs have been performed yet.</p>
+        } @else {
+          <div class="sync-history-scroll">
+            <table class="sync-history-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Trigger</th>
+                  <th>Status</th>
+                  <th>Activities</th>
+                  <th>With routes</th>
+                  <th>Without GPS</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (entry of syncHistory(); track entry.id) {
+                  <tr>
+                    <td>{{ formatDate(entry.completedAt) }}</td>
+                    <td class="trigger-cell">{{ formatTrigger(entry.trigger) }}</td>
+                    <td>{{ entry.status }}</td>
+                    <td>{{ entry.totalActivitiesAfter }}</td>
+                    <td>{{ entry.activitiesWithRoutesAfter }}</td>
+                    <td>{{ entry.activitiesWithoutRoutesAfter }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </article>
     </section>
   `,
 })
 export class SettingsPage {
   private readonly localDataService = inject(LocalDataService);
   private readonly confirmService = inject(ConfirmService);
+  private readonly syncHistoryService = inject(SyncHistoryService);
 
   protected readonly isClearingLocalData = signal(false);
   protected readonly clearLocalDataStatus = signal<string | null>(null);
+  protected readonly syncHistory = signal<import('./storage/storage.models').SyncHistoryRecord[]>([]);
+
+  constructor() {
+    this.loadSyncHistory();
+  }
+
+  private async loadSyncHistory(): Promise<void> {
+    try {
+      this.syncHistory.set(await this.syncHistoryService.list());
+    } catch {}
+  }
+
+  protected formatDate(iso: string): string {
+    const d = new Date(iso);
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+
+  protected async clearSyncHistory(): Promise<void> {
+    const confirmed = await this.confirmService.confirm({
+      title: 'Clear sync history',
+      message: 'This will delete all sync history entries. The imported activities and routes will not be affected.',
+      confirmLabel: 'Clear history',
+      danger: true,
+    });
+    if (!confirmed) { return; }
+    await this.syncHistoryService.clear();
+    this.syncHistory.set([]);
+  }
+
+  protected formatTrigger(trigger: string): string {
+    switch (trigger) {
+      case 'sync_new_activities': return 'Sync new activities';
+      case 'sync_missing_routes': return 'Sync missing routes';
+      case 'clear_and_resync': return 'Clear and re-sync';
+      case 'clear_synced_local_data': return 'Clear synced local data';
+      default: return trigger;
+    }
+  }
 
   protected async restoreLocalData(): Promise<void> {
     const file = await this.pickBackupFile();
@@ -157,7 +239,17 @@ export class SettingsPage {
 
     try {
       await this.localDataService.clearSyncedLocalData();
+      await this.syncHistoryService.record('clear_synced_local_data', {
+        importedCount: 0,
+        updatedCount: 0,
+        routesSyncedCount: 0,
+        skippedCount: 0,
+        failedCount: 0,
+        rateLimitedCount: 0,
+        status: 'completed',
+      });
       this.clearLocalDataStatus.set('Imported activities, routes, and sync state were cleared.');
+      this.loadSyncHistory();
     } finally {
       this.isClearingLocalData.set(false);
     }
@@ -180,6 +272,15 @@ export class SettingsPage {
 
     try {
       await this.localDataService.clearSyncedLocalData();
+      await this.syncHistoryService.record('clear_and_resync', {
+        importedCount: 0,
+        updatedCount: 0,
+        routesSyncedCount: 0,
+        skippedCount: 0,
+        failedCount: 0,
+        rateLimitedCount: 0,
+        status: 'completed',
+      });
       this.clearLocalDataStatus.set('Local data cleared. Opening Strava to re-sync...');
       const c = (globalThis as any).chrome;
       if (c?.tabs?.create) {

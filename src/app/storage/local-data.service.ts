@@ -31,6 +31,7 @@ export class LocalDataService {
       this.repositories.activities.clear(),
       this.repositories.activityRoutes.clear(),
       this.repositories.syncState.clear(),
+      this.repositories.syncHistory.clear(),
     ]);
   }
 

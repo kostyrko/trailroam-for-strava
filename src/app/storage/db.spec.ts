@@ -27,13 +27,14 @@ describe('TrailroamDatabase', () => {
     await db.delete();
   });
 
-  it('should initialize schema version 1 with initial tables', () => {
+  it('should initialize database with all tables', () => {
     expect(db.verno).toBe(DATABASE_SCHEMA_VERSION);
     expect(db.tables.map((table) => table.name).sort()).toEqual([
       'access_state',
       'activities',
       'activity_routes',
       'settings',
+      'sync_history',
       'sync_state',
     ]);
   });

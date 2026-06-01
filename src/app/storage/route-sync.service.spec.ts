@@ -11,6 +11,7 @@ function createMockRepositories(
     activities: { put: vi.fn(), get: vi.fn(), list: vi.fn(), clear: vi.fn(), upsert: vi.fn(), updateRouteSyncStatus: vi.fn() } as any,
     activityRoutes: { put: vi.fn(), get: vi.fn(), list: vi.fn(), clear: vi.fn(), upsert: vi.fn() } as any,
     syncState: { put: vi.fn(), get: vi.fn(), clear: vi.fn() } as any,
+    syncHistory: { put: vi.fn(), list: vi.fn(), clear: vi.fn() } as any,
     settings: { put: vi.fn(), get: vi.fn(), clear: vi.fn(), getOrCreateDefault: vi.fn() } as any,
     accessState: { put: vi.fn(), get: vi.fn(), clear: vi.fn(), getOrCreateDefault: vi.fn() } as any,
     ...overrides,

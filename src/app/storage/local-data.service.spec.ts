@@ -8,10 +8,12 @@ describe('LocalDataService', () => {
   it('should clear synced local data while leaving settings and access state untouched', async () => {
     const settingsClear = vi.fn();
     const accessStateClear = vi.fn();
+    const syncHistoryClear = vi.fn().mockResolvedValue(undefined);
     const repositories = {
       activities: { clear: vi.fn().mockResolvedValue(undefined) },
       activityRoutes: { clear: vi.fn().mockResolvedValue(undefined) },
       syncState: { clear: vi.fn().mockResolvedValue(undefined) },
+      syncHistory: { clear: syncHistoryClear },
       settings: { clear: settingsClear },
       accessState: { clear: accessStateClear },
     } as unknown as TrailroamRepositories;
@@ -31,6 +33,7 @@ describe('LocalDataService', () => {
     expect(repositories.activities.clear).toHaveBeenCalledOnce();
     expect(repositories.activityRoutes.clear).toHaveBeenCalledOnce();
     expect(repositories.syncState.clear).toHaveBeenCalledOnce();
+    expect(syncHistoryClear).toHaveBeenCalledOnce();
     expect(settingsClear).not.toHaveBeenCalled();
     expect(accessStateClear).not.toHaveBeenCalled();
   });
@@ -40,6 +43,7 @@ describe('LocalDataService', () => {
       settings: { list: vi.fn().mockResolvedValue([{ id: 'default', mapProvider: 'openfreemap' }]) },
       accessState: { list: vi.fn().mockResolvedValue([{ id: 'default', status: 'beta_unrestricted' }]) },
       syncState: { list: vi.fn().mockResolvedValue([{ id: 'default', status: 'completed', importedCount: 5 }]) },
+      syncHistory: { list: vi.fn().mockResolvedValue([]) },
       activities: { list: vi.fn().mockResolvedValue([{ id: 'strava:1', name: 'Morning Ride' }]) },
       activityRoutes: { list: vi.fn().mockResolvedValue([{ activityId: 'strava:1', coordinates: [] }]) },
     } as unknown as TrailroamRepositories;
@@ -109,10 +113,12 @@ describe('LocalDataService', () => {
       const activitiesPut = vi.fn().mockResolvedValue('strava:1');
       const activityRoutesPut = vi.fn().mockResolvedValue('strava:1');
 
+      const syncHistoryClear = vi.fn().mockResolvedValue(undefined);
       const repositories = {
         settings: { clear: settingsClear, put: settingsPut },
         accessState: { clear: accessStateClear, put: accessStatePut },
         syncState: { clear: syncStateClear, put: syncStatePut },
+        syncHistory: { clear: syncHistoryClear },
         activities: { clear: activitiesClear, put: activitiesPut },
         activityRoutes: { clear: activityRoutesClear, put: activityRoutesPut },
       } as unknown as TrailroamRepositories;

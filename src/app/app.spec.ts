@@ -11,6 +11,7 @@ import { LocalDataService } from './storage/local-data.service';
 import { TRAILROAM_REPOSITORIES } from './storage/repositories/repositories.token';
 import { StravaActivityNormalizer } from './strava/strava-activity-normalizer';
 import { ConfirmService } from './shared/confirm.service';
+import { SyncHistoryService } from './storage/sync-history.service';
 
 function flushMicrotasks(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
@@ -33,7 +34,8 @@ describe('App', () => {
             activities: { put: vi.fn(), get: vi.fn(), list: vi.fn(), count: vi.fn().mockResolvedValue(activitiesCount), clear: vi.fn(), upsert: vi.fn() },
             activityRoutes: { put: vi.fn(), get: vi.fn(), list: vi.fn(), count: vi.fn().mockResolvedValue(routesCount), clear: vi.fn() },
             syncState: { put: vi.fn(), get: vi.fn().mockImplementation(syncStateGet), clear: vi.fn() },
-            settings: { put: vi.fn(), get: vi.fn(), clear: vi.fn(), getOrCreateDefault: vi.fn() },
+            syncHistory: { put: vi.fn(), list: vi.fn(), clear: vi.fn() },
+            settings: { put: vi.fn(), get: vi.fn(), clear: vi.fn(), getOrCreateDefault: vi.fn().mockResolvedValue({ id: 'default', mapProvider: 'openfreemap', createdAt: '2024-01-01', updatedAt: '2024-01-01' }) },
             accessState: { put: vi.fn(), get: vi.fn(), clear: vi.fn(), getOrCreateDefault: vi.fn() },
           },
         },
@@ -258,6 +260,7 @@ describe('MapPage', () => {
               list: vi.fn().mockResolvedValue(activityRoutes),
             },
             syncState: { get: vi.fn().mockResolvedValue(undefined), clear: vi.fn() },
+            syncHistory: { put: vi.fn(), list: vi.fn(), clear: vi.fn() },
             settings: { get: vi.fn(), getOrCreateDefault: vi.fn() },
             accessState: { get: vi.fn() },
           },
@@ -384,6 +387,10 @@ describe('SettingsPage', () => {
         {
           provide: ConfirmService,
           useValue: { confirm: confirmMock },
+        },
+        {
+          provide: SyncHistoryService,
+          useValue: { record: vi.fn().mockResolvedValue(undefined), list: vi.fn().mockResolvedValue([]), clear: vi.fn().mockResolvedValue(undefined) },
         },
       ],
     });

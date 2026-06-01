@@ -1,4 +1,4 @@
-export const DATABASE_SCHEMA_VERSION = 1;
+export const DATABASE_SCHEMA_VERSION = 2;
 export const DEFAULT_RECORD_ID = 'default';
 
 export type ActivityCategory =
@@ -96,8 +96,27 @@ export interface SettingsRecord {
   id: typeof DEFAULT_RECORD_ID;
   mapProvider: 'openfreemap';
   preferredDefaultRoute?: 'map' | 'activities';
+  dismissedSyncAt?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface SyncHistoryRecord {
+  id: string;
+  trigger: 'sync_new_activities' | 'sync_missing_routes' | 'clear_and_resync' | 'clear_synced_local_data';
+  startedAt: string;
+  completedAt: string;
+  status: 'completed' | 'failed' | 'cancelled';
+  importedCount: number;
+  updatedCount: number;
+  routesSyncedCount: number;
+  skippedCount: number;
+  failedCount: number;
+  rateLimitedCount: number;
+  totalActivitiesAfter: number;
+  activitiesWithRoutesAfter: number;
+  activitiesWithoutRoutesAfter: number;
+  errorMessage?: string;
 }
 
 export interface AccessStateRecord {

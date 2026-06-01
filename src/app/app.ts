@@ -2,6 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { ConfirmService } from './shared/confirm.service';
 import { SyncSummaryService, type SyncSummary } from './storage/sync-summary.service';
+import { SyncHistoryService, type SyncTrigger } from './storage/sync-history.service';
 import { LocalDataService } from './storage/local-data.service';
 import { TRAILROAM_REPOSITORIES } from './storage/repositories/repositories.token';
 import { StravaActivityNormalizer } from './strava/strava-activity-normalizer';
@@ -25,10 +26,12 @@ export class App {
   private readonly routeNormalizer = inject(StravaRouteNormalizer);
   private readonly syncEngine = inject(SyncEngineService);
   private readonly confirmService = inject(ConfirmService);
+  private readonly syncHistoryService = inject(SyncHistoryService);
 
   private pendingRouteCount = 0;
   private totalRouteCount = 0;
   private runningStoreCount = { activities: 0, routes: 0, noRoutes: 0 };
+  private importHistoryRecorded = false;
 
   protected readonly syncSummary = signal<SyncSummary | null>(null);
   protected readonly syncMenuOpen = signal(false);
@@ -65,9 +68,7 @@ export class App {
     const rawActivities: StravaActivityResponse[] = payload?.activities ?? [];
     const rawRoutes: Array<{ activityId: number; routeData: any }> = payload?.routes ?? [];
 
-    if (rawRoutes.length > 0) {
-      this.totalRouteCount += rawRoutes.length;
-    }
+    this.totalRouteCount += rawRoutes.length;
 
     for (const raw of rawActivities) {
       if (raw.distance !== undefined) {
@@ -154,6 +155,18 @@ export class App {
         skippedCount: this.runningStoreCount.noRoutes + attempts.skipped,
         failedCount: attempts.failed,
       });
+      if (!this.importHistoryRecorded && (allRoutesDone || (rawActivities.length > 0 && this.totalRouteCount === 0))) {
+        this.importHistoryRecorded = true;
+        await this.syncHistoryService.record('sync_new_activities', {
+          importedCount: this.runningStoreCount.activities,
+          updatedCount: 0,
+          routesSyncedCount: this.runningStoreCount.routes + attempts.synced,
+          skippedCount: this.runningStoreCount.noRoutes + attempts.skipped,
+          failedCount: attempts.failed,
+          rateLimitedCount: 0,
+          status: 'completed',
+        });
+      }
     }
   }
 
@@ -196,8 +209,13 @@ export class App {
     this.syncMenuOpen.set(false);
   }
 
-  protected dismissSyncSummary(): void {
+  protected async dismissSyncSummary(): Promise<void> {
     this.syncSummary.set(null);
+    const now = new Date().toISOString();
+    const settings = await this.repositories.settings.getOrCreateDefault();
+    settings.dismissedSyncAt = now;
+    settings.updatedAt = now;
+    await this.repositories.settings.put(settings);
   }
 
   private async showSyncResult(result: SyncNewResult): Promise<void> {
@@ -218,7 +236,17 @@ export class App {
     this.closeSyncMenu();
     const startSync = async () => {
       const result = await this.syncEngine.syncMissingRoutes();
-      this.showSyncResult(result);
+      await this.showSyncResult(result);
+      await this.syncHistoryService.record('sync_missing_routes', {
+        importedCount: result.importedCount,
+        updatedCount: result.updatedCount,
+        routesSyncedCount: result.routesSyncedCount,
+        skippedCount: result.skippedCount,
+        failedCount: result.failedCount,
+        rateLimitedCount: result.rateLimitedCount,
+        status: result.errorMessage ? 'failed' : 'completed',
+        errorMessage: result.errorMessage,
+      });
     };
     startSync();
   }
@@ -233,6 +261,15 @@ export class App {
     });
     if (!confirmed) { return; }
     await this.localDataService.clearSyncedLocalData();
+    await this.syncHistoryService.record('clear_and_resync', {
+      importedCount: 0,
+      updatedCount: 0,
+      routesSyncedCount: 0,
+      skippedCount: 0,
+      failedCount: 0,
+      rateLimitedCount: 0,
+      status: 'completed',
+    });
     this.syncNewActivities();
   }
 
@@ -246,6 +283,15 @@ export class App {
     });
     if (!confirmed) { return; }
     await this.localDataService.clearSyncedLocalData();
+    await this.syncHistoryService.record('clear_synced_local_data', {
+      importedCount: 0,
+      updatedCount: 0,
+      routesSyncedCount: 0,
+      skippedCount: 0,
+      failedCount: 0,
+      rateLimitedCount: 0,
+      status: 'completed',
+    });
   }
 
   protected async backupLocalData(): Promise<void> {
@@ -313,7 +359,16 @@ export class App {
   private async loadSyncSummary(): Promise<void> {
     try {
       const summary = await this.syncSummaryService.getSummary();
-      this.syncSummary.set(summary.hasResults ? summary : null);
+      if (!summary.hasResults) {
+        this.syncSummary.set(null);
+        return;
+      }
+      const settings = await this.repositories.settings.get();
+      if (settings?.dismissedSyncAt && summary.lastSuccessfulSyncAt && settings.dismissedSyncAt >= summary.lastSuccessfulSyncAt) {
+        this.syncSummary.set(null);
+        return;
+      }
+      this.syncSummary.set(summary);
     } catch {
     }
   }

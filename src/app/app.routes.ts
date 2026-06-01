@@ -3,6 +3,7 @@ import { Routes } from '@angular/router';
 import { ActivitiesPageComponent } from './activities/activities-page.component';
 import { MapPage } from './map/map-page.component';
 import { ConfirmService } from './shared/confirm.service';
+import { ToastService } from './shared/toast.service';
 import { LocalDataService } from './storage/local-data.service';
 import { SyncHistoryService } from './storage/sync-history.service';
 
@@ -123,6 +124,7 @@ import { SyncHistoryService } from './storage/sync-history.service';
 export class SettingsPage {
   private readonly localDataService = inject(LocalDataService);
   private readonly confirmService = inject(ConfirmService);
+  private readonly toastService = inject(ToastService);
   private readonly syncHistoryService = inject(SyncHistoryService);
 
   protected readonly isClearingLocalData = signal(false);
@@ -176,6 +178,8 @@ export class SettingsPage {
       case 'sync_missing_routes': return 'Sync missing routes';
       case 'clear_and_resync': return 'Clear and re-sync';
       case 'clear_synced_local_data': return 'Clear synced local data';
+      case 'backup_local_data': return 'Backup local data';
+      case 'restore_local_data': return 'Restore local data';
       default: return trigger;
     }
   }
@@ -188,13 +192,13 @@ export class SettingsPage {
     try {
       backup = JSON.parse(json);
     } catch {
-      window.alert('Invalid backup file: could not parse JSON.');
+      this.toastService.show('Invalid backup file: could not parse JSON.');
       return;
     }
     try {
       this.localDataService.validateBackup(backup);
     } catch (err) {
-      window.alert(err instanceof Error ? err.message : 'Invalid backup file.');
+      this.toastService.show(err instanceof Error ? err.message : 'Invalid backup file.');
       return;
     }
     const confirmed = await this.confirmService.confirm({
@@ -205,10 +209,11 @@ export class SettingsPage {
     });
     if (!confirmed) { return; }
     const result = await this.localDataService.restore(backup as any);
-    window.alert(
-      `Restored: ${result.settingsCount} settings, ${result.accessStateCount} access state, ${result.syncStateCount} sync state, ${result.activitiesCount} activities, ${result.activityRoutesCount} routes. Refreshing...`,
-    );
-    window.location.href = 'index.html';
+    this.toastService.show(`Restored: ${result.settingsCount} settings, ${result.accessStateCount} access state, ${result.syncStateCount} sync state, ${result.activitiesCount} activities, ${result.activityRoutesCount} routes.`);
+    await this.syncHistoryService.record('restore_local_data', {
+      importedCount: 0, updatedCount: 0, routesSyncedCount: 0, skippedCount: 0, failedCount: 0, rateLimitedCount: 0, status: 'completed',
+    });
+    this.loadSyncHistory();
   }
 
   private pickBackupFile(): Promise<File | null> {
@@ -234,6 +239,11 @@ export class SettingsPage {
     a.download = `trailroam-backup-${backup.exportedAt.slice(0, 19).replace(/[T:]/g, '-')}.json`;
     a.click();
     URL.revokeObjectURL(url);
+    this.toastService.show(`Backup: ${backup.settings.length} settings, ${backup.accessState.length} access state, ${backup.syncState.length} sync state, ${backup.activities.length} activities, ${backup.activityRoutes.length} routes.`);
+    await this.syncHistoryService.record('backup_local_data', {
+      importedCount: 0, updatedCount: 0, routesSyncedCount: 0, skippedCount: 0, failedCount: 0, rateLimitedCount: 0, status: 'completed',
+    });
+    this.loadSyncHistory();
   }
 
   protected async clearSyncedLocalData(): Promise<void> {

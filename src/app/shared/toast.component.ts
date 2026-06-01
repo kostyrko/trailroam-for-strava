@@ -1,15 +1,14 @@
-import { Component, inject } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { Component, inject, signal } from '@angular/core';
 import { ToastService } from './toast.service';
 
 @Component({
   selector: 'app-toast',
   standalone: true,
   template: `
-    @if (toast(); as t) {
-      <div class="toast-overlay" (click)="dismiss()">
-        <div class="toast" role="alert" (click)="$event.stopPropagation()">
-          <span class="toast-msg">{{ t.message }}</span>
+    @if (message(); as msg) {
+      <div class="toast-overlay">
+        <div class="toast" role="alert">
+          <span class="toast-msg">{{ msg }}</span>
           <button class="toast-close" type="button" (click)="dismiss()" aria-label="Dismiss notification">&times;</button>
         </div>
       </div>
@@ -72,18 +71,22 @@ import { ToastService } from './toast.service';
 })
 export class ToastComponent {
   private readonly toastService = inject(ToastService);
-  protected readonly toast = toSignal(this.toastService.toast$);
+  protected readonly message = signal<string | null>(null);
   private timeoutId: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
-    this.toastService.toast$.subscribe(() => {
+    this.toastService.toast$.subscribe((t) => {
       if (this.timeoutId) clearTimeout(this.timeoutId);
-      this.timeoutId = setTimeout(() => this.dismiss(), 3000);
+      this.message.set(t ? t.message : null);
+      if (t) {
+        this.timeoutId = setTimeout(() => this.dismiss(), 3000);
+      }
     });
   }
 
   protected dismiss(): void {
     if (this.timeoutId) clearTimeout(this.timeoutId);
-    this.toastService.dismiss();
+    this.timeoutId = null;
+    this.message.set(null);
   }
 }

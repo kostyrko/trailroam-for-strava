@@ -103,7 +103,7 @@ export interface SettingsRecord {
 
 export interface SyncHistoryRecord {
   id: string;
-  trigger: 'sync_new_activities' | 'sync_missing_routes' | 'clear_and_resync' | 'clear_synced_local_data';
+  trigger: 'sync_new_activities' | 'sync_missing_routes' | 'clear_and_resync' | 'clear_synced_local_data' | 'backup_local_data' | 'restore_local_data';
   startedAt: string;
   completedAt: string;
   status: 'completed' | 'failed' | 'cancelled';

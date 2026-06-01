@@ -2,6 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { ConfirmService } from './shared/confirm.service';
 import { ToastComponent } from './shared/toast.component';
+import { ToastService } from './shared/toast.service';
 import { SyncSummaryService, type SyncSummary } from './storage/sync-summary.service';
 import { SyncHistoryService, type SyncTrigger } from './storage/sync-history.service';
 import { LocalDataService } from './storage/local-data.service';
@@ -27,6 +28,7 @@ export class App {
   private readonly routeNormalizer = inject(StravaRouteNormalizer);
   private readonly syncEngine = inject(SyncEngineService);
   private readonly confirmService = inject(ConfirmService);
+  private readonly toastService = inject(ToastService);
   private readonly syncHistoryService = inject(SyncHistoryService);
 
   private pendingRouteCount = 0;
@@ -321,6 +323,10 @@ export class App {
     a.download = `trailroam-backup-${backup.exportedAt.slice(0, 19).replace(/[T:]/g, '-')}.json`;
     a.click();
     URL.revokeObjectURL(url);
+    this.toastService.show(`Backup: ${backup.settings.length} settings, ${backup.accessState.length} access state, ${backup.syncState.length} sync state, ${backup.activities.length} activities, ${backup.activityRoutes.length} routes.`);
+    await this.syncHistoryService.record('backup_local_data', {
+      importedCount: 0, updatedCount: 0, routesSyncedCount: 0, skippedCount: 0, failedCount: 0, rateLimitedCount: 0, status: 'completed',
+    });
   }
 
   protected async restoreLocalData(): Promise<void> {
@@ -332,13 +338,13 @@ export class App {
     try {
       backup = JSON.parse(json);
     } catch {
-      window.alert('Invalid backup file: could not parse JSON.');
+      this.toastService.show('Invalid backup file: could not parse JSON.');
       return;
     }
     try {
       this.localDataService.validateBackup(backup);
     } catch (err) {
-      window.alert(err instanceof Error ? err.message : 'Invalid backup file.');
+      this.toastService.show(err instanceof Error ? err.message : 'Invalid backup file.');
       return;
     }
     const confirmed = await this.confirmService.confirm({
@@ -349,10 +355,10 @@ export class App {
     });
     if (!confirmed) { return; }
     const result = await this.localDataService.restore(backup as any);
-    window.alert(
-      `Restored: ${result.settingsCount} settings, ${result.accessStateCount} access state, ${result.syncStateCount} sync state, ${result.activitiesCount} activities, ${result.activityRoutesCount} routes. Refreshing...`,
-    );
-    window.location.href = 'index.html';
+    this.toastService.show(`Restored: ${result.settingsCount} settings, ${result.accessStateCount} access state, ${result.syncStateCount} sync state, ${result.activitiesCount} activities, ${result.activityRoutesCount} routes.`);
+    await this.syncHistoryService.record('restore_local_data', {
+      importedCount: 0, updatedCount: 0, routesSyncedCount: 0, skippedCount: 0, failedCount: 0, rateLimitedCount: 0, status: 'completed',
+    });
   }
 
   private pickBackupFile(): Promise<File | null> {

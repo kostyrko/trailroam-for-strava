@@ -18,14 +18,14 @@ import { SyncHistoryService } from './storage/sync-history.service';
         <p class="empty-state-kicker">Sync</p>
         <h2 id="sync-data-title">Sync new activities</h2>
         <p>Import new or updated Strava activities and their GPS routes.</p>
-        <button class="primary-action" type="button">Sync new activities</button>
+        <button class="primary-action" type="button" (click)="syncNewActivities()">Sync new activities</button>
       </article>
 
       <article class="empty-state" aria-labelledby="sync-routes-title">
         <p class="empty-state-kicker">Sync</p>
         <h2 id="sync-routes-title">Sync missing routes</h2>
         <p>Retry route import for activities that have no GPS route yet.</p>
-        <button class="primary-action" type="button">Sync missing routes</button>
+        <button class="primary-action" type="button" (click)="syncMissingRoutes()">Sync missing routes</button>
       </article>
 
       <article class="empty-state danger-state" aria-labelledby="clear-resync-title">
@@ -142,6 +142,20 @@ export class SettingsPage {
   protected formatDate(iso: string): string {
     const d = new Date(iso);
     return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+
+  protected syncNewActivities(): void {
+    const c = (globalThis as any).chrome;
+    if (c?.tabs?.create) {
+      c.tabs.create({ url: 'https://www.strava.com/dashboard?trailroamSync=true' });
+    }
+  }
+
+  protected syncMissingRoutes(): void {
+    const c = (globalThis as any).chrome;
+    if (c?.tabs?.create) {
+      c.tabs.create({ url: 'https://www.strava.com/dashboard?trailroamSyncMissing=true' });
+    }
   }
 
   protected async clearSyncHistory(): Promise<void> {

@@ -103,12 +103,91 @@ async function runSync() {
   }
 }
 
+async function runMissingRoutesSync() {
+  log('Missing routes sync started');
+  setStatus('Getting list of activities needing routes...');
+
+  try {
+    var activityIds = await new Promise(function (resolve) {
+      chrome.runtime.sendMessage({ type: 'TRAILROAM_GET_MISSING_ACTIVITIES' }, function (response) {
+        resolve((response && response.activityIds) || []);
+      });
+    });
+
+    log('Need routes for ' + activityIds.length + ' activities');
+    if (activityIds.length === 0) {
+      setStatus('All activities already have routes. Nothing to sync.');
+      return;
+    }
+
+    var CONCURRENCY = 3;
+    var fetchedRoutes = [];
+    var noGpsCount = 0;
+
+    setStatus('Fetching routes for ' + activityIds.length + ' activities...');
+
+    for (var k = 0; k < activityIds.length; k += CONCURRENCY) {
+      var batch = activityIds.slice(k, k + CONCURRENCY);
+      var batchResults = await Promise.all(batch.map(function (id) {
+        return fetchActivityRoute(id).then(function (routeData) {
+          var hasGps = routeData && routeData.latlng && Array.isArray(routeData.latlng.data) && routeData.latlng.data.length > 0;
+          return { activityId: id, routeData: hasGps ? routeData : null, hasGps: hasGps };
+        });
+      }));
+
+      for (var r = 0; r < batchResults.length; r++) {
+        var br = batchResults[r];
+        fetchedRoutes.push(br);
+        if (!br.hasGps) noGpsCount++;
+      }
+
+      setStatus('Fetched routes for ' + Math.min(k + CONCURRENCY, activityIds.length) + '/' + activityIds.length + ' activities');
+    }
+
+    var routeCount = fetchedRoutes.length - noGpsCount;
+    log('Fetched routes: ' + routeCount + ' with GPS, ' + noGpsCount + ' without GPS');
+    setStatus('Sending routes to Trailroam...');
+
+    chrome.runtime.sendMessage({
+      type: 'TRAILROAM_IMPORT',
+      activities: [],
+      routes: fetchedRoutes.map(function (item) {
+        return { activityId: item.activityId, routeData: item.hasGps ? item.routeData : null };
+      })
+    }, function (response) {
+      if (chrome.runtime.lastError) {
+        log('Send error', chrome.runtime.lastError);
+        setStatus('Error: could not send data.');
+        return;
+      }
+      log('Background response', response);
+      if (response && response.ok) {
+        setStatus('Sync complete! ' + routeCount + ' routes synced' + (noGpsCount > 0 ? ', ' + noGpsCount + ' without GPS' : '') + '. You can close this tab and reload Trailroam.');
+      } else {
+        setStatus('Sync completed with issues. Check the background console for details.');
+      }
+    });
+  } catch (err) {
+    log('Missing routes sync error', err);
+    setStatus('Sync error: ' + err.message);
+  }
+}
+
 function setStatus(msg) {
   var el = document.getElementById('trailroam-sync-status');
   if (el) el.textContent = msg;
 }
 
-if (getUrlParam('trailroamSync') === 'true') {
+if (getUrlParam('trailroamSyncMissing') === 'true') {
+  log('Missing routes sync started');
+  document.title = 'Trailroam Sync';
+  document.body.innerHTML =
+    '<div style="font-family: system-ui, sans-serif; padding: 40px; text-align: center;">' +
+    '<h1>Syncing missing routes to Trailroam</h1>' +
+    '<p id="trailroam-sync-status">Getting list of activities needing routes...</p>' +
+    '</div>';
+  runMissingRoutesSync();
+} else if (getUrlParam('trailroamSync') === 'true') {
   log('trailroamSync detected');
   document.title = 'Trailroam Sync';
   document.body.innerHTML =

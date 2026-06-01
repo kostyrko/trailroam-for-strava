@@ -48,19 +48,26 @@ export class App {
     const c = (globalThis as any).chrome;
     if (!c?.runtime?.onMessage) { return; }
     console.log('[Trailroam] Registering runtime message listener');
-    c.runtime.onMessage.addListener((msg: any) => {
+    c.runtime.onMessage.addListener((msg: any, _sender: any, sendResponse: any) => {
       console.log('[Trailroam] Runtime message received', msg?.type, msg?.payload ? '(has payload)' : '(no payload)');
       if (msg?.type === 'TRAILROAM_SYNC_DONE') {
         console.log('[Trailroam] Sync done notification received');
         this.loadSyncSummary();
+        return undefined;
+      }
+      if (msg?.type === 'TRAILROAM_GET_MISSING_ACTIVITIES') {
+        this.sendMissingActivityIds(sendResponse);
+        return true;
       }
       if (msg?.type === 'TRAILROAM_STORE_ACTIVITIES') {
         console.log('[Trailroam] Store activities received, count:', msg.payload?.activities?.length ?? 0);
         this.storeImportedData(msg.payload).then(() => {
           console.log('[Trailroam] Store activities completed');
           this.loadSyncSummary();
+          return undefined;
         });
       }
+      return undefined;
     });
   }
 
@@ -169,6 +176,14 @@ export class App {
         });
       }
     }
+  }
+
+  private async sendMissingActivityIds(sendResponse: (response: any) => void): Promise<void> {
+    const activities = await this.repositories.activities.list();
+    const needing = activities
+      .filter((a) => a.routeSyncStatus !== 'route_synced')
+      .map((a) => a.providerActivityId);
+    sendResponse({ activityIds: needing });
   }
 
   private async retryMissingRoutes(): Promise<{ synced: number; skipped: number; failed: number }> {

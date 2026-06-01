@@ -13,6 +13,16 @@ function forwardToApp(type, payload) {
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
   if (!message || !message.type) return true;
 
+  if (message.type === 'TRAILROAM_GET_MISSING_ACTIVITIES') {
+    var appMessage = { type: 'TRAILROAM_GET_MISSING_ACTIVITIES', payload: {} };
+    chrome.runtime.sendMessage(appMessage).then(function (response) {
+      sendResponse(response || { activityIds: [] });
+    }).catch(function () {
+      sendResponse({ activityIds: [] });
+    });
+    return true;
+  }
+
   if (message.type === 'TRAILROAM_IMPORT') {
     var activities = message.activities || [];
     var routes = message.routes || [];

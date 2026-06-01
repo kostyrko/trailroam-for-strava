@@ -2,6 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { Routes } from '@angular/router';
 import { ActivitiesPageComponent } from './activities/activities-page.component';
 import { MapPage } from './map/map-page.component';
+import { ConfirmService } from './shared/confirm.service';
 import { LocalDataService } from './storage/local-data.service';
 
 @Component({
@@ -78,6 +79,7 @@ import { LocalDataService } from './storage/local-data.service';
 })
 export class SettingsPage {
   private readonly localDataService = inject(LocalDataService);
+  private readonly confirmService = inject(ConfirmService);
 
   protected readonly isClearingLocalData = signal(false);
   protected readonly clearLocalDataStatus = signal<string | null>(null);
@@ -99,9 +101,12 @@ export class SettingsPage {
       window.alert(err instanceof Error ? err.message : 'Invalid backup file.');
       return;
     }
-    const confirmed = window.confirm(
-      'This will replace all current local data with the backup. Are you sure?',
-    );
+    const confirmed = await this.confirmService.confirm({
+      title: 'Restore backup',
+      message: 'This will replace all current local data with the backup. Are you sure?',
+      confirmLabel: 'Restore backup',
+      danger: true,
+    });
     if (!confirmed) { return; }
     const result = await this.localDataService.restore(backup as any);
     window.alert(
@@ -136,9 +141,12 @@ export class SettingsPage {
   }
 
   protected async clearSyncedLocalData(): Promise<void> {
-    const confirmed = window.confirm(
-      'This will delete imported activities and routes from this browser. It will not delete anything from Strava.',
-    );
+    const confirmed = await this.confirmService.confirm({
+      title: 'Clear synced local data',
+      message: 'This will delete imported activities and routes from this browser. It will not delete anything from Strava.',
+      confirmLabel: 'Clear data',
+      danger: true,
+    });
 
     if (!confirmed) {
       return;
@@ -156,9 +164,12 @@ export class SettingsPage {
   }
 
   protected async clearAndResync(): Promise<void> {
-    const confirmed = window.confirm(
-      'This will delete locally synced activities and route data, then import them again from Strava. Your settings will be kept.',
-    );
+    const confirmed = await this.confirmService.confirm({
+      title: 'Clear and re-sync',
+      message: 'This will delete locally synced activities and route data, then import them again from Strava. Your settings will be kept.',
+      confirmLabel: 'Clear and re-sync',
+      danger: true,
+    });
 
     if (!confirmed) {
       return;

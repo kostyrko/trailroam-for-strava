@@ -1,5 +1,6 @@
 import { Component, inject, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { ConfirmService } from './shared/confirm.service';
 import { SyncSummaryService, type SyncSummary } from './storage/sync-summary.service';
 import { LocalDataService } from './storage/local-data.service';
 import { TRAILROAM_REPOSITORIES } from './storage/repositories/repositories.token';
@@ -23,6 +24,7 @@ export class App {
   private readonly stravaSessionService = inject(StravaSessionService);
   private readonly routeNormalizer = inject(StravaRouteNormalizer);
   private readonly syncEngine = inject(SyncEngineService);
+  private readonly confirmService = inject(ConfirmService);
 
   private pendingRouteCount = 0;
   private totalRouteCount = 0;
@@ -223,9 +225,12 @@ export class App {
 
   protected async clearAndResync(): Promise<void> {
     this.closeSyncMenu();
-    const confirmed = window.confirm(
-      'This will delete locally synced activities and route data, then import them again from Strava. Your settings will be kept.',
-    );
+    const confirmed = await this.confirmService.confirm({
+      title: 'Clear and re-sync',
+      message: 'This will delete locally synced activities and route data, then import them again from Strava. Your settings will be kept.',
+      confirmLabel: 'Clear and re-sync',
+      danger: true,
+    });
     if (!confirmed) { return; }
     await this.localDataService.clearSyncedLocalData();
     this.syncNewActivities();
@@ -233,9 +238,12 @@ export class App {
 
   protected async clearSyncedLocalData(): Promise<void> {
     this.closeSyncMenu();
-    const confirmed = window.confirm(
-      'This will delete imported activities and routes from this browser. It will not delete anything from Strava.',
-    );
+    const confirmed = await this.confirmService.confirm({
+      title: 'Clear synced local data',
+      message: 'This will delete imported activities and routes from this browser. It will not delete anything from Strava.',
+      confirmLabel: 'Clear data',
+      danger: true,
+    });
     if (!confirmed) { return; }
     await this.localDataService.clearSyncedLocalData();
   }
@@ -271,9 +279,12 @@ export class App {
       window.alert(err instanceof Error ? err.message : 'Invalid backup file.');
       return;
     }
-    const confirmed = window.confirm(
-      'This will replace all current local data with the backup. Are you sure?',
-    );
+    const confirmed = await this.confirmService.confirm({
+      title: 'Restore backup',
+      message: 'This will replace all current local data with the backup. Are you sure?',
+      confirmLabel: 'Restore backup',
+      danger: true,
+    });
     if (!confirmed) { return; }
     const result = await this.localDataService.restore(backup as any);
     window.alert(

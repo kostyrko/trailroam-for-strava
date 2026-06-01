@@ -10,13 +10,14 @@ import { RouteRendererService } from './map/route-renderer.service';
 import { LocalDataService } from './storage/local-data.service';
 import { TRAILROAM_REPOSITORIES } from './storage/repositories/repositories.token';
 import { StravaActivityNormalizer } from './strava/strava-activity-normalizer';
+import { ConfirmService } from './shared/confirm.service';
 
 function flushMicrotasks(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 describe('App', () => {
-  function configureApp(syncStateGet: () => any = () => undefined): void {
+  function configureApp(syncStateGet: () => any = () => undefined, confirmMock = vi.fn()): void {
     TestBed.configureTestingModule({
       imports: [App],
       providers: [
@@ -30,6 +31,10 @@ describe('App', () => {
             settings: { put: vi.fn(), get: vi.fn(), clear: vi.fn(), getOrCreateDefault: vi.fn() },
             accessState: { put: vi.fn(), get: vi.fn(), clear: vi.fn(), getOrCreateDefault: vi.fn() },
           },
+        },
+        {
+          provide: ConfirmService,
+          useValue: { confirm: confirmMock },
         },
       ],
     });
@@ -345,7 +350,13 @@ describe('SettingsPage', () => {
     vi.restoreAllMocks();
   });
 
-  function configureSettingsPage(clearSyncedLocalData = vi.fn().mockResolvedValue(undefined)): void {
+  let confirmMock: ReturnType<typeof vi.fn>;
+
+  function configureSettingsPage(
+    clearSyncedLocalData = vi.fn().mockResolvedValue(undefined),
+    confirmResult = false,
+  ): void {
+    confirmMock = vi.fn().mockResolvedValue(confirmResult);
     TestBed.configureTestingModule({
       imports: [SettingsPage],
       providers: [
@@ -354,6 +365,10 @@ describe('SettingsPage', () => {
           useValue: {
             clearSyncedLocalData,
           },
+        },
+        {
+          provide: ConfirmService,
+          useValue: { confirm: confirmMock },
         },
       ],
     });
@@ -373,8 +388,7 @@ describe('SettingsPage', () => {
 
   it('should ask for confirmation before clearing synced local data', async () => {
     const clearSyncedLocalData = vi.fn().mockResolvedValue(undefined);
-    configureSettingsPage(clearSyncedLocalData);
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    configureSettingsPage(clearSyncedLocalData, false);
 
     const fixture = TestBed.createComponent(SettingsPage);
     fixture.detectChanges();
@@ -383,16 +397,18 @@ describe('SettingsPage', () => {
     clearButton?.click();
     await fixture.whenStable();
 
-    expect(confirm).toHaveBeenCalledWith(
-      'This will delete imported activities and routes from this browser. It will not delete anything from Strava.',
-    );
+    expect(confirmMock).toHaveBeenCalledWith({
+      title: 'Clear synced local data',
+      message: 'This will delete imported activities and routes from this browser. It will not delete anything from Strava.',
+      confirmLabel: 'Clear data',
+      danger: true,
+    });
     expect(clearSyncedLocalData).not.toHaveBeenCalled();
   });
 
   it('should clear synced local data and update status after confirmation', async () => {
     const clearSyncedLocalData = vi.fn().mockResolvedValue(undefined);
-    configureSettingsPage(clearSyncedLocalData);
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    configureSettingsPage(clearSyncedLocalData, true);
 
     const fixture = TestBed.createComponent(SettingsPage);
     fixture.detectChanges();

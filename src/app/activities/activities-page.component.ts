@@ -205,7 +205,7 @@ function routeStatusLabel(status: string): string {
                         (click)="toggleActivityMenu($event, activity.id)"
                       >⋮</button>
                       @if (openMenuId() === activity.id) {
-                        <ul class="activity-dropdown" role="menu" (click)="$event.stopPropagation()">
+                        <ul class="activity-dropdown" [style]="menuStyle()" role="menu" (click)="$event.stopPropagation()">
                           <li role="none">
                             <button class="act-dropdown-item" role="menuitem" (click)="openOnStrava($event, activity)">
                               <svg class="act-dropdown-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
@@ -472,13 +472,9 @@ function routeStatusLabel(status: string): string {
       border-radius: 8px;
       box-shadow: 0 4px 16px rgb(20 33 27 / 18%);
       list-style: none;
-      margin: 4px 0 0;
       min-width: 160px;
       padding: 4px;
-      position: absolute;
-      right: 0;
-      top: 100%;
-      z-index: 100;
+      z-index: 1000;
     }
 
     .act-dropdown-item {
@@ -664,6 +660,7 @@ export class ActivitiesPageComponent {
   protected readonly filterMenuOpen = signal(false);
   protected readonly pageSizeMenuOpen = signal(false);
   protected readonly openMenuId = signal<string | null>(null);
+  protected readonly menuStyle = signal<Record<string, string>>({});
 
   private readonly filtersService = inject(FiltersService);
   protected readonly categoryFilter = this.filtersService.categoryFilter;
@@ -753,7 +750,19 @@ export class ActivitiesPageComponent {
 
   protected toggleActivityMenu(event: MouseEvent, activityId: string): void {
     event.stopPropagation();
-    this.openMenuId.update((current) => current === activityId ? null : activityId);
+    const opening = this.openMenuId() !== activityId;
+    if (opening) {
+      const btn = event.currentTarget as HTMLElement;
+      const rect = btn.getBoundingClientRect();
+      const menuHeight = 160;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      if (spaceBelow >= menuHeight) {
+        this.menuStyle.set({ position: 'fixed', top: rect.bottom + 'px', right: window.innerWidth - rect.right + 12 + 'px', bottom: 'auto' });
+      } else {
+        this.menuStyle.set({ position: 'fixed', top: 'auto', right: window.innerWidth - rect.right + 12 + 'px', bottom: window.innerHeight - rect.top + 'px' });
+      }
+    }
+    this.openMenuId.set(opening ? activityId : null);
   }
 
   protected closeAllMenus(): void {

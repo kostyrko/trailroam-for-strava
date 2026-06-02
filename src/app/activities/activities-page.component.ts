@@ -101,6 +101,7 @@ function routeStatusLabel(status: string): string {
           <p>
             TrailRoam will show imported Strava activities here after the first successful sync.
           </p>
+          <p class="privacy-note">Your data stays private — everything is stored locally in your browser.</p>
           <button class="primary-action" type="button" (click)="startSync()">Sync activities</button>
         </article>
       } @else if (activities(); as items) {

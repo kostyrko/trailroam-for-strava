@@ -265,6 +265,28 @@ p {
   font-weight: 600;
 }
 
+.privacy-note {
+  color: #63746a;
+  font-size: 0.8125rem;
+  margin-top: 12px;
+}
+
+.privacy-list {
+  color: #53645b;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.privacy-list li {
+  margin-bottom: 6px;
+}
+
+.privacy-list li:last-child {
+  margin-bottom: 0;
+}
+
 @media (max-width: 640px) {
   .route-page {
     padding: 32px 20px;

@@ -137,6 +137,17 @@ import { SyncHistoryService } from './storage/sync-history.service';
           </div>
         }
       </article>
+
+      <article class="empty-state" aria-labelledby="privacy-title">
+        <p class="empty-state-kicker">Privacy &amp; Data</p>
+        <h2 id="privacy-title">Where your data is stored</h2>
+        <ul class="privacy-list">
+          <li>Imported activities and GPS routes are stored only in this browser's IndexedDB using Dexie.js.</li>
+          <li>No route or activity data is ever uploaded to Trailroam servers.</li>
+          <li>Strava login is required — sync opens Strava in a new tab, and your browser session handles authentication.</li>
+          <li>You can inspect stored data by opening DevTools (F12) → Application → IndexedDB → trailroam_for_strava.</li>
+        </ul>
+      </article>
     </section>
   `,
 })

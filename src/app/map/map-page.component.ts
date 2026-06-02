@@ -188,6 +188,7 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
             <p>
               Start a sync to import Strava activities and show available route lines on this map.
             </p>
+            <p class="privacy-note">Your data stays private — everything is stored locally in your browser.</p>
             <button class="primary-action" type="button" (click)="syncActivities()">Sync activities</button>
           </article>
         }

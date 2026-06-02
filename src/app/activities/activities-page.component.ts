@@ -102,7 +102,7 @@ function routeStatusLabel(status: string): string {
           <p>
             TrailRoam will show imported Strava activities here after the first successful sync.
           </p>
-          <button class="primary-action" type="button">Sync activities</button>
+          <button class="primary-action" type="button" (click)="startSync()">Sync activities</button>
         </article>
       } @else if (activities(); as items) {
         <div class="activities-filters">
@@ -827,6 +827,13 @@ export class ActivitiesPageComponent {
       );
       const msg = fetchResult.errorCode === 'STRAVA_LOGIN_REQUIRED' ? 'Log into Strava first to sync routes.' : `No GPS route available for "${activity.name}".`;
       this.toastService.show(msg);
+    }
+  }
+
+  protected startSync(): void {
+    const c = (globalThis as any).chrome;
+    if (c?.tabs?.create) {
+      c.tabs.create({ url: 'https://www.strava.com/dashboard?trailroamSync=true' });
     }
   }
 

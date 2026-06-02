@@ -184,6 +184,16 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
       }
 
       @if (!hasBasemapError()) {
+        @if (!noRouteActivity() && !selectedRoute() && !selectedActivityId() && allRoutes().length === 0) {
+          <article class="empty-state map-empty-state" aria-labelledby="map-empty-title">
+            <p class="empty-state-kicker">No routes yet</p>
+            <h2 id="map-empty-title">Synced GPS routes will appear here.</h2>
+            <p>
+              Start a sync to import Strava activities and show available route lines on this map.
+            </p>
+            <button class="primary-action" type="button" (click)="syncActivities()">Sync activities</button>
+          </article>
+        }
         <app-maplibre-map
           (basemapLoadFailed)="showBasemapError()"
           (routeSelected)="selectRoute($event)"
@@ -203,16 +213,6 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
         </article>
       }
 
-      @if (!hasBasemapError() && !noRouteActivity() && !selectedRoute() && !selectedActivityId() && allRoutes().length === 0) {
-        <article class="empty-state" aria-labelledby="map-empty-title">
-          <p class="empty-state-kicker">No routes yet</p>
-          <h2 id="map-empty-title">Synced GPS routes will appear here.</h2>
-          <p>
-            Start a sync to import Strava activities and show available route lines on this map.
-          </p>
-          <button class="primary-action" type="button">Sync activities</button>
-        </article>
-      }
     </section>
   `,
   styles: [`
@@ -447,6 +447,12 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
       min-height: 36px;
       padding: 6px 10px;
     }
+
+    .map-empty-state {
+      margin-bottom: 12px;
+      width: 100%;
+      box-sizing: border-box;
+    }
   `],
 })
 export class MapPage implements AfterViewInit {
@@ -637,5 +643,12 @@ export class MapPage implements AfterViewInit {
 
   protected clearSelectedActivity(): void {
     this.router.navigate(['/map']);
+  }
+
+  protected syncActivities(): void {
+    const c = (globalThis as any).chrome;
+    if (c?.tabs?.create) {
+      c.tabs.create({ url: 'https://www.strava.com/dashboard?trailroamSync=true' });
+    }
   }
 }

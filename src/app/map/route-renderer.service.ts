@@ -118,6 +118,12 @@ export class RouteRendererService {
     map.setFilter(ROUTES_SELECTED_LAYER_ID, this.buildSelectedRouteFilter(activityId));
   }
 
+  deselectRoute(): void {
+    const map = this.map;
+    if (!map) { return; }
+    map.setFilter(ROUTES_SELECTED_LAYER_ID, ['==', ['get', 'activityId'], '']);
+  }
+
   fitToRoute(coordinates: [number, number][]): void {
     const map = this.map;
     if (!map || coordinates.length === 0) { return; }

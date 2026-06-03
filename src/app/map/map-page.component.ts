@@ -14,6 +14,7 @@ import { MapLibreMapComponent } from './maplibre-map.component';
 import { type MapRouteFeature } from './mock-routes';
 import { FiltersService, ACTIVITY_CATEGORIES, CATEGORY_COLORS, isAfterOrEqual, isBeforeOrEqual } from '../shared/filters.service';
 import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
+import { RouteRendererService } from './route-renderer.service';
 
 function formatDistance(meters: number | undefined): string {
   if (meters === undefined || meters === 0) { return '—'; }
@@ -143,43 +144,6 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
         </label>
       </div>
 
-      @if (selectedRoute(); as route) {
-        <article class="route-detail" aria-label="Selected route details">
-          <div class="route-detail-header">
-            <h2 class="route-detail-title">{{ route.name }}</h2>
-            <button class="detail-close" type="button" (click)="clearSelectedRoute()" aria-label="Clear selected route">
-              Close
-            </button>
-          </div>
-          <dl class="route-detail-stats">
-            <div class="stat">
-              <dt class="stat-label">Date</dt>
-              <dd class="stat-value">{{ formatDate(route.activity.startDate) }}</dd>
-            </div>
-            <div class="stat">
-              <dt class="stat-label">Type</dt>
-              <dd class="stat-value category-tag">{{ route.activity.activityCategory }}</dd>
-            </div>
-            <div class="stat">
-              <dt class="stat-label">Distance</dt>
-              <dd class="stat-value">{{ formatDistance(route.activity.distanceMeters) }}</dd>
-            </div>
-            <div class="stat">
-              <dt class="stat-label">Speed</dt>
-              <dd class="stat-value">{{ formatSpeed(computeSpeed(route.activity.averageSpeedMetersPerSecond, route.activity.distanceMeters, route.activity.movingTimeSeconds)) }}</dd>
-            </div>
-            <div class="stat">
-              <dt class="stat-label">Moving time</dt>
-              <dd class="stat-value">{{ formatDuration(route.activity.movingTimeSeconds) }}</dd>
-            </div>
-            <div class="stat">
-              <dt class="stat-label">GPS points</dt>
-              <dd class="stat-value">{{ route.coordinates.length }}</dd>
-            </div>
-          </dl>
-        </article>
-      }
-
       @if (!hasBasemapError()) {
         @if (!noRouteActivity() && !selectedRoute() && !selectedActivityId() && allRoutes().length === 0) {
           <article class="empty-state map-empty-state" aria-labelledby="map-empty-title">
@@ -195,7 +159,49 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
         <app-maplibre-map
           (basemapLoadFailed)="showBasemapError()"
           (routeSelected)="selectRoute($event)"
+          (fullscreenChanged)="mapFullscreen.set($event)"
         />
+        @if (selectedRoute(); as route) {
+          <article class="route-detail" [class.route-detail-overlay]="mapFullscreen()" aria-label="Selected route details">
+            <div class="route-detail-header">
+              <h2 class="route-detail-title">{{ route.name }}</h2>
+              <button class="detail-close" type="button" (click)="clearSelectedRoute()" aria-label="Clear selected route">
+                Close
+              </button>
+            </div>
+            <dl class="route-detail-stats">
+              <div class="stat">
+                <dt class="stat-label">Date</dt>
+                <dd class="stat-value">{{ formatDate(route.activity.startDate) }}</dd>
+              </div>
+              <div class="stat">
+                <dt class="stat-label">Type</dt>
+                <dd class="stat-value category-tag">{{ route.activity.activityCategory }}</dd>
+              </div>
+              <div class="stat">
+                <dt class="stat-label">Distance</dt>
+                <dd class="stat-value">{{ formatDistance(route.activity.distanceMeters) }}</dd>
+              </div>
+              <div class="stat">
+                <dt class="stat-label">Speed</dt>
+                <dd class="stat-value">{{ formatSpeed(computeSpeed(route.activity.averageSpeedMetersPerSecond, route.activity.distanceMeters, route.activity.movingTimeSeconds)) }}</dd>
+              </div>
+              <div class="stat">
+                <dt class="stat-label">Moving time</dt>
+                <dd class="stat-value">{{ formatDuration(route.activity.movingTimeSeconds) }}</dd>
+              </div>
+              <div class="stat">
+                <dt class="stat-label">Strava</dt>
+                <dd class="stat-value">
+                  <a class="strava-link" (click)="openOnStrava($event, route.activity)" href="javascript:void(0)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                    Open in Strava
+                  </a>
+                </dd>
+              </div>
+            </dl>
+          </article>
+        }
       }
 
       @if (noRouteActivity()) {
@@ -219,21 +225,41 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
       border: 1px solid #dce6df;
       border-radius: 8px;
       box-sizing: border-box;
-      margin-bottom: 16px;
-      margin-top: 16px;
-      padding: 20px;
+      margin-bottom: 12px;
+      margin-top: 12px;
+      padding: 12px 16px;
       width: 100%;
     }
 
+    .route-detail-overlay {
+      border: 1px solid #cbd8d0;
+      bottom: 52px;
+      box-shadow: 0 4px 20px rgb(20 33 27 / 25%);
+      left: 24px;
+      margin: 0;
+      max-width: 380px;
+      position: fixed;
+      z-index: 1001;
+    }
+
+
     .route-detail-header {
-      align-items: flex-start;
+      align-items: center;
       display: flex;
-      justify-content: space-between;
+      gap: 10px;
+      min-width: 0;
+      width: 100%;
     }
 
     .route-detail-title {
-      font-size: 1.25rem;
+      flex: 1;
+      font-size: 0.9375rem;
+      font-weight: 700;
       margin: 0;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .detail-close {
@@ -242,11 +268,12 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
       border-radius: 6px;
       color: #314b3f;
       cursor: pointer;
+      flex-shrink: 0;
       font: inherit;
-      font-size: 0.8125rem;
+      font-size: 0.75rem;
       font-weight: 600;
-      min-height: 32px;
-      padding: 5px 11px;
+      min-height: 28px;
+      padding: 3px 9px;
       white-space: nowrap;
     }
 
@@ -256,29 +283,55 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
 
     .route-detail-stats {
       display: grid;
-      gap: 12px;
+      gap: 6px 16px;
       grid-template-columns: 1fr 1fr;
-      margin: 16px 0 0;
+      margin: 10px 0 0;
+      width: 100%;
     }
 
     .stat {
       display: flex;
       flex-direction: column;
-      gap: 2px;
     }
 
     .stat-label {
       color: #63746a;
-      font-size: 0.75rem;
+      font-size: 0.6875rem;
       font-weight: 700;
       letter-spacing: 0.06em;
+      padding: 0;
       text-transform: uppercase;
     }
 
     .stat-value {
       color: #14211b;
-      font-size: 0.9375rem;
+      font-size: 0.875rem;
       font-weight: 600;
+      margin: 0;
+      padding: 0;
+    }
+
+    .strava-link {
+      align-items: center;
+      color: #1f6f50;
+      cursor: pointer;
+      display: inline-flex;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      gap: 4px;
+      text-decoration: none;
+    }
+
+    .strava-link:hover {
+      color: #185940;
+      text-decoration: underline;
+    }
+
+    .route-detail .category-tag {
+      display: inline;
+      font-size: inherit;
+      font-weight: inherit;
+      padding: 0;
     }
 
     .category-tag {
@@ -295,7 +348,6 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
-      margin-top: 16px;
     }
 
     .notice-bar {
@@ -458,6 +510,8 @@ export class MapPage implements AfterViewInit {
   private readonly router = inject(Router);
   private readonly repositories = inject(TRAILROAM_REPOSITORIES);
   protected readonly filtersService = inject(FiltersService);
+  private readonly routeRendererService = inject(RouteRendererService);
+
   protected readonly ACTIVITY_CATEGORIES = ACTIVITY_CATEGORIES;
   protected readonly CATEGORY_COLORS = CATEGORY_COLORS;
 
@@ -476,6 +530,7 @@ export class MapPage implements AfterViewInit {
   protected readonly allRoutes = signal<MapRouteFeature[]>([]);
   private readonly selectedMapRoute = signal<MapRouteFeature | null>(null);
   protected readonly filterMenuOpen = signal(false);
+  protected readonly mapFullscreen = signal(false);
   private readonly perfWarningDismissed = signal(false);
 
   protected readonly filteredRoutes = computed(() => {
@@ -630,16 +685,22 @@ export class MapPage implements AfterViewInit {
 
   protected selectRoute(route: MapRouteFeature): void {
     this.selectedMapRoute.set(route);
+    setTimeout(() => {
+      document.querySelector('.route-detail')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 0);
   }
 
   protected clearSelectedRoute(): void {
     this.selectedMapRoute.set(null);
+    this.routeRendererService.deselectRoute();
     if (this.selectedActivityId()) {
       this.router.navigate(['/map']);
     }
   }
 
   protected clearSelectedActivity(): void {
+    this.selectedMapRoute.set(null);
+    this.routeRendererService.deselectRoute();
     this.router.navigate(['/map']);
   }
 
@@ -647,6 +708,17 @@ export class MapPage implements AfterViewInit {
     const c = (globalThis as any).chrome;
     if (c?.tabs?.create) {
       c.tabs.create({ url: 'https://www.strava.com/dashboard?trailroamSync=true' });
+    }
+  }
+
+  protected openOnStrava(event: MouseEvent, activity: import('../storage/storage.models').ActivityRecord): void {
+    event.stopPropagation();
+    const url = `https://www.strava.com/activities/${activity.providerActivityId}`;
+    const c = (globalThis as any).chrome;
+    if (c?.tabs?.create) {
+      c.tabs.create({ url });
+    } else {
+      window.open(url, '_blank');
     }
   }
 }

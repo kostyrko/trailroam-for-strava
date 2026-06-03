@@ -43,6 +43,9 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
   @Output()
   readonly routeSelected = new EventEmitter<MapRouteFeature>();
 
+  @Output()
+  readonly fullscreenChanged = new EventEmitter<boolean>();
+
   @ViewChild('mapContainer', { static: true })
   private readonly mapContainer!: ElementRef<HTMLElement>;
 
@@ -137,12 +140,15 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
   }
 
   protected toggleFullscreen(): void {
-    this.fullscreen.update((v) => !v);
+    const next = !this.fullscreen();
+    this.fullscreen.set(next);
+    this.fullscreenChanged.emit(next);
   }
 
   protected onDocumentKeydown(event: KeyboardEvent): void {
     if (event.key === 'Escape' && this.fullscreen()) {
       this.fullscreen.set(false);
+      this.fullscreenChanged.emit(false);
       event.preventDefault();
     }
   }

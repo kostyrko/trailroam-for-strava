@@ -648,7 +648,7 @@ export class MapPage implements AfterViewInit {
     const routes = this.filteredRoutes();
     const mapComp = this.mapComponent;
     const selectId = this.selectedActivityId();
-    if (!mapComp || routes.length === 0) {
+    if (!mapComp) {
       return;
     }
 

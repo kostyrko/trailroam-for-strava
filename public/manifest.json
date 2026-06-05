@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "TrailRoam for Strava",
   "description": "Import Strava activities locally and view routes in a full-page extension app.",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "icons": {
     "16": "app/assets/trailroam-logo-16.png",
     "32": "app/assets/trailroam-logo-32.png",

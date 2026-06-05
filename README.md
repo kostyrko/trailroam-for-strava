@@ -66,4 +66,43 @@ No `<all_urls>` is used. No unnecessary hosts are requested.
 
 ## Privacy
 
-Activity and GPS route data is stored only in this browser's IndexedDB. No data is uploaded to Trailroam servers. See the **Privacy & Data** section in the app Settings for more details.
+Activity and GPS route data is stored only in this browser's IndexedDB. No data is uploaded to Trailroam servers. See [PRIVACY.md](PRIVACY.md) for the full privacy policy.
+
+## Chrome Web Store listing
+
+**Short description** (132 characters):
+
+> Import Strava routes locally and view them together on one map. All data stays in your browser.
+
+**Full description:**
+
+> TrailRoam for Strava lets you import your Strava activities and view their GPS routes together on a single interactive map — without uploading your data anywhere.
+>
+> **Features:**
+>
+> - **Local-first:** All imported activities and GPS routes are stored in your browser's IndexedDB. Nothing is uploaded to any server.
+> - **Full-page map:** Explore all your routes on a MapLibre map with OpenFreeMap — no API key required.
+> - **Smart sync:** Opens Strava in a new tab and imports activities using your existing browser session. No separate OAuth setup needed.
+> - **Incremental:** Only new activities are fetched during each sync — already-synced data is detected and skipped.
+> - **Filter & find:** Filter routes by activity type and date. Click an activity to zoom to its route on the map.
+> - **Route clustering:** At zoomed-out levels, routes are clustered into count circles for a clean overview.
+> - **GPX export:** Download individual routes as GPX files for use in Garmin, Komoot, or other navigation apps.
+> - **Share bundles:** Generate a shareable ZIP with a map screenshot + GPX files of selected routes.
+>
+> **How it works:**
+>
+> 1. Install the extension and log into Strava in your browser.
+> 2. Click **Sync activities** — a Strava tab opens and imports your activities.
+> 3. Open the TrailRoam app to see all your routes on the map.
+> 4. Click any route to see details or filter by type and date.
+>
+> **Permissions explained:**
+>
+> - `storage` — stores activities and routes locally in IndexedDB.
+> - `tabs` — opens the Strava dashboard in a new tab when you start a sync.
+> - `strava.com` — the content script fetches activity data same-origin during sync.
+> - `tiles.openfreemap.org` — loads the free map background tiles.
+>
+> **Privacy:** No data leaves your browser. See the full privacy policy at [PRIVACY.md](PRIVACY.md).
+>
+> **Known limitations:** MVP beta release. Requires a logged-in Strava session. No cloud backup. Large route sets may be slow — use filters to limit visible routes.

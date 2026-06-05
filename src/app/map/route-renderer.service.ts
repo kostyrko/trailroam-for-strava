@@ -145,7 +145,7 @@ export class RouteRendererService {
       maxzoom: CLUSTER_MAX_ZOOM,
       layout: {
         'text-field': ['get', 'point_count_abbreviated'],
-        'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+        'text-font': ['Noto Sans Regular'],
         'text-size': 13,
       },
       paint: {
@@ -176,7 +176,7 @@ export class RouteRendererService {
       maxzoom: LINE_MIN_ZOOM,
       layout: {
         'text-field': '1',
-        'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+        'text-font': ['Noto Sans Regular'],
         'text-size': 11,
       },
       paint: {

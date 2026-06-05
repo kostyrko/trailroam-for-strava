@@ -207,6 +207,37 @@ describe('ActivitiesPageComponent', () => {
     expect(badge?.classList).not.toContain('route-ok');
   });
 
+  it('should include all unique sport types from activities in the filter dropdown', async () => {
+    const activities = [
+      createActivity({ id: 'strava:1', sportType: 'Ride', activityCategory: 'ride' }),
+      createActivity({ id: 'strava:2', sportType: 'Kayaking', activityCategory: 'paddling' }),
+      createActivity({ id: 'strava:3', sportType: 'StandUpPaddling', activityCategory: 'paddling' }),
+      createActivity({ id: 'strava:4', sportType: 'Ride', activityCategory: 'ride' }),
+    ];
+
+    TestBed.configureTestingModule({
+      imports: [ActivitiesPageComponent],
+      providers: [
+        { provide: TRAILROAM_REPOSITORIES, useValue: createMockRepositories(activities, 4) },
+      ],
+    });
+
+    const fixture = TestBed.createComponent(ActivitiesPageComponent);
+    fixture.detectChanges();
+    await flushMicrotasks();
+    fixture.detectChanges();
+
+    const comp = fixture.componentInstance as any;
+    const groups = comp.sportTypeGroups() as { category: string; sportTypes: string[] }[];
+
+    expect(groups.length).toBeGreaterThan(0);
+
+    const allSportTypes = groups.flatMap((g) => g.sportTypes);
+    expect(allSportTypes).toContain('Ride');
+    expect(allSportTypes).toContain('Kayaking');
+    expect(allSportTypes).toContain('StandUpPaddling');
+  });
+
   it('should not include hover preview popover', async () => {
     TestBed.configureTestingModule({
       imports: [ActivitiesPageComponent],

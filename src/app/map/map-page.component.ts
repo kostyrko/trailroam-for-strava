@@ -12,9 +12,11 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { map } from 'rxjs';
 import { MapLibreMapComponent } from './maplibre-map.component';
 import { type MapRouteFeature } from './mock-routes';
-import { FiltersService, ACTIVITY_CATEGORIES, CATEGORY_COLORS, isAfterOrEqual, isBeforeOrEqual } from '../shared/filters.service';
+import { FiltersService, CATEGORY_COLORS, isAfterOrEqual, isBeforeOrEqual } from '../shared/filters.service';
 import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
 import { RouteRendererService } from './route-renderer.service';
+import { type ActivityCategory } from '../storage/storage.models';
+import { formatSportType, mapSportTypeToCategory } from '../strava/activity-category';
 
 function formatDistance(meters: number | undefined): string {
   if (meters === undefined || meters === 0) { return '—'; }
@@ -96,26 +98,35 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
           <span class="filter-label">Activity type</span>
           <div class="custom-select" tabindex="0" (click)="toggleFilterMenu()" (keydown.enter)="toggleFilterMenu()" (blur)="closeFilterMenu()">
             <span class="custom-select-trigger">
-              @if (filtersService.categoryFilter(); as sel) {
-                <span class="cat-dot" [style.background]="CATEGORY_COLORS[sel]"></span>{{ sel }}
+              @if (sportTypeFilter(); as sel) {
+                @if (sel.startsWith('__cat__')) {
+                  {{ sel.slice(7) }}
+                } @else {
+                  {{ formatSportType(sel) }}
+                }
               } @else {
                 All types
               }
               <span class="select-arrow">▾</span>
             </span>
             @if (filterMenuOpen()) {
-              <ul class="custom-select-options" (mousedown)="$event.preventDefault()">
-                <li role="option" (click)="onCategoryChange('')" [class.active]="!filtersService.categoryFilter()">All types</li>
-                @for (cat of ACTIVITY_CATEGORIES; track cat) {
-                  <li role="option" (click)="onCategoryChange(cat)" [class.active]="filtersService.categoryFilter() === cat">
-                    <span class="cat-dot" [style.background]="CATEGORY_COLORS[cat]"></span>{{ cat }}
+              <ul class="custom-select-options sport-type-filter" (mousedown)="$event.preventDefault()">
+                <li role="option" (click)="onSportTypeChange('')" [class.active]="!sportTypeFilter()">All types</li>
+                @for (group of sportTypeGroups(); track group.category) {
+                  <li class="sport-type-group-header" role="option" (click)="onCategoryFilterChange(group.category)" [class.active]="sportTypeFilter() === '__cat__' + group.category">
+                    <span class="cat-dot" [style.background]="CATEGORY_COLORS[group.category]"></span>{{ group.category }}
                   </li>
+                  @for (st of group.sportTypes; track st) {
+                    <li class="sport-type-option" role="option" (click)="onSportTypeChange(st)" [class.active]="sportTypeFilter() === st">
+                      <span class="sport-type-label">{{ formatSportType(st) }}</span>
+                    </li>
+                  }
                 }
               </ul>
             }
           </div>
-          @if (filtersService.categoryFilter()) {
-            <button class="filter-clear" type="button" (click)="onCategoryChange('')">Clear</button>
+          @if (sportTypeFilter()) {
+            <button class="filter-clear" type="button" (click)="onSportTypeChange('')">Clear</button>
           }
         </div>
         <label class="filter-group">
@@ -176,7 +187,7 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
               </div>
               <div class="stat">
                 <dt class="stat-label">Type</dt>
-                <dd class="stat-value category-tag">{{ route.activity.activityCategory }}</dd>
+                <dd class="stat-value category-tag">{{ formatSportType(route.activity.sportType) }}</dd>
               </div>
               <div class="stat">
                 <dt class="stat-label">Distance</dt>
@@ -503,6 +514,37 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
       width: 100%;
       box-sizing: border-box;
     }
+
+    .sport-type-filter {
+      max-height: 320px;
+      min-width: 180px;
+      overflow-y: auto;
+    }
+
+    .sport-type-group-header {
+      align-items: center;
+      color: #63746a;
+      cursor: default;
+      display: flex;
+      font-size: 0.6875rem;
+      font-weight: 800;
+      gap: 6px;
+      letter-spacing: 0.06em;
+      padding: 8px 12px 4px;
+      text-transform: uppercase;
+    }
+
+    .sport-type-group-header:hover {
+      background: transparent;
+    }
+
+    .sport-type-option {
+      padding-left: 0;
+    }
+
+    .sport-type-label {
+      margin-left: 24px;
+    }
   `],
 })
 export class MapPage implements AfterViewInit {
@@ -512,7 +554,6 @@ export class MapPage implements AfterViewInit {
   protected readonly filtersService = inject(FiltersService);
   private readonly routeRendererService = inject(RouteRendererService);
 
-  protected readonly ACTIVITY_CATEGORIES = ACTIVITY_CATEGORIES;
   protected readonly CATEGORY_COLORS = CATEGORY_COLORS;
 
   @ViewChild(MapLibreMapComponent)
@@ -533,13 +574,39 @@ export class MapPage implements AfterViewInit {
   protected readonly mapFullscreen = signal(false);
   private readonly perfWarningDismissed = signal(false);
 
+  protected readonly sportTypeFilter = signal<string | null>(null);
+
+  protected readonly sportTypeGroups = computed<{ category: ActivityCategory; sportTypes: string[] }[]>(() => {
+    const routes = this.allRoutes();
+    const seen = new Set<string>();
+    const groups = new Map<ActivityCategory, Set<string>>();
+    for (const r of routes) {
+      if (seen.has(r.activity.sportType)) { continue; }
+      seen.add(r.activity.sportType);
+      const cat = mapSportTypeToCategory(r.activity.sportType);
+      if (!groups.has(cat)) { groups.set(cat, new Set()); }
+      groups.get(cat)!.add(r.activity.sportType);
+    }
+    const order: ActivityCategory[] = ['ride', 'run', 'walk', 'water', 'paddling', 'winter', 'other'];
+    return order
+      .filter((cat) => groups.has(cat))
+      .map((cat) => ({ category: cat, sportTypes: [...groups.get(cat)!].sort() }));
+  });
+
   protected readonly filteredRoutes = computed(() => {
     const routes = this.allRoutes();
-    const catFilter = this.filtersService.categoryFilter();
+    const sportFilter = this.sportTypeFilter();
     const fromDate = this.filtersService.dateFrom();
     const toDate = this.filtersService.dateTo();
     return routes.filter((r) => {
-      if (catFilter && r.activity.activityCategory !== catFilter) { return false; }
+      if (sportFilter) {
+        if (sportFilter.startsWith('__cat__')) {
+          const cat = sportFilter.slice(7) as ActivityCategory;
+          if (mapSportTypeToCategory(r.activity.sportType) !== cat) { return false; }
+        } else {
+          if (r.activity.sportType !== sportFilter) { return false; }
+        }
+      }
       if (fromDate && r.activity.startDate && !isAfterOrEqual(r.activity.startDate, fromDate)) { return false; }
       if (toDate && r.activity.startDate && !isBeforeOrEqual(r.activity.startDate, toDate)) { return false; }
       return true;
@@ -576,8 +643,13 @@ export class MapPage implements AfterViewInit {
     return this.selectedMapRoute();
   });
 
-  protected onCategoryChange(value: string): void {
-    this.filtersService.categoryFilter.set(value === '' ? null : (value as any));
+  protected onSportTypeChange(value: string): void {
+    this.sportTypeFilter.set(value === '' ? null : value);
+    this.filterMenuOpen.set(false);
+  }
+
+  protected onCategoryFilterChange(category: ActivityCategory): void {
+    this.sportTypeFilter.set('__cat__' + category);
     this.filterMenuOpen.set(false);
   }
 
@@ -668,6 +740,7 @@ export class MapPage implements AfterViewInit {
   protected formatDuration = formatDuration;
   protected formatDate = formatDate;
   protected formatDateInput = formatDateInput;
+  protected formatSportType = formatSportType;
   protected onDateFromChange = this.filtersService.setDateFrom.bind(this.filtersService);
   protected onDateToChange = this.filtersService.setDateTo.bind(this.filtersService);
 

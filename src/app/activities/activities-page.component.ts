@@ -1,11 +1,12 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
-import { FiltersService, ACTIVITY_CATEGORIES, CATEGORY_COLORS, isAfterOrEqual, isBeforeOrEqual } from '../shared/filters.service';
+import { FiltersService, CATEGORY_COLORS, isAfterOrEqual, isBeforeOrEqual } from '../shared/filters.service';
 import { ToastService } from '../shared/toast.service';
 import { StravaSessionService } from '../strava/strava-session.service';
 import { StravaRouteNormalizer } from '../strava/strava-route-normalizer';
-import type { ActivityRecord } from '../storage/storage.models';
+import { type ActivityCategory, type ActivityRecord } from '../storage/storage.models';
+import { formatSportType, mapSportTypeToCategory } from '../strava/activity-category';
 
 const PAGE_SIZE_OPTIONS = [5, 10, 25, 50, 100];
 
@@ -111,26 +112,35 @@ function routeStatusLabel(status: string): string {
               <span class="filter-label">Activity type</span>
               <div class="custom-select" tabindex="0" (click)="toggleFilterMenu()" (keydown.enter)="toggleFilterMenu()" (blur)="closeFilterMenu()">
                 <span class="custom-select-trigger">
-                  @if (categoryFilter(); as sel) {
-                    <span class="cat-dot" [style.background]="CATEGORY_COLORS[sel]"></span>{{ sel }}
+                  @if (sportTypeFilter(); as sel) {
+                    @if (sel.startsWith('__cat__')) {
+                      {{ sel.slice(7) }}
+                    } @else {
+                      {{ formatSportType(sel) }}
+                    }
                   } @else {
                     All types
                   }
                   <span class="select-arrow">▾</span>
                 </span>
                 @if (filterMenuOpen()) {
-                  <ul class="custom-select-options" (mousedown)="$event.preventDefault()">
-                    <li role="option" (click)="onCategoryChange('')" [class.active]="!categoryFilter()">All types</li>
-                    @for (cat of ACTIVITY_CATEGORIES; track cat) {
-                      <li role="option" (click)="onCategoryChange(cat)" [class.active]="categoryFilter() === cat">
-                        <span class="cat-dot" [style.background]="CATEGORY_COLORS[cat]"></span>{{ cat }}
+                  <ul class="custom-select-options sport-type-filter" (mousedown)="$event.preventDefault()">
+                    <li role="option" (click)="onSportTypeChange('')" [class.active]="!sportTypeFilter()">All types</li>
+                    @for (group of sportTypeGroups(); track group.category) {
+                      <li class="sport-type-group-header" role="option" (click)="onCategoryFilterChange(group.category)" [class.active]="sportTypeFilter() === '__cat__' + group.category">
+                        <span class="cat-dot" [style.background]="CATEGORY_COLORS[group.category]"></span>{{ group.category }}
                       </li>
+                      @for (st of group.sportTypes; track st) {
+                        <li class="sport-type-option" role="option" (click)="onSportTypeChange(st)" [class.active]="sportTypeFilter() === st">
+                          <span class="sport-type-label">{{ formatSportType(st) }}</span>
+                        </li>
+                      }
                     }
                   </ul>
                 }
               </div>
-              @if (categoryFilter()) {
-                <button class="filter-clear" type="button" (click)="onCategoryChange('')">Clear</button>
+              @if (sportTypeFilter()) {
+                <button class="filter-clear" type="button" (click)="onSportTypeChange('')">Clear</button>
               }
             </div>
           </div>
@@ -189,7 +199,7 @@ function routeStatusLabel(status: string): string {
                 <tr class="activity-row" [class.clickable]="activity.hasRoute" [class.no-route]="!activity.hasRoute" (click)="navigateToActivity(activity)">
                   <td class="cell-date">{{ formatDate(activity.startDate) }}</td>
                   <td class="cell-name">{{ activity.name }}</td>
-                  <td><span class="category-tag"><span class="cat-dot" [style.background]="CATEGORY_COLORS[activity.activityCategory]"></span>{{ activity.activityCategory }}</span></td>
+                  <td><span class="category-tag"><span class="cat-dot" [style.background]="CATEGORY_COLORS[activity.activityCategory]"></span>{{ formatSportType(activity.sportType) }}</span></td>
                   <td class="cell-num">{{ formatDistance(activity.distanceMeters) }}</td>
                   <td class="cell-num">{{ formatSpeed(computeSpeed(activity.averageSpeedMetersPerSecond, activity.distanceMeters, activity.movingTimeSeconds)) }}</td>
                   <td class="cell-num">{{ formatDuration(activity.movingTimeSeconds) }}</td>
@@ -642,6 +652,37 @@ function routeStatusLabel(status: string): string {
       min-height: 36px;
       padding: 6px 10px;
     }
+
+    .sport-type-filter {
+      max-height: 320px;
+      min-width: 180px;
+      overflow-y: auto;
+    }
+
+    .sport-type-group-header {
+      align-items: center;
+      color: #63746a;
+      cursor: default;
+      display: flex;
+      font-size: 0.6875rem;
+      font-weight: 800;
+      gap: 6px;
+      letter-spacing: 0.06em;
+      padding: 8px 12px 4px;
+      text-transform: uppercase;
+    }
+
+    .sport-type-group-header:hover {
+      background: transparent;
+    }
+
+    .sport-type-option {
+      padding-left: 0;
+    }
+
+    .sport-type-label {
+      margin-left: 24px;
+    }
   `],
 })
 export class ActivitiesPageComponent {
@@ -657,7 +698,6 @@ export class ActivitiesPageComponent {
   protected readonly totalCount = signal(0);
   protected readonly PAGE_SIZE_OPTIONS = PAGE_SIZE_OPTIONS;
   protected readonly pageSize = signal(50);
-  protected readonly ACTIVITY_CATEGORIES = ACTIVITY_CATEGORIES;
   protected readonly CATEGORY_COLORS = CATEGORY_COLORS;
   protected readonly sortColumn = signal<SortColumn>('date');
   protected readonly sortDirection = signal<-1 | 1>(-1);
@@ -667,20 +707,45 @@ export class ActivitiesPageComponent {
   protected readonly menuStyle = signal<Record<string, string>>({});
 
   private readonly filtersService = inject(FiltersService);
-  protected readonly categoryFilter = this.filtersService.categoryFilter;
+  protected readonly sportTypeFilter = signal<string | null>(null);
   protected readonly dateFrom = this.filtersService.dateFrom;
   protected readonly dateTo = this.filtersService.dateTo;
 
   protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.totalFilteredCount() / this.pageSize())));
 
+  protected readonly sportTypeGroups = computed<{ category: ActivityCategory; sportTypes: string[] }[]>(() => {
+    const items = this.activities();
+    if (!items) { return []; }
+    const seen = new Set<string>();
+    const groups = new Map<ActivityCategory, Set<string>>();
+    for (const a of items) {
+      if (seen.has(a.sportType)) { continue; }
+      seen.add(a.sportType);
+      const cat = mapSportTypeToCategory(a.sportType);
+      if (!groups.has(cat)) { groups.set(cat, new Set()); }
+      groups.get(cat)!.add(a.sportType);
+    }
+    const order: ActivityCategory[] = ['ride', 'run', 'walk', 'water', 'paddling', 'winter', 'other'];
+    return order
+      .filter((cat) => groups.has(cat))
+      .map((cat) => ({ category: cat, sportTypes: [...groups.get(cat)!].sort() }));
+  });
+
   protected readonly allFiltered = computed<ActivityRecord[]>(() => {
     const items = this.activities();
     if (!items) { return []; }
-    const catFilter = this.categoryFilter();
+    const sportFilter = this.sportTypeFilter();
     const fromDate = this.dateFrom();
     const toDate = this.dateTo();
     const filtered = items.filter((a) => {
-      if (catFilter && a.activityCategory !== catFilter) { return false; }
+      if (sportFilter) {
+        if (sportFilter.startsWith('__cat__')) {
+          const cat = sportFilter.slice(7) as ActivityCategory;
+          if (mapSportTypeToCategory(a.sportType) !== cat) { return false; }
+        } else {
+          if (a.sportType !== sportFilter) { return false; }
+        }
+      }
       if (fromDate && a.startDate && !isAfterOrEqual(a.startDate, fromDate)) { return false; }
       if (toDate && a.startDate && !isBeforeOrEqual(a.startDate, toDate)) { return false; }
       return true;
@@ -713,8 +778,13 @@ export class ActivitiesPageComponent {
     this.currentPage.set(1);
   }
 
-  protected onCategoryChange(value: string): void {
-    this.categoryFilter.set(value === '' ? null : (value as any));
+  protected onSportTypeChange(value: string): void {
+    this.sportTypeFilter.set(value === '' ? null : value);
+    this.filterMenuOpen.set(false);
+  }
+
+  protected onCategoryFilterChange(category: ActivityCategory): void {
+    this.sportTypeFilter.set('__cat__' + category);
     this.filterMenuOpen.set(false);
   }
 
@@ -844,6 +914,7 @@ export class ActivitiesPageComponent {
   protected formatDate = formatDate;
   protected routeStatusLabel = routeStatusLabel;
   protected formatDateInput = formatDateInput;
+  protected formatSportType = formatSportType;
   protected onDateFromChange = this.filtersService.setDateFrom.bind(this.filtersService);
   protected onDateToChange = this.filtersService.setDateTo.bind(this.filtersService);
 
@@ -872,7 +943,7 @@ function compareActivities(a: ActivityRecord, b: ActivityRecord, column: SortCol
     case 'name':
       return a.name.localeCompare(b.name);
     case 'type':
-      return a.activityCategory.localeCompare(b.activityCategory);
+      return a.sportType.localeCompare(b.sportType);
     case 'distance':
       return (a.distanceMeters ?? 0) - (b.distanceMeters ?? 0);
     case 'speed':

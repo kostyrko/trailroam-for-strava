@@ -226,7 +226,7 @@ function routeStatusLabel(status: string): string {
                             </button>
                           </li>
                           <li role="none">
-                            <button class="act-dropdown-item" role="menuitem" (click)="downloadGpx($event, activity)">
+                            <button class="act-dropdown-item" [class.act-dropdown-item-disabled]="!activity.hasRoute" [disabled]="!activity.hasRoute" role="menuitem" (click)="downloadGpx($event, activity)">
                               <svg class="act-dropdown-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                               Download GPX
                             </button>
@@ -542,6 +542,20 @@ function routeStatusLabel(status: string): string {
 
     .act-dropdown-item-danger .act-dropdown-icon {
       color: #c2817a;
+    }
+
+    .act-dropdown-item-disabled {
+      color: #a0b4a6;
+      cursor: default;
+      opacity: 0.6;
+    }
+
+    .act-dropdown-item-disabled:hover {
+      background: transparent;
+    }
+
+    .act-dropdown-item-disabled .act-dropdown-icon {
+      color: #cbd6cf;
     }
 
     .act-dropdown-item-danger:hover .act-dropdown-icon {

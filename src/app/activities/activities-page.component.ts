@@ -1,5 +1,7 @@
-import { Component, computed, inject, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { Component, computed, effect, inject, signal } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { map } from 'rxjs';
 import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
 import { FiltersService, CATEGORY_COLORS, isAfterOrEqual, isBeforeOrEqual } from '../shared/filters.service';
 import { ToastService } from '../shared/toast.service';
@@ -212,7 +214,7 @@ function routeStatusLabel(status: string): string {
             </thead>
             <tbody>
               @for (activity of filteredActivities(); track activity.id) {
-                <tr class="activity-row" [class.clickable]="activity.hasRoute" [class.no-route]="!activity.hasRoute" (click)="navigateToActivity(activity)">
+                <tr class="activity-row" [class.clickable]="activity.hasRoute" [class.no-route]="!activity.hasRoute" [class.focus-highlight]="highlightActivityId() === activity.id" [attr.data-activity-id]="activity.id" (click)="navigateToActivity(activity)">
                   <td class="cell-date">{{ formatDate(activity.startDate) }}</td>
                   <td class="cell-name">{{ activity.name }}</td>
                   <td><span class="category-tag"><span class="cat-dot" [style.background]="CATEGORY_COLORS[activity.activityCategory]"></span>{{ formatSportType(activity.sportType) }}</span></td>
@@ -356,6 +358,16 @@ function routeStatusLabel(status: string): string {
 
     .activity-row:hover {
       background: #f4f9f6;
+    }
+
+    .focus-highlight {
+      animation: focus-pulse 3s ease-out;
+    }
+
+    @keyframes focus-pulse {
+      0%, 100% { background-color: transparent; box-shadow: inset 3px 0 0 0 transparent; }
+      15% { background-color: #d4edda; box-shadow: inset 3px 0 0 0 #1f6f50; }
+      85% { background-color: #d4edda; box-shadow: inset 3px 0 0 0 #1f6f50; }
     }
 
     .cell-date {
@@ -770,6 +782,13 @@ export class ActivitiesPageComponent {
   private readonly stravaSessionService = inject(StravaSessionService);
   private readonly routeNormalizer = inject(StravaRouteNormalizer);
   private readonly gpxExportService = inject(GpxExportService);
+  private readonly activatedRoute = inject(ActivatedRoute);
+
+  private readonly focusActivityId = toSignal(
+    this.activatedRoute.queryParamMap.pipe(map((params) => params.get('focusActivityId'))),
+    { initialValue: null },
+  );
+  protected readonly highlightActivityId = signal<string | null>(null);
 
   protected readonly status = signal<'loading' | 'empty' | 'loaded'>('loading');
   protected readonly activities = signal<ActivityRecord[] | null>(null);
@@ -853,6 +872,13 @@ export class ActivitiesPageComponent {
   constructor() {
     this.loadPage(1);
     globalThis.addEventListener('click', () => this.closeAllMenus());
+    effect(() => {
+      const focusId = this.focusActivityId();
+      const items = this.activities();
+      if (focusId && items && this.status() === 'loaded') {
+        setTimeout(() => this.handleFocusActivity(focusId), 100);
+      }
+    });
   }
 
   protected onPageSizeChange(size: number): void {
@@ -1025,6 +1051,24 @@ export class ActivitiesPageComponent {
     } catch {
       this.status.set('empty');
     }
+  }
+
+  private lastFocusedId: string | null = null;
+
+  private handleFocusActivity(focusId: string): void {
+    if (focusId === this.lastFocusedId) { return; }
+    this.lastFocusedId = focusId;
+    const all = this.allFiltered();
+    const idx = all.findIndex((a) => a.id === focusId);
+    if (idx < 0) { return; }
+    const page = Math.floor(idx / this.pageSize()) + 1;
+    this.currentPage.set(page);
+    this.highlightActivityId.set(focusId);
+    setTimeout(() => {
+      const row = document.querySelector(`[data-activity-id="${focusId}"]`);
+      row?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+    setTimeout(() => this.highlightActivityId.set(null), 3000);
   }
 }
 

@@ -3,6 +3,7 @@ import {
   Component,
   ElementRef,
   EventEmitter,
+  Input,
   NgZone,
   OnDestroy,
   Output,
@@ -37,6 +38,15 @@ import { RouteRendererService } from './route-renderer.service';
   `,
 })
 export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
+  @Input()
+  set fullscreenOverride(value: boolean) {
+    if (this.fullscreen() !== value) {
+      this.fullscreen.set(value);
+      this.fullscreenChanged.emit(value);
+      this.scheduleResize();
+    }
+  }
+
   @Output()
   readonly basemapLoadFailed = new EventEmitter<void>();
 
@@ -151,6 +161,12 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
       this.fullscreenChanged.emit(false);
       event.preventDefault();
     }
+  }
+
+  private scheduleResize(): void {
+    setTimeout(() => {
+      this.mapInstance?.resize();
+    }, 0);
   }
 
   private addMapControls(): void {

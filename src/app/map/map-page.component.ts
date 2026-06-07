@@ -18,6 +18,8 @@ import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.tok
 import { RouteRendererService } from './route-renderer.service';
 import { type ActivityCategory } from '../storage/storage.models';
 import { formatSportType, mapSportTypeToCategory } from '../strava/activity-category';
+import { ToastService } from '../shared/toast.service';
+import { GpxExportService } from '../shared/gpx-export.service';
 
 function formatDistance(meters: number | undefined): string {
   if (meters === undefined || meters === 0) { return '—'; }
@@ -169,14 +171,41 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
           </article>
         }
         <app-maplibre-map
+          [fullscreenOverride]="mapFullscreen()"
           (basemapLoadFailed)="showBasemapError()"
           (routeSelected)="selectRoute($event)"
           (fullscreenChanged)="mapFullscreen.set($event)"
         />
         @if (selectedRoute(); as route) {
-          <article class="route-detail" [class.route-detail-overlay]="mapFullscreen()" aria-label="Selected route details">
+          <article class="route-detail" [class.route-detail-overlay]="mapFullscreen()" [class.show-profile-hint]="showProfileHint()" aria-label="Selected route details">
             <div class="route-detail-header">
-              <h2 class="route-detail-title">{{ route.name }}</h2>
+              <h2 class="route-detail-title">
+                <a class="route-title-link" (click)="navigateToActivity(route.activity)" href="javascript:void(0)">
+                  {{ route.name }}
+                  <svg class="route-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </a>
+              </h2>
+              <div class="detail-menu-wrapper">
+                <button class="detail-menu-trigger" type="button" (click)="toggleDetailMenu($event)" aria-haspopup="menu" [attr.aria-expanded]="detailMenuOpen()">⋮</button>
+                @if (detailMenuOpen()) {
+                  <ul class="detail-dropdown" role="menu" (click)="$event.stopPropagation()">
+                    <li role="none">
+                      <button class="detail-dropdown-item" role="menuitem" (click)="downloadDetailGpx($event, route)">
+                        <svg class="detail-dropdown-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Download GPX
+                      </button>
+                    </li>
+                    @if (!mapFullscreen()) {
+                      <li role="none">
+                        <button class="detail-dropdown-item" role="menuitem" (click)="showProfile($event, route)">
+                          <svg class="detail-dropdown-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                          Show profile
+                        </button>
+                      </li>
+                    }
+                  </ul>
+                }
+              </div>
               <button class="detail-close" type="button" (click)="clearSelectedRoute()" aria-label="Clear selected route">
                 Close
               </button>
@@ -213,13 +242,15 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
               </div>
             </dl>
             @if (mapFullscreen()) {
-              <app-elevation-profile
-                [elevations]="route.route.elevations"
-                [cumulativeDistances]="route.route.cumulativeDistances"
-                [coordinates]="route.route.coordinates"
-                [totalDistanceMeters]="route.activity.distanceMeters"
-                (hoveredPosition)="onElevationHover($event)"
-              />
+              <div class="elevation-profile-wrap" [class.show-profile-hint-elevation]="showProfileHint()">
+                <app-elevation-profile
+                  [elevations]="route.route.elevations"
+                  [cumulativeDistances]="route.route.cumulativeDistances"
+                  [coordinates]="route.route.coordinates"
+                  [totalDistanceMeters]="route.activity.distanceMeters"
+                  (hoveredPosition)="onElevationHover($event)"
+                />
+              </div>
             }
           </article>
         }
@@ -281,6 +312,125 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+
+    .route-title-link {
+      align-items: center;
+      color: #14211b;
+      cursor: pointer;
+      display: inline-flex;
+      gap: 4px;
+      max-width: 100%;
+      overflow: hidden;
+      text-decoration: none;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .route-title-link:hover {
+      color: #1f6f50;
+      text-decoration: underline;
+    }
+
+    .route-title-icon {
+      color: #63746a;
+      flex-shrink: 0;
+    }
+
+    .route-title-link:hover .route-title-icon {
+      color: #1f6f50;
+    }
+
+    .detail-menu-wrapper {
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    .detail-menu-trigger {
+      align-items: center;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      color: #63746a;
+      cursor: pointer;
+      display: inline-flex;
+      font-size: 1.125rem;
+      font-weight: 700;
+      justify-content: center;
+      letter-spacing: 2px;
+      line-height: 1;
+      min-height: 28px;
+      min-width: 28px;
+      padding: 0;
+    }
+
+    .detail-menu-trigger:hover {
+      background: #eef5f0;
+      border-color: #dce6df;
+      color: #14211b;
+    }
+
+    .detail-dropdown {
+      background: #ffffff;
+      border: 1px solid #dce6df;
+      border-radius: 8px;
+      box-shadow: 0 4px 16px rgb(20 33 27 / 18%);
+      list-style: none;
+      min-width: 160px;
+      padding: 4px;
+      position: absolute;
+      right: 0;
+      top: 100%;
+      z-index: 1000;
+    }
+
+    .detail-dropdown-item {
+      align-items: center;
+      background: transparent;
+      border: 0;
+      border-radius: 6px;
+      color: #314b3f;
+      cursor: pointer;
+      display: flex;
+      font: inherit;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      gap: 10px;
+      min-height: 34px;
+      padding: 6px 10px;
+      text-align: left;
+      white-space: nowrap;
+      width: 100%;
+    }
+
+    .detail-dropdown-item:hover {
+      background: #eef5f0;
+    }
+
+    .detail-dropdown-icon {
+      color: #a0b4a6;
+      flex-shrink: 0;
+    }
+
+    .detail-dropdown-item:hover .detail-dropdown-icon {
+      color: #63746a;
+    }
+
+    .elevation-profile-wrap {
+      margin-top: 10px;
+    }
+
+    .show-profile-hint-elevation {
+      animation: hint-pulse 5s ease-out;
+      border: 2px solid #cf3a2a;
+      border-radius: 6px;
+      display: inline-block;
+      padding: 3px;
+    }
+
+    @keyframes hint-pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgb(207 58 42 / 60%); }
+      20% { box-shadow: 0 0 0 6px rgb(207 58 42 / 0%); }
     }
 
     .detail-close {
@@ -563,6 +713,8 @@ export class MapPage implements AfterViewInit {
   private readonly repositories = inject(TRAILROAM_REPOSITORIES);
   protected readonly filtersService = inject(FiltersService);
   private readonly routeRendererService = inject(RouteRendererService);
+  private readonly toastService = inject(ToastService);
+  private readonly gpxExportService = inject(GpxExportService);
 
   protected readonly CATEGORY_COLORS = CATEGORY_COLORS;
 
@@ -585,6 +737,8 @@ export class MapPage implements AfterViewInit {
   private readonly perfWarningDismissed = signal(false);
 
   protected readonly sportTypeFilter = signal<string | null>(null);
+  protected readonly detailMenuOpen = signal(false);
+  protected readonly showProfileHint = signal(false);
 
   protected readonly sportTypeGroups = computed<{ category: ActivityCategory; sportTypes: string[] }[]>(() => {
     const routes = this.allRoutes();
@@ -685,6 +839,7 @@ export class MapPage implements AfterViewInit {
 
   constructor() {
     this.loadRoutes();
+    globalThis.addEventListener('click', () => this.detailMenuOpen.set(false));
     effect(() => {
       this.filteredRoutes();
       this.renderRoutesOnMap();
@@ -801,6 +956,39 @@ export class MapPage implements AfterViewInit {
     if (c?.tabs?.create) {
       c.tabs.create({ url: 'https://www.strava.com/dashboard?trailroamSync=true' });
     }
+  }
+
+  protected toggleDetailMenu(event: MouseEvent): void {
+    event.stopPropagation();
+    this.detailMenuOpen.update((v) => !v);
+  }
+
+  protected async downloadDetailGpx(event: MouseEvent, route: MapRouteFeature): Promise<void> {
+    event.stopPropagation();
+    this.detailMenuOpen.set(false);
+    const result = await this.gpxExportService.exportActivity(route.activity);
+    if (!result.success) {
+      this.toastService.show(result.reason);
+    }
+  }
+
+  protected async showProfile(event: MouseEvent, route: MapRouteFeature): Promise<void> {
+    event.stopPropagation();
+    this.detailMenuOpen.set(false);
+    if (!this.mapFullscreen()) {
+      this.mapFullscreen.set(true);
+    }
+    const settings = await this.repositories.settings.getOrCreateDefault();
+    const hintCount = (settings as any).showProfileHintCount ?? 0;
+    if (hintCount < 5) {
+      this.showProfileHint.set(true);
+      await this.repositories.settings.put({ ...settings, showProfileHintCount: hintCount + 1 } as any);
+      setTimeout(() => this.showProfileHint.set(false), 5000);
+    }
+  }
+
+  protected navigateToActivity(activity: import('../storage/storage.models').ActivityRecord): void {
+    this.router.navigate(['/activities'], { queryParams: { focusActivityId: activity.id } });
   }
 
   protected openOnStrava(event: MouseEvent, activity: import('../storage/storage.models').ActivityRecord): void {

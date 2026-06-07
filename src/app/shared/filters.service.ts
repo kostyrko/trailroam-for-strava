@@ -45,6 +45,7 @@ export class FiltersService {
   readonly categoryFilter = signal<ActivityCategory | null>(null);
   readonly dateFrom = signal<string | null>(null);
   readonly dateTo = signal<string | null>(null);
+  readonly nameSearch = signal<string>('');
 
   setDateFrom(value: string): void {
     this.dateFrom.set(parseDateParam(value));
@@ -62,9 +63,18 @@ export class FiltersService {
     this.dateTo.set(null);
   }
 
+  setNameSearch(value: string): void {
+    this.nameSearch.set(value);
+  }
+
+  clearNameSearch(): void {
+    this.nameSearch.set('');
+  }
+
   clearAll(): void {
     this.categoryFilter.set(null);
     this.dateFrom.set(null);
     this.dateTo.set(null);
+    this.nameSearch.set('');
   }
 }

@@ -108,6 +108,21 @@ function routeStatusLabel(status: string): string {
         </article>
       } @else if (activities(); as items) {
         <div class="activities-filters">
+          <div class="filter-row filter-row-search">
+            <div class="filter-group search-group">
+              <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input
+                class="filter-input search-input"
+                type="text"
+                placeholder="Search activities…"
+                [value]="nameSearch()"
+                (input)="onNameSearchChange($any($event.target).value)"
+              />
+              @if (nameSearch()) {
+                <button class="filter-clear search-clear" type="button" (click)="onNameSearchChange('')">×</button>
+              }
+            </div>
+          </div>
           <div class="filter-row">
             <div class="filter-group">
               <span class="filter-label">Activity type</span>
@@ -704,6 +719,48 @@ function routeStatusLabel(status: string): string {
     .sport-type-label {
       margin-left: 24px;
     }
+
+    .filter-row-search {
+      margin-bottom: 10px;
+    }
+
+    .search-group {
+      flex: 1;
+      max-width: 360px;
+      position: relative;
+    }
+
+    .search-input {
+      padding-left: 34px;
+      width: 100%;
+    }
+
+    .search-icon {
+      color: #a0b4a6;
+      left: 10px;
+      pointer-events: none;
+      position: absolute;
+    }
+
+    .search-clear {
+      background: transparent;
+      border: 0;
+      border-radius: 50%;
+      color: #a0b4a6;
+      cursor: pointer;
+      font-size: 1.125rem;
+      font-weight: 700;
+      line-height: 1;
+      min-height: 24px;
+      min-width: 24px;
+      padding: 0;
+      position: absolute;
+      right: 6px;
+    }
+
+    .search-clear:hover {
+      color: #63746a;
+    }
   `],
 })
 export class ActivitiesPageComponent {
@@ -732,6 +789,7 @@ export class ActivitiesPageComponent {
   protected readonly sportTypeFilter = signal<string | null>(null);
   protected readonly dateFrom = this.filtersService.dateFrom;
   protected readonly dateTo = this.filtersService.dateTo;
+  protected readonly nameSearch = this.filtersService.nameSearch;
 
   protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.totalFilteredCount() / this.pageSize())));
 
@@ -759,6 +817,7 @@ export class ActivitiesPageComponent {
     const sportFilter = this.sportTypeFilter();
     const fromDate = this.dateFrom();
     const toDate = this.dateTo();
+    const search = this.nameSearch().toLowerCase().trim();
     const filtered = items.filter((a) => {
       if (sportFilter) {
         if (sportFilter.startsWith('__cat__')) {
@@ -770,6 +829,7 @@ export class ActivitiesPageComponent {
       }
       if (fromDate && a.startDate && !isAfterOrEqual(a.startDate, fromDate)) { return false; }
       if (toDate && a.startDate && !isBeforeOrEqual(a.startDate, toDate)) { return false; }
+      if (search && !a.name.toLowerCase().includes(search)) { return false; }
       return true;
     });
 
@@ -948,6 +1008,7 @@ export class ActivitiesPageComponent {
   protected formatSportType = formatSportType;
   protected onDateFromChange = this.filtersService.setDateFrom.bind(this.filtersService);
   protected onDateToChange = this.filtersService.setDateTo.bind(this.filtersService);
+  protected onNameSearchChange = this.filtersService.setNameSearch.bind(this.filtersService);
 
   private async loadPage(page: number): Promise<void> {
     this.status.set('loading');

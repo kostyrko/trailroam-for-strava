@@ -104,21 +104,6 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
     <section class="route-page" aria-labelledby="map-title">
 
       <div class="activities-toolbar map-toolbar">
-        <div class="search-field">
-          <svg class="search-field__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input
-            class="search-field__input"
-            type="text"
-            aria-label="Search activities"
-            placeholder="Search activities..."
-            [value]="filtersService.nameSearch()"
-            (input)="onNameSearchChange($any($event.target).value)"
-          />
-          @if (filtersService.nameSearch()) {
-            <button class="search-field__clear" type="button" (click)="onNameSearchChange('')" aria-label="Clear search">&times;</button>
-          }
-        </div>
-
         <div class="toolbar-select" tabindex="0" (click)="toggleFilterMenu()" (keydown.enter)="toggleFilterMenu()" (blur)="closeFilterMenu()" aria-label="Filter by activity type">
           <span class="toolbar-select__trigger">
             @if (sportTypeFilter(); as sel) {
@@ -189,47 +174,6 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
           </div>
         }
       </div>
-
-      @if (allRoutes().length > 0) {
-        <div class="stats-grid map-stats-grid">
-          <div class="stat-card">
-            <div class="stat-card__icon stat-card__icon--activities">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-            </div>
-            <div class="stat-card__body">
-              <span class="stat-card__value">{{ visibleRouteCount() }}</span>
-              <span class="stat-card__label">Routes</span>
-            </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-card__icon stat-card__icon--route">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            </div>
-            <div class="stat-card__body">
-              <span class="stat-card__value">{{ statDistance() }}</span>
-              <span class="stat-card__label">Total Distance</span>
-            </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-card__icon stat-card__icon--time">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            </div>
-            <div class="stat-card__body">
-              <span class="stat-card__value">{{ statMovingTime() }}</span>
-              <span class="stat-card__label">Total Time</span>
-            </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-card__icon stat-card__icon--speed">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-            </div>
-            <div class="stat-card__body">
-              <span class="stat-card__value">{{ statAvgSpeed() }}</span>
-              <span class="stat-card__label">Avg Speed</span>
-            </div>
-          </div>
-        </div>
-      }
 
       @if (!hasBasemapError()) {
         @if (!noRouteActivity() && !selectedRoute() && !selectedActivityId() && allRoutes().length === 0) {
@@ -603,56 +547,6 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
       margin-bottom: 16px;
     }
 
-    .search-field {
-      align-items: center;
-      background: #ffffff;
-      border: 1px solid #dce6df;
-      border-radius: 8px;
-      display: flex;
-      flex: 1;
-      min-width: 200px;
-      max-width: 340px;
-      min-height: 44px;
-      padding: 0 12px;
-      position: relative;
-    }
-
-    .search-field__icon {
-      color: #a0b4a6;
-      flex-shrink: 0;
-    }
-
-    .search-field__input {
-      border: 0;
-      color: #14211b;
-      font: inherit;
-      font-size: 0.875rem;
-      outline: none;
-      padding: 0 8px;
-      width: 100%;
-    }
-
-    .search-field__input::placeholder {
-      color: #a0b4a6;
-    }
-
-    .search-field__clear {
-      background: transparent;
-      border: 0;
-      color: #a0b4a6;
-      cursor: pointer;
-      font-size: 1.25rem;
-      font-weight: 700;
-      line-height: 1;
-      min-height: 24px;
-      min-width: 24px;
-      padding: 0;
-    }
-
-    .search-field__clear:hover {
-      color: #63746a;
-    }
-
     .toolbar-select {
       cursor: pointer;
       outline: none;
@@ -775,66 +669,6 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
       padding: 0 12px;
     }
 
-    .stats-grid {
-      display: grid;
-      gap: 12px;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      margin-bottom: 16px;
-    }
-
-    .stat-card {
-      align-items: center;
-      background: #ffffff;
-      border: 1px solid #dce6df;
-      border-radius: 12px;
-      display: flex;
-      gap: 14px;
-      min-height: 80px;
-      padding: 16px 20px;
-    }
-
-    .stat-card__icon {
-      align-items: center;
-      background: #e6f7ef;
-      border-radius: 50%;
-      color: #1f6f50;
-      display: flex;
-      height: 40px;
-      justify-content: center;
-      width: 40px;
-      flex-shrink: 0;
-    }
-
-    .stat-card__body {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      min-width: 0;
-    }
-
-    .stat-card__value {
-      color: #14211b;
-      font-size: 1.25rem;
-      font-weight: 700;
-      line-height: 1.2;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .stat-card__label {
-      color: #63746a;
-      font-size: 0.75rem;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      white-space: nowrap;
-    }
-
-    .map-stats-grid {
-      margin-top: 0;
-    }
-
     .notice-bar {
       align-items: center;
       border-bottom: 1px solid #d2b96d;
@@ -885,17 +719,7 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
       box-sizing: border-box;
     }
 
-    @media (max-width: 900px) {
-      .stats-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-    }
-
-    @media (max-width: 640px) {
-      .stats-grid {
-        grid-template-columns: minmax(0, 1fr);
-      }
-    }`],
+    `],
 })
 export class MapPage implements AfterViewInit {
   private readonly route = inject(ActivatedRoute);
@@ -1137,6 +961,12 @@ export class MapPage implements AfterViewInit {
       }
 
       this.allRoutes.set(routes);
+
+      const totalPoints = routes.reduce((sum, r) => sum + r.coordinates.length, 0);
+      if (totalPoints > POINTS_WARN_THRESHOLD / 2) {
+        this.applyDatePreset('year');
+      }
+
       this.renderRoutesOnMap();
     } catch {
     }

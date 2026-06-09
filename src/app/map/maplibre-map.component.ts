@@ -89,9 +89,11 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
 
     map.on('load', () => this.addMapControls());
 
-    map.once('error', (err) => {
-      console.error('MapLibre runtime error:', err);
-      this.emitBasemapLoadFailed();
+    map.on('error', (err) => {
+      if (err?.error?.status === 404 || err?.error?.status === 403 || err?.error?.status === 500) {
+        console.error('MapLibre runtime error:', err);
+        this.emitBasemapLoadFailed();
+      }
     });
 
     this.routeRendererService.init(map);

@@ -138,17 +138,20 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
 
   private cachedRoutes: MapRouteFeature[] = [];
 
+  private flushCachedRoutes(): void {
+    if (this.cachedRoutes.length === 0) { return; }
+    const map = this.mapInstance;
+    if (!map || !map.isStyleLoaded()) { return; }
+    if (map.getSource('routes')) {
+      this.rerenderRoutes();
+    } else {
+      this.routeRendererService.renderRoutes(this.cachedRoutes, (route) => this.routeSelected.emit(route));
+    }
+  }
+
   renderRouteFeatures(routes: MapRouteFeature[], selectedId?: string): void {
     this.cachedRoutes = routes;
-    const map = this.mapInstance;
-    if (!map) { return; }
-    if (!map.isStyleLoaded()) {
-      if (this.pendingReadyTasks) {
-        this.pendingReadyTasks.push(() => this.renderRouteFeatures(routes, selectedId));
-      }
-      return;
-    }
-    if (map.getSource('routes')) {
+    if (this.mapInstance?.getSource('routes')) {
       this.rerenderRoutes();
     } else {
       this.routeRendererService.renderRoutes(routes, (route) => this.routeSelected.emit(route));
@@ -200,6 +203,7 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
           t();
         }
       }
+      this.flushCachedRoutes();
     };
 
     if (map.isStyleLoaded()) {

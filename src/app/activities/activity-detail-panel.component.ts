@@ -7,6 +7,9 @@ import { MapLibreService } from '../map/maplibre.service';
 import type { BasemapProviderConfig } from '../map/basemap-provider';
 import { GpxExportService } from '../shared/gpx-export.service';
 import { ToastService } from '../shared/toast.service';
+import { ConfirmService } from '../shared/confirm.service';
+import { DataRefreshService } from '../shared/data-refresh.service';
+import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
 import { type ActivityRecord, type ActivityRouteRecord } from '../storage/storage.models';
 import { formatSportType } from '../strava/activity-category';
 
@@ -126,8 +129,29 @@ const SPEED_COLORS = [
           }
 
           <div class="panel-header">
-            <div class="panel-title-area">
-              <h2 class="panel-title">{{ activity()!.name }}</h2>
+            <div class="panel-header-main">
+              <div class="panel-title-row">
+                <h2 class="panel-title">{{ activity()!.name }}</h2>
+                <div class="panel-menu-wrapper">
+                  <button class="panel-menu-trigger" type="button" (click)="toggleMenu($event)" aria-label="Activity actions">&#8942;</button>
+                  @if (menuOpen()) {
+                    <ul class="panel-menu-dropdown" role="menu" (click)="$event.stopPropagation()">
+                      <li role="none">
+                        <button class="panel-menu-item" role="menuitem" (click)="openInStrava($event)">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                          Strava
+                        </button>
+                      </li>
+                      <li role="none">
+                        <button class="panel-menu-item panel-menu-item--danger" role="menuitem" (click)="deleteActivity($event)">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                          Delete
+                        </button>
+                      </li>
+                    </ul>
+                  }
+                </div>
+              </div>
               <p class="panel-date">{{ formatDate(activity()!.startDate) }}</p>
             </div>
             <button class="panel-close" type="button" (click)="closePanel()" aria-label="Close activity details">&times;</button>
@@ -382,14 +406,18 @@ const SPEED_COLORS = [
       flex-shrink: 0;
     }
     .panel-header {
-      align-items: flex-start;
       display: flex;
       gap: 12px;
       padding: 0 16px;
     }
-    .panel-title-area {
+    .panel-header-main {
       flex: 1;
       min-width: 0;
+    }
+    .panel-title-row {
+      align-items: center;
+      display: flex;
+      gap: 6px;
     }
     .panel-title {
       font-size: 1rem;
@@ -423,6 +451,67 @@ const SPEED_COLORS = [
     .panel-close:hover {
       background: #eef5f0;
       color: #14211b;
+    }
+    .panel-menu-wrapper {
+      position: relative;
+    }
+    .panel-menu-trigger {
+      align-items: center;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      color: #63746a;
+      cursor: pointer;
+      display: inline-flex;
+      font-size: 1.1rem;
+      font-weight: 700;
+      justify-content: center;
+      letter-spacing: 2px;
+      line-height: 1;
+      min-height: 32px;
+      min-width: 32px;
+      padding: 0;
+    }
+    .panel-menu-trigger:hover {
+      background: #eef5f0;
+      color: #14211b;
+    }
+    .panel-menu-dropdown {
+      background: #ffffff;
+      border: 1px solid #dce6df;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgb(0 0 0 / 10%);
+      list-style: none;
+      margin: 0;
+      padding: 4px;
+      position: absolute;
+      right: 0;
+      top: 100%;
+      z-index: 200;
+      min-width: 140px;
+    }
+    .panel-menu-item {
+      align-items: center;
+      background: transparent;
+      border: none;
+      border-radius: 6px;
+      color: #14211b;
+      cursor: pointer;
+      display: flex;
+      font: inherit;
+      font-size: 0.8125rem;
+      gap: 8px;
+      padding: 8px 12px;
+      width: 100%;
+    }
+    .panel-menu-item:hover {
+      background: #eef5f0;
+    }
+    .panel-menu-item--danger {
+      color: #b8433a;
+    }
+    .panel-menu-item--danger:hover {
+      background: #fdf0ef;
     }
     .panel-metrics {
       display: grid;
@@ -558,6 +647,9 @@ export class ActivityDetailPanelComponent {
   private readonly mapLibreService = inject(MapLibreService);
   private readonly gpxExportService = inject(GpxExportService);
   private readonly toastService = inject(ToastService);
+  private readonly confirmService = inject(ConfirmService);
+  private readonly repositories = inject(TRAILROAM_REPOSITORIES);
+  private readonly dataRefresh = inject(DataRefreshService);
 
   readonly activity = input<ActivityRecord | null>(null);
   readonly route = input<ActivityRouteRecord | null>(null);
@@ -568,6 +660,7 @@ export class ActivityDetailPanelComponent {
   protected readonly panelVisible = signal(false);
   protected readonly panelExpanded = signal(false);
   protected readonly layerMenuOpen = signal(false);
+  protected readonly menuOpen = signal(false);
   protected readonly activeLayerId = signal('openfreemap');
   protected readonly AVAILABLE_PROVIDERS = AVAILABLE_PROVIDERS;
 
@@ -610,7 +703,10 @@ export class ActivityDetailPanelComponent {
       setTimeout(() => this.panelVisible.set(true), 10);
       this.initMap();
     });
-    globalThis.addEventListener('click', () => this.layerMenuOpen.set(false));
+    globalThis.addEventListener('click', () => {
+      this.layerMenuOpen.set(false);
+      this.menuOpen.set(false);
+    });
 
     effect(() => {
       const a = this.activity();
@@ -847,6 +943,42 @@ export class ActivityDetailPanelComponent {
     const a = this.activity();
     if (!a) { return; }
     this.router.navigate(['/map'], { queryParams: { activityId: a.id } });
+  }
+
+  protected toggleMenu(event: MouseEvent): void {
+    event.stopPropagation();
+    this.menuOpen.update((v) => !v);
+  }
+
+  protected openInStrava(event: MouseEvent): void {
+    event.stopPropagation();
+    this.menuOpen.set(false);
+    const a = this.activity();
+    if (!a || !a.providerActivityId) { return; }
+    const c = (globalThis as any).chrome;
+    if (c?.tabs?.create) {
+      c.tabs.create({ url: `https://www.strava.com/activities/${a.providerActivityId}` });
+    } else {
+      window.open(`https://www.strava.com/activities/${a.providerActivityId}`, '_blank');
+    }
+  }
+
+  protected async deleteActivity(event: MouseEvent): Promise<void> {
+    event.stopPropagation();
+    this.menuOpen.set(false);
+    const a = this.activity();
+    if (!a) { return; }
+    const confirmed = await this.confirmService.confirm({
+      title: 'Delete activity',
+      message: `Remove "${a.name}" and its route from the local database?`,
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!confirmed) { return; }
+    await this.repositories.activities.delete(a.id);
+    await this.repositories.activityRoutes.delete(a.id);
+    this.dataRefresh.emitRefresh();
+    this.closePanel();
   }
 
   protected closePanel(): void {

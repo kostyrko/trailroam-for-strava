@@ -56,6 +56,7 @@ const PLOT_HEIGHT = CHART_HEIGHT - PADDING_TOP - PADDING_BOTTOM;
     .elevation-svg {
       aspect-ratio: 280 / 120;
       display: block;
+      overflow: visible;
       width: 100%;
     }
   `],

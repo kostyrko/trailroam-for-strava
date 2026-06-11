@@ -22,6 +22,7 @@ import { StravaSessionService } from '../strava/strava-session.service';
 import { StravaRouteNormalizer } from '../strava/strava-route-normalizer';
 import { LoadingSpinnerComponent } from '../shared/loading-spinner.component';
 import { RouteSparklineComponent } from './route-sparkline.component';
+import { ActivityDetailPanelComponent } from './activity-detail-panel.component';
 import { type ActivityCategory, type ActivityRecord, type ActivityRouteRecord } from '../storage/storage.models';
 import { formatSportType, mapSportTypeToCategory } from '../strava/activity-category';
 
@@ -120,7 +121,7 @@ function routeStatusLabel(status: string): string {
 
 @Component({
   selector: 'app-activities-page',
-  imports: [LoadingSpinnerComponent, RouteSparklineComponent],
+  imports: [LoadingSpinnerComponent, RouteSparklineComponent, ActivityDetailPanelComponent],
   template: `
     <section class="route-page" aria-labelledby="activities-title" [class.route-page--empty]="status() === 'empty'">
 
@@ -477,6 +478,13 @@ function routeStatusLabel(status: string): string {
           }
         }
 
+      }
+      @if (selectedActivity(); as selActivity) {
+        <app-activity-detail-panel
+          [activity]="selActivity"
+          [route]="selectedRoute()"
+          (close)="clearSelectedActivity()"
+        />
       }
     </section>
   `,
@@ -1431,6 +1439,8 @@ export class ActivitiesPageComponent {
   protected readonly showLocalNotice = signal(true);
   private readonly routesCache = new Map<string, [number, number][]>();
   protected readonly routesCacheFilled = signal(false);
+  protected readonly selectedActivity = signal<ActivityRecord | null>(null);
+  protected readonly selectedRoute = signal<ActivityRouteRecord | null>(null);
 
   private async initLocalNotice(): Promise<void> {
     const settings = await this.repositories.settings.get();
@@ -1790,9 +1800,19 @@ export class ActivitiesPageComponent {
   }
 
   protected navigateToActivity(activity: ActivityRecord): void {
+    this.selectedActivity.set(activity);
     if (activity.hasRoute) {
-      this.router.navigate(['/map'], { queryParams: { activityId: activity.id } });
+      this.repositories.activityRoutes.get(activity.id).then((route) => {
+        this.selectedRoute.set(route ?? null);
+      });
+    } else {
+      this.selectedRoute.set(null);
     }
+  }
+
+  protected clearSelectedActivity(): void {
+    this.selectedActivity.set(null);
+    this.selectedRoute.set(null);
   }
 
   protected navigateToMap(event: MouseEvent, activity: ActivityRecord): void {

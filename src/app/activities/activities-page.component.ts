@@ -681,9 +681,8 @@ function routeStatusLabel(status: string): string {
 
     .custom-date-fields {
       align-items: center;
-      display: flex;
+      display: inline-flex;
       gap: 10px;
-      width: 100%;
     }
 
     .custom-date-field {

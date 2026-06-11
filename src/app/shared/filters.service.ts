@@ -50,6 +50,8 @@ export class FiltersService {
   readonly dateTo = signal<string | null>(null);
   readonly nameSearch = signal<string>('');
   readonly datePreset = signal<DatePreset>('all');
+  /** set to true the first time the user explicitly interacts with any filter */
+  userInteracted = false;
   readonly datePresetLabel = computed(() => {
     const p = this.datePreset();
     switch (p) {
@@ -64,34 +66,42 @@ export class FiltersService {
 
   setDateFrom(value: string): void {
     this.dateFrom.set(parseDateParam(value));
+    this.userInteracted = true;
   }
 
   setDateTo(value: string): void {
     this.dateTo.set(parseDateParam(value));
+    this.userInteracted = true;
   }
 
   clearDateFrom(): void {
     this.dateFrom.set(null);
+    this.userInteracted = true;
   }
 
   clearDateTo(): void {
     this.dateTo.set(null);
+    this.userInteracted = true;
   }
 
   setNameSearch(value: string): void {
     this.nameSearch.set(value);
+    this.userInteracted = true;
   }
 
   clearNameSearch(): void {
     this.nameSearch.set('');
+    this.userInteracted = true;
   }
 
   setSportTypeFilter(value: string): void {
     this.sportTypeFilter.set(value === '' ? null : value);
+    this.userInteracted = true;
   }
 
   setDatePreset(value: DatePreset): void {
     this.datePreset.set(value);
+    this.userInteracted = true;
   }
 
   clearAll(): void {
@@ -101,5 +111,6 @@ export class FiltersService {
     this.dateTo.set(null);
     this.nameSearch.set('');
     this.datePreset.set('all');
+    this.userInteracted = true;
   }
 }

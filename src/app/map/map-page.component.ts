@@ -108,51 +108,53 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
 
       @if (!hasBasemapError()) {
         <div class="map-filters-overlay">
-          <div class="toolbar-select" tabindex="0" (click)="toggleFilterMenu()" (keydown.enter)="toggleFilterMenu()" (blur)="closeFilterMenu()" aria-label="Filter by activity type">
-            <span class="toolbar-select__trigger">
-              @if (sportTypeFilter(); as sel) {
-                @if (sel.startsWith('__cat__')) {
-                  <span class="cat-dot" [style.background]="CATEGORY_COLORS[sel.slice(7)]"></span>{{ formatCategory(sel.slice(7)) }}
-                } @else {
-                  <span class="cat-dot" [style.background]="CATEGORY_COLORS[mapSportTypeToCategory(sel)]"></span>{{ formatSportType(sel) }}
-                }
-              } @else {
-                All Activities
-              }
-              <svg class="toolbar-select__arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-            </span>
-            @if (filterMenuOpen()) {
-              <ul class="toolbar-select__options sport-type-filter" (mousedown)="$event.preventDefault()">
-                <li role="option" (click)="onSportTypeChange('')" [class.active]="!sportTypeFilter()">All Activities</li>
-                @for (group of sportTypeGroups(); track group.category) {
-                  <li class="sport-type-group-header" role="option" (click)="onCategoryFilterChange(group.category)" [class.active]="sportTypeFilter() === '__cat__' + group.category">
-                    <span class="cat-dot" [style.background]="CATEGORY_COLORS[group.category]"></span>{{ formatCategory(group.category) }}
-                  </li>
-                  @for (st of group.sportTypes; track st) {
-                    <li class="sport-type-option" role="option" (click)="onSportTypeChange(st)" [class.active]="sportTypeFilter() === st">
-                      <span class="sport-type-label">{{ formatSportType(st) }}</span>
-                    </li>
+          <div class="map-filters-row">
+            <div class="toolbar-select" tabindex="0" (click)="toggleFilterMenu()" (keydown.enter)="toggleFilterMenu()" (blur)="closeFilterMenu()" aria-label="Filter by activity type">
+              <span class="toolbar-select__trigger">
+                @if (sportTypeFilter(); as sel) {
+                  @if (sel.startsWith('__cat__')) {
+                    <span class="cat-dot" [style.background]="CATEGORY_COLORS[sel.slice(7)]"></span>{{ formatCategory(sel.slice(7)) }}
+                  } @else {
+                    <span class="cat-dot" [style.background]="CATEGORY_COLORS[mapSportTypeToCategory(sel)]"></span>{{ formatSportType(sel) }}
                   }
+                } @else {
+                  All Activities
                 }
-              </ul>
-            }
-          </div>
+                <svg class="toolbar-select__arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </span>
+              @if (filterMenuOpen()) {
+                <ul class="toolbar-select__options sport-type-filter" (mousedown)="$event.preventDefault()">
+                  <li role="option" (click)="onSportTypeChange('')" [class.active]="!sportTypeFilter()">All Activities</li>
+                  @for (group of sportTypeGroups(); track group.category) {
+                    <li class="sport-type-group-header" role="option" (click)="onCategoryFilterChange(group.category)" [class.active]="sportTypeFilter() === '__cat__' + group.category">
+                      <span class="cat-dot" [style.background]="CATEGORY_COLORS[group.category]"></span>{{ formatCategory(group.category) }}
+                    </li>
+                    @for (st of group.sportTypes; track st) {
+                      <li class="sport-type-option" role="option" (click)="onSportTypeChange(st)" [class.active]="sportTypeFilter() === st">
+                        <span class="sport-type-label">{{ formatSportType(st) }}</span>
+                      </li>
+                    }
+                  }
+                </ul>
+              }
+            </div>
 
-          <div class="toolbar-select" tabindex="0" (click)="datePresetOpen.set(!datePresetOpen())" (keydown.enter)="datePresetOpen.set(!datePresetOpen())" (blur)="datePresetOpen.set(false)" aria-label="Filter by date range">
-            <span class="toolbar-select__trigger">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-              {{ datePresetLabel() }}
-              <svg class="toolbar-select__arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-            </span>
-            @if (datePresetOpen()) {
-              <ul class="toolbar-select__options" (mousedown)="$event.preventDefault()">
-                <li role="option" (click)="applyDatePreset('all')" [class.active]="datePreset() === 'all'">All dates</li>
-                <li role="option" (click)="applyDatePreset('7d')" [class.active]="datePreset() === '7d'">Last 7 days</li>
-                <li role="option" (click)="applyDatePreset('30d')" [class.active]="datePreset() === '30d'">Last 30 days</li>
-                <li role="option" (click)="applyDatePreset('year')" [class.active]="datePreset() === 'year'">This year</li>
-                <li role="option" (click)="applyDatePreset('custom')" [class.active]="datePreset() === 'custom'">Custom range</li>
-              </ul>
-            }
+            <div class="toolbar-select" tabindex="0" (click)="datePresetOpen.set(!datePresetOpen())" (keydown.enter)="datePresetOpen.set(!datePresetOpen())" (blur)="datePresetOpen.set(false)" aria-label="Filter by date range">
+              <span class="toolbar-select__trigger">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                {{ datePresetLabel() }}
+                <svg class="toolbar-select__arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </span>
+              @if (datePresetOpen()) {
+                <ul class="toolbar-select__options" (mousedown)="$event.preventDefault()">
+                  <li role="option" (click)="applyDatePreset('all')" [class.active]="datePreset() === 'all'">All dates</li>
+                  <li role="option" (click)="applyDatePreset('7d')" [class.active]="datePreset() === '7d'">Last 7 days</li>
+                  <li role="option" (click)="applyDatePreset('30d')" [class.active]="datePreset() === '30d'">Last 30 days</li>
+                  <li role="option" (click)="applyDatePreset('year')" [class.active]="datePreset() === 'year'">This year</li>
+                  <li role="option" (click)="applyDatePreset('custom')" [class.active]="datePreset() === 'custom'">Custom range</li>
+                </ul>
+              }
+            </div>
           </div>
 
           @if (datePreset() === 'custom') {
@@ -623,7 +625,9 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
       align-items: center;
       display: flex;
       gap: 10px;
-      width: 100%;
+      justify-content: center;
+      margin-left: -60px;
+      pointer-events: auto;
     }
 
     .custom-date-field {
@@ -633,9 +637,14 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
     }
 
     .custom-date-label {
-      color: #63746a;
-      font-size: 0.8125rem;
+      background: #ffffff;
+      border: 1px solid #dce6df;
+      border-radius: 8px;
+      color: #1f6f50;
+      font-size: 0.75rem;
       font-weight: 700;
+      padding: 4px 8px;
+      text-transform: uppercase;
     }
 
     .custom-date-input {
@@ -740,9 +749,8 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
     .map-filters-overlay {
       align-items: center;
       display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      justify-content: center;
+      flex-direction: column;
+      gap: 6px;
       left: 0;
       padding: 10px 14px;
       pointer-events: none;
@@ -752,8 +760,15 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
       z-index: 100;
     }
 
-    .map-filters-overlay .toolbar-select,
-    .map-filters-overlay .custom-date-fields {
+    .map-filters-row {
+      align-items: center;
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      pointer-events: auto;
+    }
+
+    .map-filters-overlay .toolbar-select {
       pointer-events: auto;
     }
 
@@ -1056,13 +1071,12 @@ export class MapPage implements AfterViewInit {
       this.allRoutes.set(routes);
 
       const totalPoints = routes.reduce((sum, r) => sum + r.coordinates.length, 0);
-      if (totalPoints > POINTS_WARN_THRESHOLD / 2 && this.filtersService.datePreset() === 'all') {
+      if (totalPoints > POINTS_WARN_THRESHOLD / 2 && this.filtersService.datePreset() === 'all' && !this.filtersService.userInteracted) {
         this.applyDatePreset('year');
       }
-
-      this.renderRoutesOnMap();
     } catch {
     } finally {
+      this.renderRoutesOnMap();
       this.routesLoading.set(false);
     }
   }

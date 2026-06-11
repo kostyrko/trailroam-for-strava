@@ -15,7 +15,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { map } from 'rxjs';
 import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
-import { FiltersService, CATEGORY_COLORS, isAfterOrEqual, isBeforeOrEqual } from '../shared/filters.service';
+import { FiltersService, CATEGORY_COLORS, isAfterOrEqual, isBeforeOrEqual, type DatePreset } from '../shared/filters.service';
 import { ToastService } from '../shared/toast.service';
 import { DataRefreshService } from '../shared/data-refresh.service';
 import { ConfirmService } from '../shared/confirm.service';
@@ -1435,7 +1435,6 @@ export class ActivitiesPageComponent {
   protected readonly sortDirection = signal<-1 | 1>(-1);
   protected readonly filterMenuOpen = signal(false);
   protected readonly datePresetOpen = signal(false);
-  protected readonly datePreset = signal<'all' | '7d' | '30d' | 'year' | 'custom'>('all');
   protected readonly pageSizeMenuOpen = signal(false);
   protected readonly openMenuId = signal<string | null>(null);
   protected readonly selectedIds = signal<Set<string>>(new Set());
@@ -1462,8 +1461,8 @@ export class ActivitiesPageComponent {
 
   private readonly filtersService = inject(FiltersService);
 
-  protected applyDatePreset(preset: 'all' | '7d' | '30d' | 'year' | 'custom'): void {
-    this.datePreset.set(preset);
+  protected applyDatePreset(preset: DatePreset): void {
+    this.filtersService.setDatePreset(preset);
     this.datePresetOpen.set(false);
     if (preset === 'all') {
       this.filtersService.setDateFrom('');
@@ -1492,10 +1491,12 @@ export class ActivitiesPageComponent {
     this.filtersService.setDateTo(toStr);
     this.clearSelection();
   }
-  protected readonly sportTypeFilter = signal<string | null>(null);
+  protected readonly sportTypeFilter = this.filtersService.sportTypeFilter;
+  protected readonly datePreset = this.filtersService.datePreset;
   protected readonly dateFrom = this.filtersService.dateFrom;
   protected readonly dateTo = this.filtersService.dateTo;
   protected readonly nameSearch = this.filtersService.nameSearch;
+  protected readonly datePresetLabel = this.filtersService.datePresetLabel;
 
   protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.totalFilteredCount() / this.pageSize())));
 
@@ -1580,17 +1581,6 @@ export class ActivitiesPageComponent {
     if (!page || page.length === 0) { return false; }
     const ids = this.selectedIds();
     return page.every((a) => ids.has(a.id));
-  });
-
-  protected readonly datePresetLabel = computed(() => {
-    const p = this.datePreset();
-    switch (p) {
-      case 'all': return 'All dates';
-      case '7d': return 'Last 7 days';
-      case '30d': return 'Last 30 days';
-      case 'year': return 'This year';
-      case 'custom': return 'Custom range';
-    }
   });
 
   protected readonly statCount = computed(() => {
@@ -1753,13 +1743,13 @@ export class ActivitiesPageComponent {
   }
 
   protected onSportTypeChange(value: string): void {
-    this.sportTypeFilter.set(value === '' ? null : value);
+    this.filtersService.setSportTypeFilter(value);
     this.filterMenuOpen.set(false);
     this.clearSelection();
   }
 
   protected onCategoryFilterChange(category: ActivityCategory): void {
-    this.sportTypeFilter.set('__cat__' + category);
+    this.filtersService.setSportTypeFilter('__cat__' + category);
     this.filterMenuOpen.set(false);
     this.clearSelection();
   }

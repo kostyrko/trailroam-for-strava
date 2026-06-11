@@ -1,4 +1,4 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, computed, signal } from '@angular/core';
 import type { ActivityCategory } from '../storage/storage.models';
 
 export const ACTIVITY_CATEGORIES: ActivityCategory[] = [
@@ -30,6 +30,8 @@ function parseDateParam(value: string | undefined | null): string | null {
   return d.toISOString();
 }
 
+export type DatePreset = 'all' | '7d' | '30d' | 'year' | 'custom';
+
 export function isAfterOrEqual(isoDate: string, isoBound: string): boolean {
   return new Date(isoDate).getTime() >= new Date(isoBound).getTime();
 }
@@ -43,9 +45,22 @@ export function isBeforeOrEqual(isoDate: string, isoBound: string): boolean {
 })
 export class FiltersService {
   readonly categoryFilter = signal<ActivityCategory | null>(null);
+  readonly sportTypeFilter = signal<string | null>(null);
   readonly dateFrom = signal<string | null>(null);
   readonly dateTo = signal<string | null>(null);
   readonly nameSearch = signal<string>('');
+  readonly datePreset = signal<DatePreset>('all');
+  readonly datePresetLabel = computed(() => {
+    const p = this.datePreset();
+    switch (p) {
+      case 'all': return 'All dates';
+      case '7d': return 'Last 7 days';
+      case '30d': return 'Last 30 days';
+      case 'year': return 'This year';
+      case 'custom': return 'Custom range';
+      default: return 'All dates';
+    }
+  });
 
   setDateFrom(value: string): void {
     this.dateFrom.set(parseDateParam(value));
@@ -71,10 +86,20 @@ export class FiltersService {
     this.nameSearch.set('');
   }
 
+  setSportTypeFilter(value: string): void {
+    this.sportTypeFilter.set(value === '' ? null : value);
+  }
+
+  setDatePreset(value: DatePreset): void {
+    this.datePreset.set(value);
+  }
+
   clearAll(): void {
     this.categoryFilter.set(null);
+    this.sportTypeFilter.set(null);
     this.dateFrom.set(null);
     this.dateTo.set(null);
     this.nameSearch.set('');
+    this.datePreset.set('all');
   }
 }

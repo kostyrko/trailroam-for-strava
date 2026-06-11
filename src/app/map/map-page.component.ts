@@ -15,7 +15,7 @@ import { MapLibreMapComponent } from './maplibre-map.component';
 import { ElevationProfileComponent } from './elevation-profile.component';
 import { LoadingSpinnerComponent } from '../shared/loading-spinner.component';
 import { type MapRouteFeature } from './mock-routes';
-import { FiltersService, CATEGORY_COLORS, isAfterOrEqual, isBeforeOrEqual } from '../shared/filters.service';
+import { FiltersService, CATEGORY_COLORS, isAfterOrEqual, isBeforeOrEqual, type DatePreset } from '../shared/filters.service';
 import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
 import { RouteRendererService } from './route-renderer.service';
 import { type ActivityCategory } from '../storage/storage.models';
@@ -850,24 +850,14 @@ export class MapPage implements AfterViewInit {
     this.mapEmptyDismissed.set(true);
   }
 
-  protected readonly sportTypeFilter = signal<string | null>(null);
+  protected readonly sportTypeFilter = this.filtersService.sportTypeFilter;
   protected readonly detailMenuOpen = signal(false);
-  protected readonly datePreset = signal<'all' | '7d' | '30d' | 'year' | 'custom'>('all');
+  protected readonly datePreset = this.filtersService.datePreset;
+  protected readonly datePresetLabel = this.filtersService.datePresetLabel;
   protected readonly datePresetOpen = signal(false);
 
-  protected readonly datePresetLabel = computed(() => {
-    const p = this.datePreset();
-    switch (p) {
-      case 'all': return 'All dates';
-      case '7d': return 'Last 7 days';
-      case '30d': return 'Last 30 days';
-      case 'year': return 'This year';
-      case 'custom': return 'Custom range';
-    }
-  });
-
-  protected applyDatePreset(preset: 'all' | '7d' | '30d' | 'year' | 'custom'): void {
-    this.datePreset.set(preset);
+  protected applyDatePreset(preset: DatePreset): void {
+    this.filtersService.setDatePreset(preset);
     this.datePresetOpen.set(false);
     if (preset === 'all') {
       this.filtersService.setDateFrom('');
@@ -992,12 +982,12 @@ export class MapPage implements AfterViewInit {
   });
 
   protected onSportTypeChange(value: string): void {
-    this.sportTypeFilter.set(value === '' ? null : value);
+    this.filtersService.setSportTypeFilter(value);
     this.filterMenuOpen.set(false);
   }
 
   protected onCategoryFilterChange(category: ActivityCategory): void {
-    this.sportTypeFilter.set('__cat__' + category);
+    this.filtersService.setSportTypeFilter('__cat__' + category);
     this.filterMenuOpen.set(false);
   }
 
@@ -1066,7 +1056,7 @@ export class MapPage implements AfterViewInit {
       this.allRoutes.set(routes);
 
       const totalPoints = routes.reduce((sum, r) => sum + r.coordinates.length, 0);
-      if (totalPoints > POINTS_WARN_THRESHOLD / 2) {
+      if (totalPoints > POINTS_WARN_THRESHOLD / 2 && this.filtersService.datePreset() === 'all') {
         this.applyDatePreset('year');
       }
 

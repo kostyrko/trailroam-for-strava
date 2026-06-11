@@ -48,6 +48,7 @@ export class App {
     this.loadSyncSummary();
     this.loadLastSyncLabel();
     this.listenForMessages();
+    globalThis.addEventListener('click', () => this.closeSyncMenu());
   }
 
   private async loadLastSyncLabel(): Promise<void> {

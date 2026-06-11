@@ -271,7 +271,8 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
                 </dd>
               </div>
             </dl>
-            <div class="elevation-profile-wrap">
+            @if (route.route.elevations && route.route.elevations.length > 0) {
+              <div class="elevation-profile-wrap">
                 <app-elevation-profile
                   [elevations]="route.route.elevations"
                   [cumulativeDistances]="route.route.cumulativeDistances"
@@ -280,6 +281,7 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
                   (hoveredPosition)="onElevationHover($event)"
                 />
               </div>
+            }
           </article>
         }
       }

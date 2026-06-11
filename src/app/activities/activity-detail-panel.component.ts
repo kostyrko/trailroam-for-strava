@@ -62,8 +62,8 @@ const SPEED_COLORS = [
   selector: 'app-activity-detail-panel',
   imports: [ElevationProfileComponent],
   template: `
-    <div class="panel-backdrop" (click)="closePanel()"></div>
-    <aside class="detail-panel" [class.panel-expanded]="panelExpanded()" role="complementary" aria-label="Selected activity details" [class.panel-open]="true">
+    <div class="panel-backdrop" [class.backdrop-visible]="panelVisible()" (click)="closePanel()"></div>
+    <aside class="detail-panel" [class.panel-expanded]="panelExpanded()" [class.panel-visible]="panelVisible()" role="complementary" aria-label="Selected activity details">
       @if (!activity()) {
         <div class="panel-empty">
           <p>Select an activity to view its route and details.</p>
@@ -211,8 +211,13 @@ const SPEED_COLORS = [
     .panel-backdrop {
       background: rgb(20 33 27 / 30%);
       inset: 0;
+      opacity: 0;
       position: fixed;
+      transition: opacity 0.25s ease;
       z-index: 100;
+    }
+    .panel-backdrop.backdrop-visible {
+      opacity: 1;
     }
     .detail-panel {
       background: #ffffff;
@@ -225,9 +230,13 @@ const SPEED_COLORS = [
       position: fixed;
       right: 0;
       top: 0;
+      transform: translateX(100%);
+      transition: transform 0.25s ease, width 0.2s ease;
       width: 520px;
       z-index: 110;
-      transition: width 0.2s ease;
+    }
+    .detail-panel.panel-visible {
+      transform: translateX(0);
     }
     .detail-panel.panel-expanded {
       width: 842px;
@@ -554,6 +563,7 @@ export class ActivityDetailPanelComponent {
 
   protected readonly routeLoading = signal(false);
   protected readonly speedLegend = signal(false);
+  protected readonly panelVisible = signal(false);
   protected readonly panelExpanded = signal(false);
   protected readonly layerMenuOpen = signal(false);
   protected readonly activeLayerId = signal('openfreemap');
@@ -594,7 +604,10 @@ export class ActivityDetailPanelComponent {
   private mapInitialized = false;
 
   constructor() {
-    afterNextRender(() => this.initMap());
+    afterNextRender(() => {
+      setTimeout(() => this.panelVisible.set(true), 10);
+      this.initMap();
+    });
     globalThis.addEventListener('click', () => this.layerMenuOpen.set(false));
 
     effect(() => {
@@ -631,11 +644,15 @@ export class ActivityDetailPanelComponent {
     });
   }
 
+  private doneLoading(): void {
+    setTimeout(() => this.routeLoading.set(false), 500);
+  }
+
   private renderRouteOnMap(): void {
     const map = this.mapInstance;
     const route = this.route();
     if (!map || !route || route.coordinates.length < 2) {
-      this.routeLoading.set(false);
+      this.doneLoading();
       return;
     }
 
@@ -647,12 +664,12 @@ export class ActivityDetailPanelComponent {
 
     if (map.getSource(sourceId)) {
       (map.getSource(sourceId) as GeoJSONSource).setData({ type: 'FeatureCollection', features: segFeatures });
-      this.routeLoading.set(false);
+      this.doneLoading();
       return;
     }
 
     if (segFeatures.length === 0) {
-      this.routeLoading.set(false);
+      this.doneLoading();
       return;
     }
 
@@ -705,7 +722,7 @@ export class ActivityDetailPanelComponent {
       },
     });
 
-    this.routeLoading.set(false);
+    this.doneLoading();
 
     const coords = route.coordinates;
     const lngs = coords.map((c) => c[0]);
@@ -831,9 +848,12 @@ export class ActivityDetailPanelComponent {
   }
 
   protected closePanel(): void {
-    this.mapInstance?.remove();
-    this.mapInstance = null;
-    this.mapInitialized = false;
-    this.close.emit();
+    this.panelVisible.set(false);
+    setTimeout(() => {
+      this.mapInstance?.remove();
+      this.mapInstance = null;
+      this.mapInitialized = false;
+      this.close.emit();
+    }, 250);
   }
 }

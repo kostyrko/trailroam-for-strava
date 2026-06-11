@@ -1,4 +1,5 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal, DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 const CATEGORY_EMOJI: Record<string, string> = {
   ride: '🚴',
@@ -16,6 +17,7 @@ import { map } from 'rxjs';
 import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
 import { FiltersService, CATEGORY_COLORS, isAfterOrEqual, isBeforeOrEqual } from '../shared/filters.service';
 import { ToastService } from '../shared/toast.service';
+import { DataRefreshService } from '../shared/data-refresh.service';
 import { ConfirmService } from '../shared/confirm.service';
 import { GpxExportService } from '../shared/gpx-export.service';
 import { StravaSessionService } from '../strava/strava-session.service';
@@ -1407,11 +1409,13 @@ export class ActivitiesPageComponent {
   private readonly repositories = inject(TRAILROAM_REPOSITORIES);
   private readonly router = inject(Router);
   private readonly toastService = inject(ToastService);
+  private readonly dataRefresh = inject(DataRefreshService);
   private readonly stravaSessionService = inject(StravaSessionService);
   private readonly routeNormalizer = inject(StravaRouteNormalizer);
   private readonly gpxExportService = inject(GpxExportService);
   private readonly confirmService = inject(ConfirmService);
   private readonly activatedRoute = inject(ActivatedRoute);
+  private readonly destroyRef = inject(DestroyRef);
 
   private readonly focusActivityId = toSignal(
     this.activatedRoute.queryParamMap.pipe(map((params) => params.get('focusActivityId'))),
@@ -1667,6 +1671,7 @@ export class ActivitiesPageComponent {
     this.loadPage(1);
     this.initLocalNotice();
     globalThis.addEventListener('click', () => this.closeAllMenus());
+    this.dataRefresh.refresh$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.loadPage(this.currentPage()));
     effect(() => {
       const focusId = this.focusActivityId();
       const items = this.activities();

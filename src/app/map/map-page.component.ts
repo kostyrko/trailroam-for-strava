@@ -6,8 +6,9 @@ import {
   effect,
   inject,
   signal,
+  DestroyRef,
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { toSignal, takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { map } from 'rxjs';
 import { MapLibreMapComponent } from './maplibre-map.component';
@@ -20,6 +21,7 @@ import { RouteRendererService } from './route-renderer.service';
 import { type ActivityCategory } from '../storage/storage.models';
 import { formatSportType, mapSportTypeToCategory } from '../strava/activity-category';
 import { ToastService } from '../shared/toast.service';
+import { DataRefreshService } from '../shared/data-refresh.service';
 import { GpxExportService } from '../shared/gpx-export.service';
 
 function formatDurationHours(seconds: number | undefined): string {
@@ -818,6 +820,8 @@ export class MapPage implements AfterViewInit {
   private readonly routeRendererService = inject(RouteRendererService);
   private readonly toastService = inject(ToastService);
   private readonly gpxExportService = inject(GpxExportService);
+  private readonly dataRefresh = inject(DataRefreshService);
+  private readonly destroyRef = inject(DestroyRef);
 
   protected readonly CATEGORY_COLORS = CATEGORY_COLORS;
 
@@ -1020,6 +1024,10 @@ export class MapPage implements AfterViewInit {
   constructor() {
     this.loadRoutes();
     globalThis.addEventListener('click', () => this.detailMenuOpen.set(false));
+    this.dataRefresh.refresh$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.routesLoading.set(true);
+      this.loadRoutes();
+    });
     effect(() => {
       this.filteredRoutes();
       this.renderRoutesOnMap();

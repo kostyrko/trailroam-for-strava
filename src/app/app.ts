@@ -11,6 +11,7 @@ import { StravaActivityNormalizer } from './strava/strava-activity-normalizer';
 import { StravaSessionService } from './strava/strava-session.service';
 import { StravaRouteNormalizer } from './strava/strava-route-normalizer';
 import { SyncEngineService, type SyncNewResult } from './sync/sync-engine.service';
+import { DataRefreshService } from './shared/data-refresh.service';
 import type { StravaActivityResponse } from './strava/strava-session.service';
 
 @Component({
@@ -29,6 +30,7 @@ export class App {
   private readonly syncEngine = inject(SyncEngineService);
   private readonly confirmService = inject(ConfirmService);
   private readonly toastService = inject(ToastService);
+  private readonly dataRefresh = inject(DataRefreshService);
   private readonly syncHistoryService = inject(SyncHistoryService);
 
   private pendingRouteCount = 0;
@@ -96,6 +98,7 @@ export class App {
           console.log('[Trailroam] Store activities completed');
           this.loadSyncSummary();
           this.loadLastSyncLabel();
+          this.dataRefresh.emitRefresh();
           this.toastService.show('Synced just now', 15000);
           return undefined;
         });

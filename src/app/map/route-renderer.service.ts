@@ -144,7 +144,7 @@ export class RouteRendererService {
       type: 'symbol',
       source: ROUTES_POINTS_SOURCE_ID,
       filter: ['has', 'point_count'],
-      maxzoom: CLUSTER_MAX_ZOOM,
+      maxzoom: LINE_MIN_ZOOM,
       layout: {
         'text-field': ['get', 'point_count_abbreviated'],
         'text-font': ['Noto Sans Regular'],

@@ -138,24 +138,28 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
 
   private cachedRoutes: MapRouteFeature[] = [];
 
-  private flushCachedRoutes(): void {
-    if (this.cachedRoutes.length === 0) { return; }
-    const map = this.mapInstance;
-    if (!map || !map.isStyleLoaded()) { return; }
-    if (map.getSource('routes')) {
-      this.rerenderRoutes();
-    } else {
-      this.routeRendererService.renderRoutes(this.cachedRoutes, (route) => this.routeSelected.emit(route));
-    }
-  }
-
   renderRouteFeatures(routes: MapRouteFeature[], selectedId?: string): void {
     this.cachedRoutes = routes;
-    if (this.mapInstance?.getSource('routes')) {
-      this.rerenderRoutes();
-    } else {
-      this.routeRendererService.renderRoutes(routes, (route) => this.routeSelected.emit(route));
+    if (routes.length === 0) { return; }
+    const map = this.mapInstance;
+    if (!map) {
+      if (this.pendingReadyTasks) {
+        this.pendingReadyTasks.push(() => this.renderRouteFeatures(routes, selectedId));
+      }
+      return;
     }
+    if (!map.isStyleLoaded()) {
+      if (this.pendingReadyTasks) {
+        this.pendingReadyTasks.push(() => this.renderRouteFeatures(routes, selectedId));
+        return;
+      }
+      map.once('style.load', () => {
+        if (this.isDestroyed) { return; }
+        this.renderRouteFeatures(routes, selectedId);
+      });
+      return;
+    }
+    this.routeRendererService.renderRoutes(routes, (route) => this.routeSelected.emit(route));
     if (selectedId) {
       const selected = routes.find((r) => r.activityId === selectedId || r.activity.id === selectedId);
       if (selected) {
@@ -183,6 +187,7 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
     }
 
     this.mapInstance = map;
+    this.routeRendererService.init(map);
 
     map.once('load', () => this.addMapControls());
 
@@ -193,23 +198,22 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
       }
     });
 
-    this.routeRendererService.init(map);
-
-    const drain = () => {
+    const render = () => {
       const tasks = this.pendingReadyTasks;
       this.pendingReadyTasks = null;
       if (tasks) {
-        for (const t of tasks) {
-          t();
-        }
+        for (const t of tasks) { t(); }
       }
-      this.flushCachedRoutes();
+      const routes = this.cachedRoutes;
+      if (routes.length > 0) {
+        this.routeRendererService.renderRoutes(routes, (route) => this.routeSelected.emit(route));
+      }
     };
 
     if (map.isStyleLoaded()) {
-      drain();
+      render();
     } else {
-      map.once('style.load', drain);
+      map.once('style.load', render);
     }
   }
 

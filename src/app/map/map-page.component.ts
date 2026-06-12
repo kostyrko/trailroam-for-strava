@@ -1071,7 +1071,9 @@ export class MapPage implements AfterViewInit {
   }
 
   ngAfterViewInit(): void {
-    this.renderRoutesOnMap();
+    if (this.allRoutes().length > 0) {
+      this.renderRoutesOnMap();
+    }
   }
 
   private async loadRoutes(): Promise<void> {
@@ -1107,7 +1109,11 @@ export class MapPage implements AfterViewInit {
       }
     } catch {
     } finally {
-      this.renderRoutesOnMap();
+      try {
+        this.renderRoutesOnMap();
+      } catch (e) {
+        console.error('Failed to render routes on map:', e);
+      }
       this.routesLoading.set(false);
     }
   }

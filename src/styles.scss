@@ -153,6 +153,12 @@ p {
   z-index: 10;
 }
 
+.map-layer-btn-group {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
 .map-layer-btn {
   align-items: center;
   background: #ffffff;
@@ -209,7 +215,7 @@ p {
   box-shadow: 0 2px 6px rgb(20 33 27 / 18%);
   display: flex;
   flex-direction: column;
-  height: 176px;
+  height: 160px;
   justify-content: center;
   margin-top: 8px;
   overflow: visible;
@@ -229,7 +235,7 @@ p {
   line-height: 1;
   padding-bottom: 2px;
   position: absolute;
-  top: 6px;
+  top: 3px;
   transform: translateX(-50%);
 }
 
@@ -239,6 +245,7 @@ p {
   background: transparent;
   cursor: pointer;
   height: 20px;
+  margin-top: 10px;
   padding: 0;
   transform: rotate(-90deg);
   transform-origin: center center;
@@ -339,8 +346,8 @@ p {
   min-width: 240px;
   padding: 6px;
   position: absolute;
-  right: 0;
-  top: calc(100% + 8px);
+  right: calc(100% + 2px);
+  top: 0;
   z-index: 20;
 }
 

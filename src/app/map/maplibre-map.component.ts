@@ -28,6 +28,7 @@ import { RouteRendererService } from './route-renderer.service';
         type="button"
         [attr.aria-label]="fullscreen() ? 'Reset map view' : 'Fit map to screen'"
         (click)="toggleFullscreen()"
+        data-tooltip="Fit map"
       >
         @if (fullscreen()) {
           <span class="fit-icon fit-icon-compress">⤡</span>
@@ -50,7 +51,7 @@ import { RouteRendererService } from './route-renderer.service';
       }
       <div class="map-layer-wrapper">
       <div class="map-layer-btn-group">
-        <button #layerBtn class="map-layer-btn" type="button" (click)="toggleLayerMenu()" aria-label="Switch map layer">
+        <button #layerBtn class="map-layer-btn" type="button" (click)="toggleLayerMenu()" aria-label="Switch map layer" data-tooltip="Basemap">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
         </button>
         @if (layerMenuOpen()) {
@@ -70,14 +71,14 @@ import { RouteRendererService } from './route-renderer.service';
             }
           </div>
         }
-        <button class="map-heatmap-btn" type="button" [class.active]="heatmapActive()" (click)="toggleHeatmap()" [attr.aria-label]="heatmapActive() ? 'Show routes' : 'Show heatmap'">
+        <button class="map-heatmap-btn" type="button" [class.active]="heatmapActive()" (click)="toggleHeatmap()" [attr.aria-label]="heatmapActive() ? 'Show routes' : 'Show heatmap'" data-tooltip="Heatmap">
           @if (heatmapActive()) {
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="12" x2="2" y2="12"/><path d="M5 12H2"/><path d="M22 12h-3"/><path d="M7 12h-1"/><path d="M18 12h-1"/><path d="M3 12h1"/></svg>
           } @else {
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
           }
         </button>
-        <div class="map-opacity-slider-wrapper">
+        <div class="map-opacity-slider-wrapper" data-tooltip="Opacity">
           <label class="map-opacity-slider-label">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
           </label>

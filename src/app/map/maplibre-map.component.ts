@@ -174,11 +174,7 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
     this.routeRendererService.renderRoutes(this.cachedRoutes, (route) => this.routeSelected.emit(route));
   }
 
-  private cachedRoutes: MapRouteFeature[] = [];
-
-  renderRouteFeatures(routes: MapRouteFeature[], selectedId?: string): void {
-    this.cachedRoutes = routes;
-    if (routes.length === 0) { return; }
+  private queueOrRender(routes: MapRouteFeature[], selectedId?: string): void {
     const map = this.mapInstance;
     if (!map) {
       if (this.pendingReadyTasks) {
@@ -186,15 +182,29 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
       }
       return;
     }
+    if (map.isStyleLoaded()) {
+      this.routeRendererService.renderRoutes(routes, (route) => this.routeSelected.emit(route));
+      return;
+    }
+    map.once('style.load', () => {
+      if (this.isDestroyed) { return; }
+      this.routeRendererService.renderRoutes(routes, (route) => this.routeSelected.emit(route));
+    });
+  }
+
+  private cachedRoutes: MapRouteFeature[] = [];
+
+  renderRouteFeatures(routes: MapRouteFeature[], selectedId?: string): void {
+    this.cachedRoutes = routes;
+    if (routes.length === 0) { return; }
+    const map = this.mapInstance;
+    if (!map) {
+      if (!this.pendingReadyTasks) { this.pendingReadyTasks = []; }
+      this.pendingReadyTasks.push(() => this.renderRouteFeatures(routes, selectedId));
+      return;
+    }
     if (!map.isStyleLoaded()) {
-      if (this.pendingReadyTasks) {
-        this.pendingReadyTasks.push(() => this.renderRouteFeatures(routes, selectedId));
-        return;
-      }
-      map.once('style.load', () => {
-        if (this.isDestroyed) { return; }
-        this.renderRouteFeatures(routes, selectedId);
-      });
+      this.queueOrRender(routes, selectedId);
       return;
     }
     this.routeRendererService.renderRoutes(routes, (route) => this.routeSelected.emit(route));

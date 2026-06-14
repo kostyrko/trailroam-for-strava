@@ -869,6 +869,8 @@ export class MapPage implements AfterViewInit {
   protected readonly filterMenuOpen = signal(false);
   protected readonly mapFullscreen = signal(false);
   private readonly perfWarningDismissed = signal(false);
+  private readonly dataLoaded = signal(false);
+  private readonly mapReady = signal(false);
 
   protected readonly routesLoading = signal(true);
   protected readonly mapEmptyDismissed = signal(false);
@@ -1061,8 +1063,12 @@ export class MapPage implements AfterViewInit {
       this.loadRoutes();
     });
     effect(() => {
+      this.dataLoaded();
+      this.mapReady();
       const filtered = this.filteredRoutes();
-      this.renderRoutesOnMap();
+      if (this.dataLoaded() && this.mapReady()) {
+        this.tryRenderRoutes();
+      }
       if (this.allRoutes().length > 0 && filtered.length === 0) {
         this.mapFilterEmptyDismissed.set(false);
         this.closeFilterMenu();
@@ -1072,9 +1078,8 @@ export class MapPage implements AfterViewInit {
   }
 
   ngAfterViewInit(): void {
-    if (this.allRoutes().length > 0) {
-      this.renderRoutesOnMap();
-    }
+    this.mapReady.set(true);
+    this.tryRenderRoutes();
   }
 
   private async loadRoutes(): Promise<void> {
@@ -1103,6 +1108,7 @@ export class MapPage implements AfterViewInit {
       }
 
       this.allRoutes.set(routes);
+      this.dataLoaded.set(true);
 
       const totalPoints = routes.reduce((sum, r) => sum + r.coordinates.length, 0);
       if (totalPoints > POINTS_WARN_THRESHOLD / 2 && this.filtersService.datePreset() === 'all' && !this.filtersService.userInteracted) {
@@ -1110,25 +1116,18 @@ export class MapPage implements AfterViewInit {
       }
     } catch {
     } finally {
-      try {
-        this.renderRoutesOnMap();
-      } catch (e) {
-        console.error('Failed to render routes on map:', e);
-      }
+      this.tryRenderRoutes();
       this.routesLoading.set(false);
     }
   }
 
-  private renderRoutesOnMap(): void {
+  private tryRenderRoutes(): void {
+    if (!this.dataLoaded() || !this.mapReady()) { return; }
     const routes = this.filteredRoutes();
     const mapComp = this.mapComponent;
     const selectId = this.selectedActivityId();
-    if (!mapComp) {
-      return;
-    }
-
+    if (!mapComp) { return; }
     mapComp.renderRouteFeatures(routes, selectId ?? undefined);
-
     if (selectId) {
       const selected = this.selectedRoute();
       if (selected) {
@@ -1136,6 +1135,7 @@ export class MapPage implements AfterViewInit {
       }
     }
   }
+
 
   protected computeSpeed = computeSpeed;
   protected formatDistance = formatDistance;

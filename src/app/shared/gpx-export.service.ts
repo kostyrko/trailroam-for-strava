@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import JSZip from 'jszip';
 import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
+import { environment } from '../../environments/environment';
 import type { ActivityRecord, ActivityRouteRecord } from '../storage/storage.models';
 
 function slugify(text: string): string {
@@ -15,7 +16,7 @@ function slugify(text: string): string {
 function buildGpx(activity: ActivityRecord, route: ActivityRouteRecord): string {
   const lines: string[] = [
     '<?xml version="1.0" encoding="UTF-8"?>',
-    '<gpx version="1.1" creator="Trailroam for Strava"',
+    `<gpx version="1.1" creator="${environment.appName}"`,
     '  xmlns="http://www.topografix.com/GPX/1/1">',
     '  <trk>',
     `    <name>${escapeXml(activity.name)}</name>`,
@@ -110,7 +111,7 @@ export class GpxExportService {
       return { exported: 0, skipped };
     }
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    triggerZipDownload(zip, `trailroam-export-${timestamp}.zip`);
+    triggerZipDownload(zip, `${environment.appSlug}-export-${timestamp}.zip`);
     return { exported, skipped };
   }
 }

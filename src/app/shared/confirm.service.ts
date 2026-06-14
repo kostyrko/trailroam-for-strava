@@ -1,6 +1,7 @@
 import { inject, Injectable } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { firstValueFrom } from 'rxjs';
+import { environment } from '../../environments/environment';
 import { ConfirmDialog, type ConfirmDialogData } from './confirm-dialog.component';
 
 @Injectable({ providedIn: 'root' })
@@ -11,7 +12,7 @@ export class ConfirmService {
     const ref = this.dialog.open(ConfirmDialog, {
       data,
       disableClose: true,
-      panelClass: 'trailroam-confirm-dialog',
+      panelClass: `${environment.appSlug}-confirm-dialog`,
     });
     return firstValueFrom(ref.afterClosed()).then((result) => !!result);
   }

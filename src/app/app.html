@@ -38,9 +38,7 @@
         @if (syncMenuOpen()) {
           <ul class="sync-dropdown" role="menu" aria-label="Sync actions" (click)="$event.stopPropagation()">
             <li class="sync-dropdown__lastsynced" role="none">
-              @if (lastSyncLabel(); as label) {
-                <span class="sync-dropdown__label">Last synced: {{ label }}</span>
-              }
+              <span class="sync-dropdown__label">@if (lastSyncLabel(); as label) { Last synced: {{ label }} } @else { No sync history }</span>
             </li>
             <li role="none">
               <button class="dropdown-item" role="menuitem" (click)="syncNewActivities()">

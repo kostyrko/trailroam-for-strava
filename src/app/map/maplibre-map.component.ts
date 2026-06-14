@@ -112,6 +112,9 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
   @Output()
   readonly fullscreenChanged = new EventEmitter<boolean>();
 
+  @Output()
+  readonly routesRendered = new EventEmitter<void>();
+
   @ViewChild('mapContainer', { static: true })
   private readonly mapContainer!: ElementRef<HTMLElement>;
 
@@ -127,7 +130,7 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
   private isHeatmapMode = false;
   private readonly ngZone = inject(NgZone);
   private isDestroyed = false;
-  private pendingReadyTasks: (() => void)[] | null = [];
+  private pendingReadyTasks: (() => void)[] = [];
   protected readonly fullscreen = signal(false);
   private mapInstance: Map | null = null;
 
@@ -163,14 +166,18 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
     this.pendingReadyTasks = [];
     map.setStyle(config.styleUrl!);
     map.once('style.load', () => {
+      console.log('[TRACE] selectLayer style.load fired');
       this.routeRendererService.init(map);
-      const tasks = this.pendingReadyTasks;
-      this.pendingReadyTasks = null;
-      if (tasks) {
-        for (const t of tasks) { t(); }
-      }
+      this.drainPendingTasks('selectLayer');
       this.rerenderRoutes();
     });
+  }
+
+  private drainPendingTasks(source: string): void {
+    const tasks = this.pendingReadyTasks;
+    this.pendingReadyTasks = [];
+    console.log(`[TRACE] drainPendingTasks from ${source}: ${tasks.length} pending tasks, ${this.cachedRoutes.length} cached routes`);
+    for (const t of tasks) { t(); }
   }
 
   private rerenderRoutes(): void {
@@ -180,19 +187,35 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
   private queueOrRender(routes: MapRouteFeature[], selectedId?: string): void {
     const map = this.mapInstance;
     if (!map) {
-      if (this.pendingReadyTasks) {
-        this.pendingReadyTasks.push(() => this.renderRouteFeatures(routes, selectedId));
-      }
+      console.log(`[TRACE] queueOrRender: map null, queuing ${routes.length} routes`);
+      this.pendingReadyTasks.push(() => this.renderRouteFeatures(routes, selectedId));
       return;
     }
     if (map.isStyleLoaded()) {
+      console.log(`[TRACE] queueOrRender: style loaded, rendering ${routes.length} routes directly`);
       this.routeRendererService.renderRoutes(routes, (route) => this.routeSelected.emit(route));
       return;
     }
-    map.once('style.load', () => {
-      if (this.isDestroyed) { return; }
+    console.log(`[TRACE] queueOrRender: waiting for style, will poll for ${routes.length} routes`);
+    this.pollForStyle(routes, selectedId);
+  }
+
+  private pollForStyle(routes: MapRouteFeature[], selectedId?: string, attempt = 0): void {
+    if (this.isDestroyed) { return; }
+    if (!this.mapInstance) {
+      this.pendingReadyTasks.push(() => this.renderRouteFeatures(routes, selectedId));
+      return;
+    }
+    if (this.mapInstance.isStyleLoaded()) {
       this.routeRendererService.renderRoutes(routes, (route) => this.routeSelected.emit(route));
-    });
+      this.routesRendered.emit();
+      return;
+    }
+    if (attempt >= 50) {
+      console.warn(`[TRACE] pollForStyle: giving up after ${attempt} attempts`);
+      return;
+    }
+    setTimeout(() => this.pollForStyle(routes, selectedId, attempt + 1), 100);
   }
 
   private cachedRoutes: MapRouteFeature[] = [];
@@ -202,7 +225,6 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
     if (routes.length === 0) { return; }
     const map = this.mapInstance;
     if (!map) {
-      if (!this.pendingReadyTasks) { this.pendingReadyTasks = []; }
       this.pendingReadyTasks.push(() => this.renderRouteFeatures(routes, selectedId));
       return;
     }
@@ -211,6 +233,7 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
       return;
     }
     this.routeRendererService.renderRoutes(routes, (route) => this.routeSelected.emit(route));
+    this.routesRendered.emit();
     if (selectedId) {
       const selected = routes.find((r) => r.activityId === selectedId || r.activity.id === selectedId);
       if (selected) {
@@ -250,14 +273,14 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
     });
 
     const render = () => {
-      const tasks = this.pendingReadyTasks;
-      this.pendingReadyTasks = null;
-      if (tasks) {
-        for (const t of tasks) { t(); }
-      }
+      console.log('[TRACE] ngAfterViewInit render() called');
+      this.drainPendingTasks('ngAfterViewInit');
       const routes = this.cachedRoutes;
       if (routes.length > 0) {
+        console.log(`[TRACE] ngAfterViewInit render: rendering ${routes.length} cached routes`);
         this.routeRendererService.renderRoutes(routes, (route) => this.routeSelected.emit(route));
+      } else {
+        console.log('[TRACE] ngAfterViewInit render: no cached routes');
       }
     };
 
@@ -270,7 +293,9 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
 
   flyToBounds(coordinates: [number, number][]): void {
     if (coordinates.length === 0) { return; }
-    if (this.pendingReadyTasks) {
+    const map = this.mapInstance;
+    if (!map || !map.isStyleLoaded()) {
+      console.log(`[TRACE] flyToBounds: map=${!!map}, styleLoaded=${map?.isStyleLoaded()}, queuing`);
       this.pendingReadyTasks.push(() => this.flyToBounds(coordinates));
       return;
     }
@@ -280,7 +305,7 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.isDestroyed = true;
-    this.pendingReadyTasks = null;
+    this.pendingReadyTasks = [];
     this.mapInstance = null;
     document.removeEventListener('click', this.closeLayerMenu);
   }

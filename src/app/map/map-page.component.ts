@@ -182,7 +182,7 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
           }
         </div>
 
-        @if (routesLoading()) {
+        @if (routesLoading() || (allRoutes().length > 0 && !routesRendered())) {
           <div class="map-loading-overlay">
             <app-loading-spinner />
           </div>
@@ -214,6 +214,7 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
           (basemapLoadFailed)="showBasemapError()"
           (routeSelected)="selectRoute($event)"
           (fullscreenChanged)="mapFullscreen.set($event)"
+          (routesRendered)="onRoutesRendered()"
         />
         @if (selectedRoute(); as route) {
           <article class="route-detail route-detail-overlay" aria-label="Selected route details">
@@ -871,8 +872,12 @@ export class MapPage implements AfterViewInit {
   private readonly perfWarningDismissed = signal(false);
   private readonly dataLoaded = signal(false);
   private readonly mapReady = signal(false);
+  private readonly retryDestroyed = signal(false);
+  private renderRetryCount = 0;
+  private readonly MAX_RENDER_RETRIES = 20;
 
   protected readonly routesLoading = signal(true);
+  protected readonly routesRendered = signal(false);
   protected readonly mapEmptyDismissed = signal(false);
   protected readonly mapFilterEmptyDismissed = signal(false);
 
@@ -1056,6 +1061,7 @@ export class MapPage implements AfterViewInit {
   });
 
   constructor() {
+    this.destroyRef.onDestroy(() => this.retryDestroyed.set(true));
     this.loadRoutes();
     globalThis.addEventListener('click', () => this.detailMenuOpen.set(false));
     this.dataRefresh.refresh$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
@@ -1067,7 +1073,7 @@ export class MapPage implements AfterViewInit {
       this.mapReady();
       const filtered = this.filteredRoutes();
       if (this.dataLoaded() && this.mapReady()) {
-        this.tryRenderRoutes();
+        this.tryRenderRoutes('effect');
       }
       if (this.allRoutes().length > 0 && filtered.length === 0) {
         this.mapFilterEmptyDismissed.set(false);
@@ -1079,7 +1085,8 @@ export class MapPage implements AfterViewInit {
 
   ngAfterViewInit(): void {
     this.mapReady.set(true);
-    this.tryRenderRoutes();
+    this.tryRenderRoutes('ngAfterViewInit');
+    this.scheduleRenderRetry();
   }
 
   private async loadRoutes(): Promise<void> {
@@ -1116,17 +1123,20 @@ export class MapPage implements AfterViewInit {
       }
     } catch {
     } finally {
-      this.tryRenderRoutes();
+      this.tryRenderRoutes('finally');
+      this.scheduleRenderRetry();
       this.routesLoading.set(false);
     }
   }
 
-  private tryRenderRoutes(): void {
-    if (!this.dataLoaded() || !this.mapReady()) { return; }
+  private tryRenderRoutes(source?: string): void {
+    const src = source ?? 'unknown';
+    console.log(`[TRACE] tryRenderRoutes from ${src}: dataLoaded=${this.dataLoaded()}, mapReady=${this.mapReady()}, mapComp=${!!this.mapComponent}, filteredRoutes=${this.filteredRoutes().length}`);
+    if (!this.dataLoaded() || !this.mapReady()) { console.log(`[TRACE] tryRenderRoutes from ${src}: SKIP (not ready)`); return; }
     const routes = this.filteredRoutes();
     const mapComp = this.mapComponent;
     const selectId = this.selectedActivityId();
-    if (!mapComp) { return; }
+    if (!mapComp) { console.log(`[TRACE] tryRenderRoutes from ${src}: SKIP (no mapComp)`); return; }
     mapComp.renderRouteFeatures(routes, selectId ?? undefined);
     if (selectId) {
       const selected = this.selectedRoute();
@@ -1134,6 +1144,26 @@ export class MapPage implements AfterViewInit {
         mapComp.flyToBounds(selected.coordinates);
       }
     }
+  }
+
+  protected onRoutesRendered(): void {
+    setTimeout(() => this.routesRendered.set(true), 500);
+  }
+
+  private scheduleRenderRetry(): void {
+    if (this.dataLoaded() && this.mapReady()) { return; }
+    if (this.renderRetryCount >= this.MAX_RENDER_RETRIES) { return; }
+    this.renderRetryCount++;
+    setTimeout(() => {
+      if (this.retryDestroyed()) { return; }
+      if (this.dataLoaded() && this.mapReady()) {
+        console.log('[TRACE] scheduleRenderRetry: condition met, calling tryRenderRoutes');
+        this.tryRenderRoutes('retry');
+      } else {
+        console.log(`[TRACE] scheduleRenderRetry: retry ${this.renderRetryCount}/${this.MAX_RENDER_RETRIES}, still waiting. dataLoaded=${this.dataLoaded()}, mapReady=${this.mapReady()}`);
+        this.scheduleRenderRetry();
+      }
+    }, 100);
   }
 
 

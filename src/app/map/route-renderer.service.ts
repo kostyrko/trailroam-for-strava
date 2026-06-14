@@ -36,12 +36,13 @@ export class RouteRendererService {
   }
 
   renderRoutes(routes: MapRouteFeature[], routeSelected: RouteSelectedHandler): void {
+    console.log(`[TRACE] RouteRenderer.renderRoutes: ${routes.length} routes, map=${!!this.map}`);
     this.routes = routes;
     this.onRouteSelected = routeSelected;
     this.routesLookup = new Map(routes.map((r) => [r.activityId, r]));
 
     const map = this.map;
-    if (!map) { return; }
+    if (!map) { console.log('[TRACE] RouteRenderer.renderRoutes: no map instance, returning'); return; }
 
     const lineFeatures = routes.map((route) => ({
       type: 'Feature' as const,
@@ -60,12 +61,14 @@ export class RouteRendererService {
 
     const existingSource = map.getSource(ROUTES_SOURCE_ID);
     if (existingSource) {
+      console.log(`[TRACE] RouteRenderer.renderRoutes: source exists, updating setData with ${routes.length} routes`);
       (existingSource as GeoJSONSource).setData({ type: 'FeatureCollection', features: lineFeatures });
       (map.getSource(ROUTES_POINTS_SOURCE_ID) as GeoJSONSource).setData({ type: 'FeatureCollection', features: centroidFeatures });
       this.updateHeatmapSource();
       return;
     }
 
+    console.log(`[TRACE] RouteRenderer.renderRoutes: creating new sources/layers for ${routes.length} routes`);
     this.initialized = true;
 
     map.addSource(ROUTES_SOURCE_ID, {

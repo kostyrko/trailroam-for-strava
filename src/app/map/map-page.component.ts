@@ -23,6 +23,7 @@ import { formatSportType, formatCategory, mapSportTypeToCategory } from '../shar
 import { ToastService } from '../shared/toast.service';
 import { DataRefreshService } from '../shared/data-refresh.service';
 import { GpxExportService } from '../shared/gpx-export.service';
+import { IconComponent } from '../shared/icon.component';
 
 function formatDurationHours(seconds: number | undefined): string {
   if (seconds === undefined || seconds === 0) { return '—'; }
@@ -83,7 +84,7 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
 
 @Component({
   selector: 'app-map-page',
-  imports: [MapLibreMapComponent, ElevationProfileComponent, LoadingSpinnerComponent],
+  imports: [MapLibreMapComponent, ElevationProfileComponent, LoadingSpinnerComponent, IconComponent],
   template: `
       @if (performanceWarning(); as warning) {
         <article class="notice-bar warning-state" role="alert">
@@ -120,7 +121,7 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
                 } @else {
                   All Activities
                 }
-                <svg class="toolbar-select__arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                <app-icon name="chevron-down" [size]="12" strokeWidth="2" [class]="'toolbar-select__arrow'"></app-icon>
               </span>
               @if (filterMenuOpen()) {
                 <ul class="toolbar-select__options sport-type-filter" (mousedown)="$event.preventDefault()">
@@ -141,9 +142,9 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
 
             <div class="toolbar-select" tabindex="0" (click)="datePresetOpen.set(!datePresetOpen())" (keydown.enter)="datePresetOpen.set(!datePresetOpen())" (blur)="datePresetOpen.set(false)" aria-label="Filter by date range">
               <span class="toolbar-select__trigger">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                <app-icon name="calendar" [size]="14" strokeWidth="2"></app-icon>
                 {{ datePresetLabel() }}
-                <svg class="toolbar-select__arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                <app-icon name="chevron-down" [size]="12" strokeWidth="2" [class]="'toolbar-select__arrow'"></app-icon>
               </span>
               @if (datePresetOpen()) {
                 <ul class="toolbar-select__options" (mousedown)="$event.preventDefault()">
@@ -220,7 +221,7 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
               <h2 class="route-detail-title">
                 <button class="route-title-link" type="button" (click)="navigateToActivity(route.activity)">
                   {{ route.name }}
-                  <svg class="route-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                  <app-icon name="external-link" [size]="14" strokeWidth="2" [class]="'route-title-icon'"></app-icon>
                 </button>
               </h2>
               <div class="detail-menu-wrapper">
@@ -229,7 +230,7 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
                   <ul class="detail-dropdown" role="menu" (click)="$event.stopPropagation()">
                     <li role="none">
                       <button class="detail-dropdown-item" role="menuitem" (click)="downloadDetailGpx($event, route)">
-                        <svg class="detail-dropdown-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        <app-icon name="download" [size]="16" strokeWidth="2" [class]="'detail-dropdown-icon'"></app-icon>
                         Download GPX
                       </button>
                     </li>
@@ -265,7 +266,7 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
                 <dt class="stat-label">Strava</dt>
                 <dd class="stat-value">
                   <button class="strava-link" type="button" (click)="openOnStrava($event, route.activity)">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                    <app-icon name="external-link" [size]="14" strokeWidth="2"></app-icon>
                     Open in Strava
                   </button>
                 </dd>

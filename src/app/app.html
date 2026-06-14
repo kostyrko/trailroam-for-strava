@@ -18,7 +18,7 @@
 
     <div class="app-header__actions">
       <button class="refresh-btn" type="button" (click)="refreshExtension()" title="Reload app" aria-label="Reload app">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        <app-icon name="refresh-cw-alt" [size]="16" strokeWidth="2"></app-icon>
         <span class="refresh-btn__label-full">Refresh view</span>
         <span class="refresh-btn__label-short">Refresh</span>
       </button>
@@ -31,7 +31,7 @@
           [attr.aria-expanded]="syncMenuOpen()"
           (click)="toggleSyncMenu(); $event.stopPropagation()"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          <app-icon name="refresh-cw-outline" [size]="16" strokeWidth="2"></app-icon>
           Sync Strava
         </button>
 

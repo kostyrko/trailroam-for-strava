@@ -1,10 +1,12 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { ConfirmService } from './confirm.service';
 import { ToastService } from './toast.service';
+import { IconComponent } from './icon.component';
 import { LocalDataService } from '../storage/local-data.service';
 import { SyncHistoryService } from '../storage/sync-history.service';
 
 @Component({
+  imports: [IconComponent],
   selector: 'app-settings-page',
   styles: [`
     :host { display: block; background: #f7f8f7; min-height: 100vh; }
@@ -83,7 +85,7 @@ import { SyncHistoryService } from '../storage/sync-history.service';
               <div class="action-card-top">
                 <span class="action-card-label">SYNC</span>
                 <div class="action-card-icon action-card-icon-green">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+                  <app-icon name="refresh-cw" [size]="20" strokeWidth="2"></app-icon>
                 </div>
               </div>
               <h3 class="action-card-title">Sync activities</h3>
@@ -97,7 +99,7 @@ import { SyncHistoryService } from '../storage/sync-history.service';
               <div class="action-card-top">
                 <span class="action-card-label">SYNC</span>
                 <div class="action-card-icon action-card-icon-green">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                  <app-icon name="refresh-cw-outline" [size]="20" strokeWidth="2"></app-icon>
                 </div>
               </div>
               <h3 class="action-card-title">Sync missing routes</h3>
@@ -114,7 +116,7 @@ import { SyncHistoryService } from '../storage/sync-history.service';
               <div class="action-card-top">
                 <span class="action-card-label">DATA</span>
                 <div class="action-card-icon action-card-icon-red">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                  <app-icon name="refresh-cw-outline" [size]="20" strokeWidth="2"></app-icon>
                 </div>
               </div>
               <h3 class="action-card-title">Clear and re-sync</h3>
@@ -128,7 +130,7 @@ import { SyncHistoryService } from '../storage/sync-history.service';
               <div class="action-card-top">
                 <span class="action-card-label">DATA</span>
                 <div class="action-card-icon action-card-icon-red">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                  <app-icon name="trash-2" [size]="20" strokeWidth="2"></app-icon>
                 </div>
               </div>
               <h3 class="action-card-title">Clear synced local data</h3>
@@ -145,7 +147,7 @@ import { SyncHistoryService } from '../storage/sync-history.service';
               <div class="action-card-top">
                 <span class="action-card-label">DATA</span>
                 <div class="action-card-icon action-card-icon-green">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  <app-icon name="download" [size]="20" strokeWidth="2"></app-icon>
                 </div>
               </div>
               <h3 class="action-card-title">Backup local data</h3>
@@ -159,7 +161,7 @@ import { SyncHistoryService } from '../storage/sync-history.service';
               <div class="action-card-top">
                 <span class="action-card-label">DATA</span>
                 <div class="action-card-icon action-card-icon-green">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  <app-icon name="upload" [size]="20" strokeWidth="2"></app-icon>
                 </div>
               </div>
               <h3 class="action-card-title">Restore local data</h3>
@@ -221,7 +223,7 @@ import { SyncHistoryService } from '../storage/sync-history.service';
             <p class="privacy-subtitle">Your data is stored locally in this browser.</p>
 
             <div class="privacy-highlight">
-              <svg class="privacy-highlight-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              <app-icon name="shield" strokeWidth="2" [class]="'privacy-highlight-icon'"></app-icon>
               <div>
                 <p class="privacy-highlight-title">Your data stays private</p>
                 <p class="privacy-highlight-text">All data is stored locally and never sent to our servers.</p>
@@ -229,22 +231,22 @@ import { SyncHistoryService } from '../storage/sync-history.service';
             </div>
 
             <div class="privacy-row">
-              <svg class="privacy-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+              <app-icon name="database" strokeWidth="2" [class]="'privacy-row-icon'"></app-icon>
               <p class="privacy-row-text">Imported tours and GPS routes are stored only in the browser's IndexedDB.</p>
             </div>
 
             <div class="privacy-row">
-              <svg class="privacy-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              <app-icon name="eye" strokeWidth="2" [class]="'privacy-row-icon'"></app-icon>
               <p class="privacy-row-text">No route or tour data is uploaded to TrailRoam servers.</p>
             </div>
 
             <div class="privacy-row">
-              <svg class="privacy-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <app-icon name="search" strokeWidth="2" [class]="'privacy-row-icon'"></app-icon>
               <p class="privacy-row-text">Stored data can be inspected using browser developer tools.</p>
             </div>
 
             <div class="tip-box">
-              <svg class="tip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/></svg>
+              <app-icon name="lightbulb" strokeWidth="2" [class]="'tip-icon'"></app-icon>
               <div>
                 <p class="tip-title">Tip</p>
                 <p class="tip-text">Regularly back up your data to avoid accidental loss.</p>

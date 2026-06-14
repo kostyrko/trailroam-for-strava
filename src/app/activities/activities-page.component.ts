@@ -19,6 +19,7 @@ import { FiltersService, CATEGORY_COLORS, isAfterOrEqual, isBeforeOrEqual, type 
 import { ToastService } from '../shared/toast.service';
 import { DataRefreshService } from '../shared/data-refresh.service';
 import { ConfirmService } from '../shared/confirm.service';
+import { IconComponent } from '../shared/icon.component';
 import { GpxExportService } from '../shared/gpx-export.service';
 import { StravaSessionService } from '../strava/strava-session.service';
 import { StravaRouteNormalizer } from '../strava/strava-route-normalizer';
@@ -123,7 +124,7 @@ function routeStatusLabel(status: string): string {
 
 @Component({
   selector: 'app-activities-page',
-  imports: [LoadingSpinnerComponent, RouteSparklineComponent, ActivityDetailPanelComponent],
+  imports: [LoadingSpinnerComponent, RouteSparklineComponent, ActivityDetailPanelComponent, IconComponent],
   template: `
     <section class="route-page" aria-labelledby="activities-title" [class.route-page--empty]="status() === 'empty'">
 
@@ -131,9 +132,9 @@ function routeStatusLabel(status: string): string {
         <div class="activities-header__title-row">
           <h1 id="activities-title">Activities</h1>
           <div class="local-storage-indicator" title="Activity data is stored locally in this browser">
-            <svg class="ls-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <app-icon name="lock" [size]="14" strokeWidth="2" [class]="'ls-icon'"></app-icon>
             <span>Stored locally in this browser</span>
-            <svg class="ls-info-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            <app-icon name="info" [size]="14" strokeWidth="2" [class]="'ls-info-icon'"></app-icon>
           </div>
         </div>
       </div>
@@ -145,20 +146,20 @@ function routeStatusLabel(status: string): string {
       } @else {
         @if (showLocalNotice()) {
           <div class="local-data-notice" role="status">
-            <svg class="local-data-notice__icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <app-icon name="lock" [size]="18" strokeWidth="2" [class]="'local-data-notice__icon'"></app-icon>
             <div class="local-data-notice__content">
               <strong>All your activity data is stored locally in your browser.</strong>
               <span>No data is sent to any server. Use Sync with Strava to import new activities.</span>
             </div>
             <button class="local-data-notice__dismiss" type="button" (click)="dismissLocalNotice()" aria-label="Dismiss local storage notice">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              <app-icon name="x" [size]="16" strokeWidth="2"></app-icon>
             </button>
           </div>
         }
 
         <div class="activities-toolbar">
           <div class="search-field">
-            <svg class="search-field__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <app-icon name="search" [size]="16" strokeWidth="2" [class]="'search-field__icon'"></app-icon>
             <input
               class="search-field__input"
               type="text"
@@ -183,7 +184,7 @@ function routeStatusLabel(status: string): string {
               } @else {
                 All Activities
               }
-              <svg class="toolbar-select__arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              <app-icon name="chevron-down" [size]="12" strokeWidth="2" [class]="'toolbar-select__arrow'"></app-icon>
             </span>
             @if (filterMenuOpen()) {
               <ul class="toolbar-select__options sport-type-filter" (mousedown)="$event.preventDefault()">
@@ -204,9 +205,9 @@ function routeStatusLabel(status: string): string {
 
           <div class="toolbar-select" tabindex="0" (click)="datePresetOpen.set(!datePresetOpen())" (keydown.enter)="datePresetOpen.set(!datePresetOpen())" (blur)="datePresetOpen.set(false)" aria-label="Filter by date range">
             <span class="toolbar-select__trigger">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              <app-icon name="calendar" [size]="14" strokeWidth="2"></app-icon>
               {{ datePresetLabel() }}
-              <svg class="toolbar-select__arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              <app-icon name="chevron-down" [size]="12" strokeWidth="2" [class]="'toolbar-select__arrow'"></app-icon>
             </span>
             @if (datePresetOpen()) {
               <ul class="toolbar-select__options" (mousedown)="$event.preventDefault()">
@@ -246,7 +247,7 @@ function routeStatusLabel(status: string): string {
         <div class="stats-grid">
           <div class="stat-card">
             <div class="stat-card__icon stat-card__icon--activities">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+              <app-icon name="activity" [size]="18" strokeWidth="2"></app-icon>
             </div>
             <div class="stat-card__body">
               <span class="stat-card__value">{{ statCount() }}</span>
@@ -255,7 +256,7 @@ function routeStatusLabel(status: string): string {
           </div>
           <div class="stat-card">
             <div class="stat-card__icon stat-card__icon--route">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <app-icon name="route" [size]="18" strokeWidth="2"></app-icon>
             </div>
             <div class="stat-card__body">
               <span class="stat-card__value">{{ statDistance() }}</span>
@@ -264,7 +265,7 @@ function routeStatusLabel(status: string): string {
           </div>
           <div class="stat-card">
             <div class="stat-card__icon stat-card__icon--time">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <app-icon name="clock" [size]="18" strokeWidth="2"></app-icon>
             </div>
             <div class="stat-card__body">
               <span class="stat-card__value">{{ statMovingTime() }}</span>
@@ -273,7 +274,7 @@ function routeStatusLabel(status: string): string {
           </div>
           <div class="stat-card">
             <div class="stat-card__icon stat-card__icon--speed">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+              <app-icon name="gauge" [size]="18" strokeWidth="2"></app-icon>
             </div>
             <div class="stat-card__body">
               <span class="stat-card__value">{{ statAvgSpeed() }}</span>
@@ -284,20 +285,20 @@ function routeStatusLabel(status: string): string {
 
         <div class="selected-actions-bar" [class.selected-actions-bar--active]="selectionCount() > 0">
             <div class="selected-actions-bar__summary">
-              <svg class="selected-actions-bar__check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <app-icon name="check-circle" [size]="18" strokeWidth="2" [class]="'selected-actions-bar__check'"></app-icon>
               <span>{{ selectionCount() === 1 ? '1 activity selected' : selectionCount() + ' activities selected' }}</span>
             </div>
             <div class="selected-actions-bar__actions">
               <button class="selected-action selected-action--secondary" type="button" (click)="downloadSelectedGpx()">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                <app-icon name="download" [size]="16" strokeWidth="2"></app-icon>
                 Download GPX
               </button>
               <button class="selected-action selected-action--danger" type="button" (click)="deleteSelected()">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                <app-icon name="trash-2" [size]="16" strokeWidth="2"></app-icon>
                 Delete
               </button>
               <button class="selected-action selected-action--secondary" type="button" (click)="clearSelection()">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                <app-icon name="x" [size]="16" strokeWidth="2"></app-icon>
                 Clear Selection
               </button>
             </div>
@@ -373,7 +374,7 @@ function routeStatusLabel(status: string): string {
                           attr.aria-label="View '{{ activity.name }}' on map"
                           title="View on map"
                         >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+                          <app-icon name="map" [size]="16" strokeWidth="2"></app-icon>
                         </button>
                       }
                       <div class="activity-menu-wrapper">
@@ -388,25 +389,25 @@ function routeStatusLabel(status: string): string {
                         <ul class="activity-dropdown" [style]="menuStyle()" role="menu" (click)="$event.stopPropagation()">
                           <li role="none">
                             <button class="act-dropdown-item" role="menuitem" (click)="openOnStrava($event, activity)">
-                              <svg class="act-dropdown-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                              <app-icon name="external-link" [size]="16" strokeWidth="2" [class]="'act-dropdown-icon'"></app-icon>
                               Strava
                             </button>
                           </li>
                           <li role="none">
                             <button class="act-dropdown-item" [class.act-dropdown-item-disabled]="!activity.hasRoute" [disabled]="!activity.hasRoute" role="menuitem" (click)="downloadGpx($event, activity)">
-                              <svg class="act-dropdown-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                              <app-icon name="download" [size]="16" strokeWidth="2" [class]="'act-dropdown-icon'"></app-icon>
                               Download GPX
                             </button>
                           </li>
                           <li role="none">
                             <button class="act-dropdown-item act-dropdown-item-danger" role="menuitem" (click)="deleteActivity($event, activity)">
-                              <svg class="act-dropdown-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                              <app-icon name="trash-2" [size]="16" strokeWidth="2" [class]="'act-dropdown-icon'"></app-icon>
                               Delete
                             </button>
                           </li>
                           <li role="none">
                             <button class="act-dropdown-item" role="menuitem" (click)="retrySyncRoute($event, activity)">
-                              <svg class="act-dropdown-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                              <app-icon name="rotate-ccw" [size]="16" strokeWidth="2" [class]="'act-dropdown-icon'"></app-icon>
                               Retry sync
                             </button>
                           </li>

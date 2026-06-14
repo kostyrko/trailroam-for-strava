@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { ConfirmService } from './confirm.service';
 import { ToastService } from './toast.service';
 import { LocalDataService } from '../storage/local-data.service';
@@ -191,7 +191,7 @@ import { SyncHistoryService } from '../storage/sync-history.service';
                   </tr>
                 </thead>
                 <tbody>
-                  @for (entry of syncHistory(); track entry.id) {
+                  @for (entry of displayedHistory(); track entry.id) {
                     <tr>
                       <td>{{ formatDate(entry.completedAt) }}</td>
                       <td>{{ formatTrigger(entry.trigger) }}</td>
@@ -204,7 +204,12 @@ import { SyncHistoryService } from '../storage/sync-history.service';
                   }
                 </tbody>
               </table>
-              <button class="view-full-btn" type="button">View full history</button>
+              @if (showViewFull()) {
+                <button class="view-full-btn" type="button" (click)="toggleFullHistory()">View full history ({{ syncHistory().length }} total)</button>
+              }
+              @if (expandedHistory()) {
+                <button class="view-full-btn" type="button" (click)="toggleFullHistory()">Show less</button>
+              }
             }
           </div>
 
@@ -262,6 +267,21 @@ export class SettingsPage {
   protected readonly isClearingLocalData = signal(false);
   protected readonly clearLocalDataStatus = signal<string | null>(null);
   protected readonly syncHistory = signal<import('../storage/storage.models').SyncHistoryRecord[]>([]);
+  protected readonly expandedHistory = signal(false);
+  private readonly DISPLAY_LIMIT = 5;
+
+  protected readonly displayedHistory = computed(() => {
+    const all = this.syncHistory();
+    return this.expandedHistory() ? all : all.slice(0, this.DISPLAY_LIMIT);
+  });
+
+  protected readonly showViewFull = computed(() => {
+    return !this.expandedHistory() && this.syncHistory().length > this.DISPLAY_LIMIT;
+  });
+
+  protected toggleFullHistory(): void {
+    this.expandedHistory.update((v) => !v);
+  }
 
   constructor() {
     this.loadSyncHistory();

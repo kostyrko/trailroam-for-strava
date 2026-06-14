@@ -338,7 +338,7 @@ function routeStatusLabel(status: string): string {
             </thead>
             <tbody>
               @for (activity of filteredActivities(); track activity.id) {
-                <tr class="activity-row" [class.clickable]="activity.hasRoute" [class.no-route]="!activity.hasRoute" [class.focus-highlight]="highlightActivityId() === activity.id" [class.row-selected]="selectedIds().has(activity.id)" [attr.data-activity-id]="activity.id" (click)="navigateToActivity(activity)">
+                <tr class="activity-row" [class.clickable]="activity.hasRoute" [class.no-route]="!activity.hasRoute" [class.focus-highlight]="highlightActivityId() === activity.id" [class.row-selected]="selectedIds().has(activity.id)" [class.panel-open]="selectedActivity()?.id === activity.id" [attr.data-activity-id]="activity.id" (click)="navigateToActivity(activity)">
                   <td class="cell-checkbox" (click)="$event.stopPropagation()">
                     <input
                       type="checkbox"
@@ -1005,6 +1005,14 @@ function routeStatusLabel(status: string): string {
 
     .activity-row:hover {
       background: #f4f9f6;
+    }
+
+    .activity-row.panel-open {
+      background: #e6f7ef;
+    }
+
+    .activity-row.panel-open:hover {
+      background: #d6efe1;
     }
 
     .focus-highlight {
@@ -1998,6 +2006,10 @@ export class ActivitiesPageComponent {
     const page = Math.floor(idx / this.pageSize()) + 1;
     this.currentPage.set(page);
     this.highlightActivityId.set(focusId);
+    const activity = all[idx];
+    if (activity) {
+      this.navigateToActivity(activity);
+    }
     setTimeout(() => {
       const row = document.querySelector(`[data-activity-id="${focusId}"]`);
       row?.scrollIntoView({ behavior: 'smooth', block: 'center' });

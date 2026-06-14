@@ -236,6 +236,30 @@ p {
   color: #15503b;
 }
 
+.map-opacity-btn {
+  align-items: center;
+  background: #ffffff;
+  border: 2px solid #1f6f50;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgb(20 33 27 / 18%);
+  color: #1f6f50;
+  cursor: pointer;
+  display: flex;
+  height: 30px;
+  justify-content: center;
+  margin-top: 8px;
+  padding: 0;
+  position: relative;
+  width: 48px;
+}
+
+.map-opacity-btn:hover,
+.map-opacity-btn.active {
+  background: #e6f7ef;
+  border-color: #15503b;
+  color: #15503b;
+}
+
 .map-opacity-slider-wrapper {
   align-items: center;
   background: #ffffff;
@@ -274,7 +298,6 @@ p {
   background: transparent;
   cursor: pointer;
   height: 20px;
-  margin-top: 10px;
   padding: 0;
   transform: rotate(-90deg);
   transform-origin: center center;

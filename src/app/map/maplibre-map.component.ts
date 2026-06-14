@@ -73,19 +73,21 @@ import { IconComponent } from '../shared/icon.component';
             }
           </div>
         }
-        <button class="map-heatmap-btn" type="button" [class.active]="heatmapActive()" (click)="toggleHeatmap()" [attr.aria-label]="heatmapActive() ? 'Show routes' : 'Show heatmap'" data-tooltip="Heatmap">
+        <button class="map-heatmap-btn" type="button" [class.active]="heatmapActive()" (click)="toggleHeatmap()" [attr.aria-label]="heatmapActive() ? 'Show routes' : 'Show heatmap'" [attr.data-tooltip]="heatmapActive() ? 'Trails' : 'Heatmap'">
           @if (heatmapActive()) {
             <app-icon name="line-squiggle" [size]="18" strokeWidth="2"></app-icon>
           } @else {
             <app-icon name="flame" [size]="18" strokeWidth="2"></app-icon>
           }
         </button>
-        <div class="map-opacity-slider-wrapper" data-tooltip="Opacity">
-          <label class="map-opacity-slider-label">
-            <app-icon name="eye" [size]="14" strokeWidth="3"></app-icon>
-          </label>
-          <input #opacitySlider class="map-opacity-slider" type="range" min="0" max="100" [value]="opacitySliderValue" (input)="onOpacityChange($any($event.target).value)" aria-label="Adjust layer opacity" />
-        </div>
+        <button class="map-opacity-btn" type="button" (click)="toggleSliderVisibility()" [class.active]="sliderVisible()" data-tooltip="Opacity">
+          <app-icon name="eye" [size]="18" strokeWidth="2"></app-icon>
+        </button>
+        @if (sliderVisible()) {
+          <div class="map-opacity-slider-wrapper">
+            <input #opacitySlider class="map-opacity-slider" type="range" min="0" max="100" [value]="opacitySliderValue" (input)="onOpacityChange($any($event.target).value)" aria-label="Adjust layer opacity" />
+          </div>
+        }
       </div>
       </div>
     </div>
@@ -135,6 +137,7 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
   protected readonly heatmapActive = signal(false);
   private readonly heatmapOpacity = signal(100);
   protected readonly opacitySliderValue = signal(100);
+  protected readonly sliderVisible = signal(false);
 
   protected toggleLayerMenu(): void {
     this.layerMenuOpen.update((v) => !v);
@@ -280,6 +283,10 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
     this.pendingReadyTasks = null;
     this.mapInstance = null;
     document.removeEventListener('click', this.closeLayerMenu);
+  }
+
+  protected toggleSliderVisibility(): void {
+    this.sliderVisible.update((v) => !v);
   }
 
   protected toggleHeatmap(): void {

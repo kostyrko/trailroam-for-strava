@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import type { ActivityRecord } from '../storage/storage.models';
 import type { StravaActivityResponse } from './strava-session.service';
-import { mapSportTypeToCategory } from './activity-category';
+import { mapSportTypeToCategory } from '../shared/activity-category';
 
 @Injectable({
   providedIn: 'root',

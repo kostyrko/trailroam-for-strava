@@ -11,7 +11,7 @@ import { ConfirmService } from '../shared/confirm.service';
 import { DataRefreshService } from '../shared/data-refresh.service';
 import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
 import { type ActivityRecord, type ActivityRouteRecord } from '../storage/storage.models';
-import { formatSportType } from '../strava/activity-category';
+import { formatSportType } from '../shared/activity-category';
 
 function formatDistance(meters: number | undefined): string {
   if (meters === undefined || meters === 0) { return '—'; }

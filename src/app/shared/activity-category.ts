@@ -1,6 +1,7 @@
 import type { ActivityCategory } from '../storage/storage.models';
 
 const SPORT_TYPE_CATEGORY_MAP: Record<string, ActivityCategory> = {
+  // --- Strava types ---
   Ride: 'ride',
   GravelRide: 'ride',
   MountainBikeRide: 'ride',
@@ -11,7 +12,7 @@ const SPORT_TYPE_CATEGORY_MAP: Record<string, ActivityCategory> = {
   TrailRun: 'run',
   VirtualRun: 'run',
   Walk: 'walk',
-  Hike: 'walk',
+  Hike: 'hike',
   Swim: 'water',
   Surfing: 'water',
   Windsurfing: 'water',
@@ -54,6 +55,45 @@ const SPORT_TYPE_CATEGORY_MAP: Record<string, ActivityCategory> = {
   Racquetball: 'other',
   Squash: 'other',
   Other: 'other',
+
+  // --- Komoot types ---
+  racebike: 'ride',
+  e_racebike: 'ride',
+  mtb: 'ride',
+  e_mtb: 'ride',
+  mtb_easy: 'ride',
+  e_mtb_easy: 'ride',
+  touringbicycle: 'ride',
+  e_touringbicycle: 'ride',
+  citybike: 'ride',
+  cycling: 'ride',
+  mountainbiking: 'ride',
+  running: 'run',
+  trail_running: 'run',
+  hiking: 'hike',
+  touring: 'hike',
+  race_walking: 'walk',
+  nordic_walking: 'walk',
+  swimming: 'water',
+  surfing: 'water',
+  kite_surfing: 'water',
+  wind_surfing: 'water',
+  wakeboarding: 'water',
+  sailing: 'water',
+  diving: 'water',
+  kayaking: 'paddling',
+  canoeing: 'paddling',
+  rafting: 'paddling',
+  rowing: 'paddling',
+  roller_skiing: 'winter',
+  winter: 'winter_sport',
+  mountaineering: 'mountaineering',
+  climbing: 'other',
+  bouldering: 'other',
+  skating: 'other',
+  longboarding: 'other',
+  skateboarding: 'other',
+  handbike: 'other',
 };
 
 const PREFIX_MAP: [string, ActivityCategory][] = [
@@ -72,6 +112,7 @@ export function mapSportTypeToCategory(sportType: string): ActivityCategory {
 }
 
 const SPECIAL_SPORT_TYPE_NAMES: Record<string, string> = {
+  // --- Strava display names ---
   GravelRide: 'Gravel',
   MountainBikeRide: 'Mountain Bike',
   EBikeRide: 'E-Bike',
@@ -90,11 +131,47 @@ const SPECIAL_SPORT_TYPE_NAMES: Record<string, string> = {
   StairStepper: 'Stair Stepper',
   WeightTraining: 'Weight Training',
   TableTennis: 'Table Tennis',
+
+  // --- Komoot display names ---
+  racebike: 'Road Cycling',
+  e_racebike: 'E-Road Cycling',
+  mtb: 'Mountain Biking',
+  e_mtb: 'E-Mountain Biking',
+  mtb_easy: 'Gravel',
+  e_mtb_easy: 'E-Gravel',
+  touringbicycle: 'Bike Touring',
+  e_touringbicycle: 'E-Bike Touring',
+  citybike: 'City Biking',
+  mountainbiking: 'Mountain Biking',
+  running: 'Running',
+  trail_running: 'Trail Running',
+  hiking: 'Hiking',
+  touring: 'Touring',
+  race_walking: 'Race Walking',
+  nordic_walking: 'Nordic Walking',
+  swimming: 'Swimming',
+  kite_surfing: 'Kite Surfing',
+  wind_surfing: 'Wind Surfing',
+  wakeboarding: 'Wakeboarding',
+  rafting: 'Rafting',
+  roller_skiing: 'Roller Skiing',
+  mountaineering: 'Mountaineering',
+  climbing: 'Climbing',
+  bouldering: 'Bouldering',
+  longboarding: 'Longboarding',
+  skateboarding: 'Skateboarding',
+  handbike: 'Handbike',
 };
 
 export function formatSportType(sportType: string): string {
   const special = SPECIAL_SPORT_TYPE_NAMES[sportType];
   if (special) { return special; }
+  if (sportType.includes('_')) {
+    return sportType
+      .split('_')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+  }
   return sportType.replace(/([A-Z])/g, ' $1').trim();
 }
 

@@ -9,6 +9,8 @@ export type ActivityCategory =
   | 'water'
   | 'paddling'
   | 'winter'
+  | 'winter_sport'
+  | 'mountaineering'
   | 'other';
 
 export type RouteSyncStatus =

@@ -26,7 +26,7 @@ import { LoadingSpinnerComponent } from '../shared/loading-spinner.component';
 import { RouteSparklineComponent } from './route-sparkline.component';
 import { ActivityDetailPanelComponent } from './activity-detail-panel.component';
 import { type ActivityCategory, type ActivityRecord, type ActivityRouteRecord } from '../storage/storage.models';
-import { formatSportType, formatCategory, mapSportTypeToCategory } from '../strava/activity-category';
+import { formatSportType, formatCategory, mapSportTypeToCategory } from '../shared/activity-category';
 
 const PAGE_SIZE_OPTIONS = [5, 10, 25, 50, 100];
 

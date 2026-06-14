@@ -19,7 +19,7 @@ import { FiltersService, CATEGORY_COLORS, isAfterOrEqual, isBeforeOrEqual, type 
 import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
 import { RouteRendererService } from './route-renderer.service';
 import { type ActivityCategory } from '../storage/storage.models';
-import { formatSportType, formatCategory, mapSportTypeToCategory } from '../strava/activity-category';
+import { formatSportType, formatCategory, mapSportTypeToCategory } from '../shared/activity-category';
 import { ToastService } from '../shared/toast.service';
 import { DataRefreshService } from '../shared/data-refresh.service';
 import { GpxExportService } from '../shared/gpx-export.service';

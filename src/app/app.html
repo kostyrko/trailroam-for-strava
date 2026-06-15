@@ -17,7 +17,7 @@
     </nav>
 
     <div class="app-header__actions">
-      <button class="refresh-btn" type="button" (click)="refreshExtension()" title="Reload app" aria-label="Reload app">
+      <button class="refresh-btn" type="button" [disabled]="syncInProgress()" (click)="refreshExtension()" title="Reload app" aria-label="Reload app">
         <app-icon name="refresh-cw-alt" [size]="16" strokeWidth="2"></app-icon>
         <span class="refresh-btn__label-full">Refresh view</span>
         <span class="refresh-btn__label-short">Refresh</span>
@@ -29,6 +29,7 @@
           type="button"
           aria-haspopup="menu"
           [attr.aria-expanded]="syncMenuOpen()"
+          [disabled]="syncInProgress()"
           (click)="toggleSyncMenu(); $event.stopPropagation()"
         >
           <app-icon name="refresh-cw-outline" [size]="16" strokeWidth="2"></app-icon>
@@ -41,12 +42,12 @@
               <span class="sync-dropdown__label">@if (lastSyncLabel(); as label) { Last synced: {{ label }} } @else { No sync history }</span>
             </li>
             <li role="none">
-              <button class="dropdown-item" role="menuitem" (click)="syncNewActivities()">
+              <button class="dropdown-item" role="menuitem" [disabled]="syncInProgress()" (click)="syncNewActivities()">
                 Sync activities
               </button>
             </li>
             <li role="none">
-              <button class="dropdown-item" role="menuitem" (click)="syncMissingRoutes()">
+              <button class="dropdown-item" role="menuitem" [disabled]="syncInProgress()" (click)="syncMissingRoutes()">
                 Sync missing routes
               </button>
             </li>
@@ -80,17 +81,22 @@
     </div>
   </header>
 
+  @if (syncInProgress()) {
+    <section class="sync-progress" role="status" aria-live="polite">
+      <div class="sync-progress__row">
+        <span class="sync-progress__spinner"></span>
+        <span class="sync-progress__label">{{ syncProgressLabel() }}</span>
+      </div>
+      <span class="sync-progress__hint">Do not refresh or close this page until the process finishes.</span>
+    </section>
+  }
+
   @if (syncSummary(); as summary) {
     <section class="sync-summary" aria-labelledby="sync-summary-title" role="status">
       <div>
-        <p class="sync-summary-kicker">Sync completed</p>
-        <p id="sync-summary-title">
-          {{ summary.totalActivities }} activities:
-          {{ summary.activitiesWithRoutes }} with routes,
-          {{ summary.activitiesWithoutRoutes }} without GPS
-        </p>
+        <p class="sync-summary-kicker">Sync completed @if (summary.completedAt; as completedAt) { · {{ formatTimestamp(completedAt) }} }</p>
         @if (summary.importedCount || summary.updatedCount || summary.skippedCount || summary.failedCount || summary.rateLimitedCount || summary.lastErrorMessage) {
-          <p class="sync-summary-detail">
+          <p id="sync-summary-title">
             @if (summary.importedCount) {
               Imported: {{ summary.importedCount }}
             }
@@ -98,7 +104,7 @@
               · Updated: {{ summary.updatedCount }}
             }
             @if (summary.skippedCount) {
-              · Skipped: {{ summary.skippedCount }}
+              · No route: {{ summary.skippedCount }}
             }
             @if (summary.rateLimitedCount) {
               · Rate limited: {{ summary.rateLimitedCount }}
@@ -110,6 +116,8 @@
               · Error: {{ summary.lastErrorMessage }}
             }
           </p>
+        } @else {
+          <p id="sync-summary-title">No new data imported.</p>
         }
       </div>
       <button class="sync-summary-dismiss" type="button" (click)="dismissSyncSummary()" aria-label="Dismiss sync summary">

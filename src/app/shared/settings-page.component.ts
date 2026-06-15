@@ -4,6 +4,8 @@ import { ToastService } from './toast.service';
 import { IconComponent } from './icon.component';
 import { LocalDataService } from '../storage/local-data.service';
 import { SyncHistoryService } from '../storage/sync-history.service';
+import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
+import { DataRefreshService } from './data-refresh.service';
 
 @Component({
   imports: [IconComponent],
@@ -91,7 +93,7 @@ import { SyncHistoryService } from '../storage/sync-history.service';
               <h3 class="action-card-title">Sync activities</h3>
               <p class="action-card-desc">Import new Strava activities and their GPS routes.</p>
               <div class="action-card-bottom">
-                <button class="btn btn-primary" type="button" (click)="syncNewActivities()">Sync activities</button>
+                <button class="btn btn-primary" type="button" [disabled]="syncInProgress" (click)="syncNewActivities()">Sync activities</button>
               </div>
             </article>
 
@@ -105,7 +107,7 @@ import { SyncHistoryService } from '../storage/sync-history.service';
               <h3 class="action-card-title">Sync missing routes</h3>
               <p class="action-card-desc">Retry route import for activities that have no GPS route yet.</p>
               <div class="action-card-bottom">
-                <button class="btn btn-primary" type="button" (click)="syncMissingRoutes()">Sync missing routes</button>
+                <button class="btn btn-primary" type="button" [disabled]="syncInProgress" (click)="syncMissingRoutes()">Sync missing routes</button>
               </div>
             </article>
           </div>
@@ -122,7 +124,7 @@ import { SyncHistoryService } from '../storage/sync-history.service';
               <h3 class="action-card-title">Clear and re-sync</h3>
               <p class="action-card-desc">Deletes locally synced tours and route data, then imports them again.</p>
               <div class="action-card-bottom">
-                <button class="btn btn-danger" type="button" [disabled]="isClearingLocalData()" (click)="clearAndResync()">{{ isClearingLocalData() ? 'Clearing...' : 'Clear and re-sync' }}</button>
+                <button class="btn btn-danger" type="button" [disabled]="isClearingLocalData() || syncInProgress" (click)="clearAndResync()">{{ isClearingLocalData() ? 'Clearing...' : 'Clear and re-sync' }}</button>
               </div>
             </article>
 
@@ -136,7 +138,7 @@ import { SyncHistoryService } from '../storage/sync-history.service';
               <h3 class="action-card-title">Clear synced local data</h3>
               <p class="action-card-desc">Removes imported activities, routes, and sync state from this browser.</p>
               <div class="action-card-bottom">
-                <button class="btn btn-danger" type="button" [disabled]="isClearingLocalData()" (click)="clearSyncedLocalData()">{{ isClearingLocalData() ? 'Clearing...' : 'Clear synced local data' }}</button>
+                <button class="btn btn-danger" type="button" [disabled]="isClearingLocalData() || syncInProgress" (click)="clearSyncedLocalData()">{{ isClearingLocalData() ? 'Clearing...' : 'Clear synced local data' }}</button>
                 @if (clearLocalDataStatus()) {
                   <p class="clear-status" role="status">{{ clearLocalDataStatus() }}</p>
                 }
@@ -153,7 +155,7 @@ import { SyncHistoryService } from '../storage/sync-history.service';
               <h3 class="action-card-title">Backup local data</h3>
               <p class="action-card-desc">Export your activities, routes, and settings to a JSON file.</p>
               <div class="action-card-bottom">
-                <button class="btn btn-primary" type="button" (click)="backupLocalData()">Backup</button>
+                <button class="btn btn-primary" type="button" [disabled]="syncInProgress" (click)="backupLocalData()">Backup</button>
               </div>
             </article>
 
@@ -167,7 +169,7 @@ import { SyncHistoryService } from '../storage/sync-history.service';
               <h3 class="action-card-title">Restore local data</h3>
               <p class="action-card-desc">Restore activities, routes, and settings from a previous backup.</p>
               <div class="action-card-bottom">
-                <button class="btn btn-primary" type="button" (click)="restoreLocalData()">Restore</button>
+                <button class="btn btn-primary" type="button" [disabled]="syncInProgress" (click)="restoreLocalData()">Restore</button>
               </div>
             </article>
           </div>
@@ -188,7 +190,8 @@ import { SyncHistoryService } from '../storage/sync-history.service';
                     <th>Date</th>
                     <th>Trigger</th>
                     <th>Status</th>
-                    <th>Activities</th>
+                    <th>All Activities</th>
+                    <th>New Activities</th>
                     <th>With routes</th>
                   </tr>
                 </thead>
@@ -201,6 +204,7 @@ import { SyncHistoryService } from '../storage/sync-history.service';
                         <span class="status-dot status-dot-green"></span>{{ entry.status }}
                       </td>
                       <td>{{ entry.totalActivitiesAfter }}</td>
+                      <td>{{ entry.importedCount }}</td>
                       <td>{{ entry.activitiesWithRoutesAfter }}</td>
                     </tr>
                   }
@@ -283,6 +287,11 @@ export class SettingsPage {
 
   protected toggleFullHistory(): void {
     this.expandedHistory.update((v) => !v);
+  }
+
+  private readonly syncInProgressReadonly = computed(() => this.dataRefresh.syncInProgress());
+  protected get syncInProgress(): boolean {
+    return this.syncInProgressReadonly();
   }
 
   constructor() {
@@ -442,20 +451,16 @@ export class SettingsPage {
     if (!confirmed) { return; }
 
     this.isClearingLocalData.set(true);
-    this.clearLocalDataStatus.set(null);
+    this.clearLocalDataStatus.set('Clearing synced data...');
 
     try {
-      await this.localDataService.clearSyncedLocalData();
-      await this.syncHistoryService.record('clear_and_resync', {
-        importedCount: 0,
-        updatedCount: 0,
-        routesSyncedCount: 0,
-        skippedCount: 0,
-        failedCount: 0,
-        rateLimitedCount: 0,
-        status: 'completed',
-      });
-      this.clearLocalDataStatus.set('Local data cleared. Opening Strava to re-sync...');
+      await Promise.all([
+        this.repositories.activities.clear(),
+        this.repositories.activityRoutes.clear(),
+        this.repositories.syncState.clear(),
+      ]);
+      this.clearLocalDataStatus.set('Opening Strava to sync...');
+      this.dataRefresh.startSync('Syncing...');
       const c = (globalThis as any).chrome;
       if (c?.tabs?.create) {
         c.tabs.create({ url: 'https://www.strava.com/dashboard?trailroamSync=true' });
@@ -464,4 +469,7 @@ export class SettingsPage {
       this.isClearingLocalData.set(false);
     }
   }
+
+  private readonly repositories = inject(TRAILROAM_REPOSITORIES);
+  private readonly dataRefresh = inject(DataRefreshService);
 }

@@ -39,13 +39,16 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     log('Received TRAILROAM_IMPORT: ' + activities.length + ' activities, ' + routes.length + ' route results');
 
     // First send activities
-    forwardToApp(STORE_ACTIVITIES_TYPE, { activities: activities, routes: [] });
+    var hasRoutes = routes.length > 0;
+    forwardToApp(STORE_ACTIVITIES_TYPE, { activities: activities, routes: [], isFinalBatch: !hasRoutes });
 
     // Then send routes in chunks of 50 to avoid message size limits
     var CHUNK = 50;
+    var totalChunks = Math.ceil(routes.length / CHUNK);
     for (var i = 0; i < routes.length; i += CHUNK) {
       var chunk = routes.slice(i, i + CHUNK);
-      forwardToApp(STORE_ACTIVITIES_TYPE, { activities: [], routes: chunk });
+      var isLast = (i / CHUNK) + 1 >= totalChunks;
+      forwardToApp(STORE_ACTIVITIES_TYPE, { activities: [], routes: chunk, isFinalBatch: isLast });
     }
 
     sendResponse({ ok: true, importedCount: activities.length, routeCount: routes.length });

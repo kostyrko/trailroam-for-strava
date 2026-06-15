@@ -1689,7 +1689,7 @@ export class ActivitiesPageComponent {
     this.loadPage(1);
     this.initLocalNotice();
     globalThis.addEventListener('click', () => this.closeAllMenus());
-    this.dataRefresh.refresh$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.loadPage(this.currentPage()));
+    this.dataRefresh.refresh$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.loadPage(1));
     effect(() => {
       const focusId = this.focusActivityId();
       const items = this.activities();

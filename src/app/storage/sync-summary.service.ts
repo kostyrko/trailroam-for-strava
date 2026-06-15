@@ -7,6 +7,7 @@ export interface SyncSummary {
   updatedCount: number;
   routesSyncedCount: number;
   skippedCount: number;
+  skippedReason: string;
   failedCount: number;
   rateLimitedCount: number;
   status: 'completed' | 'failed' | 'cancelled' | null;
@@ -66,6 +67,7 @@ export class SyncSummaryService {
       updatedCount: syncState.updatedCount ?? 0,
       routesSyncedCount: syncState.routesSyncedCount ?? 0,
       skippedCount: syncState.skippedCount ?? 0,
+      skippedReason: syncState.lastErrorCode === 'NO_GPS_ROUTE' ? 'No GPS data available' : 'No GPS data available',
       failedCount: syncState.failedCount ?? 0,
       rateLimitedCount: syncState.rateLimitedCount ?? 0,
       status,
@@ -87,6 +89,7 @@ function emptySummary(): SyncSummary {
     updatedCount: 0,
     routesSyncedCount: 0,
     skippedCount: 0,
+    skippedReason: '',
     failedCount: 0,
     rateLimitedCount: 0,
     status: null,

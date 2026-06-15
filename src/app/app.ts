@@ -1,4 +1,4 @@
-import { Component, Inject, inject, signal } from '@angular/core';
+import { Component, computed, Inject, inject, signal } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { environment } from '../environments/environment';
@@ -41,10 +41,14 @@ export class App {
   private totalRouteCount = 0;
   private runningStoreCount = { activities: 0, routes: 0, noRoutes: 0 };
   private importHistoryRecorded = false;
+  private pendingHistoryTrigger: 'sync_new_activities' | 'clear_and_resync' = 'sync_new_activities';
+  private storeQueue = Promise.resolve();
 
   protected readonly syncSummary = signal<SyncSummary | null>(null);
   protected readonly syncMenuOpen = signal(false);
   protected readonly lastSyncLabel = signal<string | null>(null);
+  protected readonly syncInProgress = computed(() => this.dataRefresh.syncInProgress());
+  protected readonly syncProgressLabel = computed(() => this.dataRefresh.syncProgressLabel());
   protected readonly buildDate: string =
     document.documentElement.getAttribute('data-build') ?? 'dev';
   protected readonly appMenuOpen = signal(false);
@@ -88,7 +92,7 @@ export class App {
         console.log('[Trailroam] Sync done notification received');
         this.loadSyncSummary();
         this.loadLastSyncLabel();
-        this.toastService.show('Synced just now', 15000);
+        this.completeSync();
         return undefined;
       }
       if (msg?.type === 'TRAILROAM_GET_MISSING_ACTIVITIES') {
@@ -100,15 +104,9 @@ export class App {
         return true;
       }
       if (msg?.type === 'TRAILROAM_STORE_ACTIVITIES') {
-        console.log('[Trailroam] Store activities received, count:', msg.payload?.activities?.length ?? 0);
-        this.storeImportedData(msg.payload).then(() => {
-          console.log('[Trailroam] Store activities completed');
-          this.loadSyncSummary();
-          this.loadLastSyncLabel();
-          this.dataRefresh.emitRefresh();
-          this.toastService.show('Synced just now', 15000);
-          return undefined;
-        });
+        console.log('[Trailroam] Store activities received, activities:', msg.payload?.activities?.length ?? 0, 'routes:', msg.payload?.routes?.length ?? 0);
+        this.dataRefresh.syncProgressLabel.set('Storing data...');
+        this.storeQueue = this.storeQueue.then(() => this.storeImportedData(msg.payload));
       }
       return undefined;
     });
@@ -118,6 +116,13 @@ export class App {
     const now = new Date().toISOString();
     const rawActivities: StravaActivityResponse[] = payload?.activities ?? [];
     const rawRoutes: Array<{ activityId: number; routeData: any }> = payload?.routes ?? [];
+
+    const hasFinalBatch = payload?.isFinalBatch === true;
+
+    if (rawActivities.length === 0 && rawRoutes.length === 0) {
+      this.completeSync();
+      return;
+    }
 
     this.totalRouteCount += rawRoutes.length;
 
@@ -200,9 +205,24 @@ export class App {
       this.pendingRouteCount++;
     }
 
-    const allRoutesDone = this.totalRouteCount > 0 && this.pendingRouteCount >= this.totalRouteCount;
+    const allRoutesDone = (this.totalRouteCount > 0 && this.pendingRouteCount >= this.totalRouteCount) || hasFinalBatch;
 
-    if (allRoutesDone || rawActivities.length > 0) {
+    if (rawActivities.length > 0) {
+      await this.repositories.syncState.put({
+        id: 'default',
+        status: 'completed',
+        completedAt: now,
+        lastSuccessfulSyncAt: now,
+        startedAt: now,
+        importedCount: this.runningStoreCount.activities,
+        updatedCount: 0,
+        routesSyncedCount: 0,
+        skippedCount: 0,
+        failedCount: 0,
+      });
+    }
+
+    if (allRoutesDone) {
       const attempts = await this.retryMissingRoutes();
       await this.repositories.syncState.put({
         id: 'default',
@@ -216,9 +236,10 @@ export class App {
         skippedCount: this.runningStoreCount.noRoutes + attempts.skipped,
         failedCount: attempts.failed,
       });
-      if (!this.importHistoryRecorded && (allRoutesDone || (rawActivities.length > 0 && this.totalRouteCount === 0))) {
+
+      if (!this.importHistoryRecorded) {
         this.importHistoryRecorded = true;
-        await this.syncHistoryService.record('sync_new_activities', {
+        await this.syncHistoryService.record(this.pendingHistoryTrigger, {
           importedCount: this.runningStoreCount.activities,
           updatedCount: 0,
           routesSyncedCount: this.runningStoreCount.routes + attempts.synced,
@@ -228,7 +249,41 @@ export class App {
           status: 'completed',
         });
       }
+      this.loadSyncSummary();
+      this.loadLastSyncLabel();
+      this.dataRefresh.emitRefresh();
+      this.completeSync();
     }
+
+    if (!allRoutesDone && rawRoutes.length > 0) {
+      this.dataRefresh.syncProgressLabel.set('Storing routes...');
+    }
+  }
+
+  protected formatTimestamp(iso: string): string {
+    try {
+      const date = new Date(iso);
+      return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return iso;
+    }
+  }
+
+  private startSyncProgress(label: string): void {
+    this.dataRefresh.startSync(label);
+  }
+
+  private completeSync(): void {
+    this.dataRefresh.completeSync();
+  }
+
+  private resetCounters(): void {
+    this.pendingRouteCount = 0;
+    this.totalRouteCount = 0;
+    this.runningStoreCount = { activities: 0, routes: 0, noRoutes: 0 };
+    this.importHistoryRecorded = false;
+    this.pendingHistoryTrigger = 'sync_new_activities';
+    this.syncSummary.set(null);
   }
 
   private async sendSyncedIds(sendResponse: (response: any) => void): Promise<void> {
@@ -344,7 +399,8 @@ export class App {
 
   protected syncNewActivities(): void {
     this.closeSyncMenu();
-    this.importHistoryRecorded = false;
+    this.resetCounters();
+    this.startSyncProgress('Syncing...');
     const c = (globalThis as any).chrome;
     if (c?.tabs?.create) {
       c.tabs.create({ url: 'https://www.strava.com/dashboard?trailroamSync=true' });
@@ -353,6 +409,9 @@ export class App {
 
   protected syncMissingRoutes(): void {
     this.closeSyncMenu();
+    this.syncSummary.set(null);
+    this.resetCounters();
+    this.startSyncProgress('Syncing missing routes...');
     const c = (globalThis as any).chrome;
     if (c?.tabs?.create) {
       c.tabs.create({ url: 'https://www.strava.com/dashboard?trailroamSyncMissing=true' });
@@ -368,17 +427,19 @@ export class App {
       danger: true,
     });
     if (!confirmed) { return; }
-    await this.localDataService.clearSyncedLocalData();
-    await this.syncHistoryService.record('clear_and_resync', {
-      importedCount: 0,
-      updatedCount: 0,
-      routesSyncedCount: 0,
-      skippedCount: 0,
-      failedCount: 0,
-      rateLimitedCount: 0,
-      status: 'completed',
-    });
-    this.syncNewActivities();
+    this.startSyncProgress('Clearing synced data...');
+    await Promise.all([
+      this.repositories.activities.clear(),
+      this.repositories.activityRoutes.clear(),
+      this.repositories.syncState.clear(),
+    ]);
+    this.resetCounters();
+    this.pendingHistoryTrigger = 'clear_and_resync';
+    this.dataRefresh.syncProgressLabel.set('Syncing...');
+    const c = (globalThis as any).chrome;
+    if (c?.tabs?.create) {
+      c.tabs.create({ url: 'https://www.strava.com/dashboard?trailroamSync=true' });
+    }
   }
 
   protected async clearSyncedLocalData(): Promise<void> {

@@ -33,11 +33,11 @@ function parseDateParam(value: string | undefined | null): string | null {
 export type DatePreset = 'all' | '7d' | '30d' | 'year' | 'custom';
 
 export function isAfterOrEqual(isoDate: string, isoBound: string): boolean {
-  return new Date(isoDate).getTime() >= new Date(isoBound).getTime();
+  return isoDate.slice(0, 10) >= isoBound.slice(0, 10);
 }
 
 export function isBeforeOrEqual(isoDate: string, isoBound: string): boolean {
-  return new Date(isoDate).getTime() <= new Date(isoBound).getTime();
+  return isoDate.slice(0, 10) <= isoBound.slice(0, 10);
 }
 
 @Injectable({

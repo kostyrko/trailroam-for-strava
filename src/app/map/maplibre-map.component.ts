@@ -194,6 +194,13 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
     if (map.isStyleLoaded()) {
       console.log(`[TRACE] queueOrRender: style loaded, rendering ${routes.length} routes directly`);
       this.routeRendererService.renderRoutes(routes, (route) => this.routeSelected.emit(route));
+      if (selectedId) {
+        this.routeRendererService.selectRoute(selectedId);
+        const selected = routes.find((r) => r.activityId === selectedId || r.activity.id === selectedId);
+        if (selected) {
+          this.routeRendererService.fitToRoute(selected.coordinates);
+        }
+      }
       return;
     }
     console.log(`[TRACE] queueOrRender: waiting for style, will poll for ${routes.length} routes`);
@@ -209,6 +216,13 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
     if (this.mapInstance.isStyleLoaded()) {
       this.routeRendererService.renderRoutes(routes, (route) => this.routeSelected.emit(route));
       this.routesRendered.emit();
+      if (selectedId) {
+        this.routeRendererService.selectRoute(selectedId);
+        const selected = routes.find((r) => r.activityId === selectedId || r.activity.id === selectedId);
+        if (selected) {
+          this.routeRendererService.fitToRoute(selected.coordinates);
+        }
+      }
       return;
     }
     if (attempt >= 50) {

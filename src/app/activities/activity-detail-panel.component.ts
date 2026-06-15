@@ -758,6 +758,21 @@ export class ActivityDetailPanelComponent {
     const segFeatures = this.buildSpeedSegments(route.coordinates, route.cumulativeDistances);
     this.speedLegend.set(segFeatures.length > 0);
 
+    const speedRatios = segFeatures
+      .map((f) => f.properties?.['speedRatio'] as number)
+      .filter((v) => v !== undefined);
+    const minRatio = speedRatios.length > 0 ? Math.min(...speedRatios) : 0.5;
+    const maxRatio = speedRatios.length > 0 ? Math.max(...speedRatios) : 1.5;
+    const range = maxRatio - minRatio || 0.5;
+
+    const colorStops: (number | string)[] = [];
+    for (const sc of SPEED_COLORS) {
+      const t = sc.at / 2.0;
+      const scaled = minRatio + t * range;
+      colorStops.push(scaled, sc.color);
+    }
+    const interpolateExpr: ExpressionSpecification = ['interpolate', ['linear'], ['get', 'speedRatio'], ...colorStops];
+
     const sourceId = 'detail-route-segments';
     const layerBaseId = 'detail-route-seg';
 
@@ -776,12 +791,6 @@ export class ActivityDetailPanelComponent {
       type: 'geojson',
       data: { type: 'FeatureCollection', features: segFeatures },
     });
-
-    const colorStops: (number | string)[] = [];
-    for (const sc of SPEED_COLORS) {
-      colorStops.push(sc.at, sc.color);
-    }
-    const interpolateExpr: ExpressionSpecification = ['interpolate', ['linear'], ['get', 'speedRatio'], ...colorStops];
 
     map.addLayer({
       id: `${layerBaseId}-casing`,

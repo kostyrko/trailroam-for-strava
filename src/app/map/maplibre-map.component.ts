@@ -135,7 +135,7 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
   private mapInstance: Map | null = null;
 
   protected readonly AVAILABLE_PROVIDERS = AVAILABLE_PROVIDERS;
-  protected readonly activeProviderId = signal(AVAILABLE_PROVIDERS[0].id);
+  protected readonly activeProviderId = signal(this.basemapProviderService.getSelectedProvider().config.id);
   protected readonly layerMenuOpen = signal(false);
   protected readonly heatmapActive = signal(false);
   private readonly heatmapOpacity = signal(100);

@@ -148,7 +148,7 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
               }
             </div>
 
-            <div class="toolbar-select" tabindex="0" (click)="datePresetOpen.set(!datePresetOpen())" (keydown.enter)="datePresetOpen.set(!datePresetOpen())" (blur)="datePresetOpen.set(false)" aria-label="Filter by date range">
+            <div class="toolbar-select" [class.auto-filter-highlight]="autoFilterHighlight()" tabindex="0" (click)="autoFilterHighlight.set(false); datePresetOpen.set(!datePresetOpen())" (keydown.enter)="datePresetOpen.set(!datePresetOpen())" (blur)="datePresetOpen.set(false)" aria-label="Filter by date range">
               <span class="toolbar-select__trigger">
                 <app-icon name="calendar" [size]="14" strokeWidth="2"></app-icon>
                 {{ datePresetLabel() }}
@@ -557,6 +557,12 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
       user-select: none;
     }
 
+    .toolbar-select.auto-filter-highlight .toolbar-select__trigger {
+      border-color: #dc2626;
+      box-shadow: 0 0 0 2px rgb(220 38 38 / 25%);
+      transition: border-color 0.5s ease, box-shadow 0.5s ease;
+    }
+
     .toolbar-select__trigger {
       align-items: center;
       background: #ffffff;
@@ -885,6 +891,7 @@ export class MapPage implements AfterViewInit {
   protected readonly mapFullscreen = signal(false);
   private readonly perfWarningDismissed = signal(false);
   private readonly autoFilterHintDismissed = signal(false);
+  protected readonly autoFilterHighlight = signal(false);
   private readonly dataLoaded = signal(false);
   private readonly mapReady = signal(false);
   private readonly retryDestroyed = signal(false);
@@ -1143,6 +1150,8 @@ export class MapPage implements AfterViewInit {
       const totalPoints = routes.reduce((sum, r) => sum + r.coordinates.length, 0);
       if (totalPoints > POINTS_WARN_THRESHOLD / 2 && this.filtersService.datePreset() === 'all' && !this.filtersService.userInteracted) {
         this.applyDatePreset('year');
+        this.autoFilterHighlight.set(true);
+        setTimeout(() => this.autoFilterHighlight.set(false), 6_500);
         const settings = await this.repositories.settings.getOrCreateDefault();
         const count = settings.autoFilterHintCount ?? 0;
         if (count < 4) {

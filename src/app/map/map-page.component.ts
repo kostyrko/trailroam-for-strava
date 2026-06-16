@@ -94,6 +94,14 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
         </article>
       }
 
+      @if (autoFilterHintBanner(); as hint) {
+        <article class="notice-bar info-state" role="status">
+          <p class="notice-bar-kicker">Auto-filtered</p>
+          <p>{{ hint }}</p>
+          <button class="notice-bar-dismiss" type="button" (click)="dismissAutoFilterHint()">Got it</button>
+        </article>
+      }
+
       @if (hasBasemapError()) {
         <article class="notice-bar warning-state" aria-labelledby="basemap-error-title" role="alert">
           <p class="notice-bar-kicker">Basemap unavailable</p>
@@ -686,6 +694,12 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
       color: #7a621a;
     }
 
+    .notice-bar.info-state {
+      background: #fbf5e1;
+      color: #7a621a;
+      border-bottom-color: #d2b96d;
+    }
+
     .notice-bar-kicker {
       font-size: 0.75rem;
       font-weight: 800;
@@ -870,6 +884,7 @@ export class MapPage implements AfterViewInit {
   protected readonly filterMenuOpen = signal(false);
   protected readonly mapFullscreen = signal(false);
   private readonly perfWarningDismissed = signal(false);
+  private readonly autoFilterHintDismissed = signal(false);
   private readonly dataLoaded = signal(false);
   private readonly mapReady = signal(false);
   private readonly retryDestroyed = signal(false);
@@ -1006,6 +1021,14 @@ export class MapPage implements AfterViewInit {
     this.filteredRoutes().reduce((sum, r) => sum + r.coordinates.length, 0),
   );
 
+  protected readonly autoFilterTriggered = signal(false);
+
+  protected readonly autoFilterHintBanner = computed<string | null>(() => {
+    if (this.autoFilterHintDismissed()) { return null; }
+    if (!this.autoFilterTriggered()) { return null; }
+    return 'Filtered to "This year" for better performance. You can change the date range in the filter below.';
+  });
+
   protected readonly performanceWarning = computed<string | null>(() => {
     if (this.perfWarningDismissed()) { return null; }
     const routes = this.visibleRouteCount();
@@ -1120,6 +1143,11 @@ export class MapPage implements AfterViewInit {
       const totalPoints = routes.reduce((sum, r) => sum + r.coordinates.length, 0);
       if (totalPoints > POINTS_WARN_THRESHOLD / 2 && this.filtersService.datePreset() === 'all' && !this.filtersService.userInteracted) {
         this.applyDatePreset('year');
+        const settings = await this.repositories.settings.getOrCreateDefault();
+        const count = settings.autoFilterHintCount ?? 0;
+        if (count < 4) {
+          this.autoFilterTriggered.set(true);
+        }
       }
     } catch {
     } finally {
@@ -1185,6 +1213,16 @@ export class MapPage implements AfterViewInit {
 
   protected retryBasemapLoad(): void {
     this.mapBasemapError.set(false);
+  }
+
+  protected async dismissAutoFilterHint(): Promise<void> {
+    this.autoFilterHintDismissed.set(true);
+    const settings = await this.repositories.settings.getOrCreateDefault();
+    await this.repositories.settings.put({
+      ...settings,
+      autoFilterHintCount: (settings.autoFilterHintCount ?? 0) + 1,
+      updatedAt: new Date().toISOString(),
+    });
   }
 
   protected dismissPerformanceWarning(): void {

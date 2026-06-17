@@ -146,7 +146,7 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
                 <app-icon name="chevron-down" [size]="12" strokeWidth="2" [class]="'toolbar-select__arrow'"></app-icon>
               </span>
               @if (filterMenuOpen()) {
-                <ul class="toolbar-select__options sport-type-filter" (mousedown)="$event.preventDefault()">
+                <ul class="toolbar-select__options sport-type-filter" (mousedown)="$event.preventDefault()" (click)="$event.stopPropagation()">
                   <li role="option" (click)="onSportTypeChange('')" [class.active]="!sportTypeFilter()">All Activities</li>
                   @for (group of sportTypeGroups(); track group.category) {
                     <li class="sport-type-group-header" role="option" (click)="onCategoryFilterChange(group.category)" [class.active]="sportTypeFilter() === '__cat__' + group.category">
@@ -169,7 +169,7 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
                 <app-icon name="chevron-down" [size]="12" strokeWidth="2" [class]="'toolbar-select__arrow'"></app-icon>
               </span>
               @if (datePresetOpen()) {
-                <ul class="toolbar-select__options" (mousedown)="$event.preventDefault()">
+                <ul class="toolbar-select__options" (mousedown)="$event.preventDefault()" (click)="$event.stopPropagation()">
                   <li role="option" (click)="applyDatePreset('all')" [class.active]="datePreset() === 'all'">All dates</li>
                   <li role="option" (click)="applyDatePreset('7d')" [class.active]="datePreset() === '7d'">Last 7 days</li>
                   <li role="option" (click)="applyDatePreset('30d')" [class.active]="datePreset() === '30d'">Last 30 days</li>
@@ -1104,7 +1104,13 @@ export class MapPage implements AfterViewInit {
   constructor() {
     this.destroyRef.onDestroy(() => this.retryDestroyed.set(true));
     this.loadRoutes();
-    globalThis.addEventListener('click', () => this.detailMenuOpen.set(false));
+    globalThis.addEventListener('click', (e) => {
+      this.detailMenuOpen.set(false);
+      if (!(e.target as HTMLElement)?.closest('.toolbar-select')) {
+        this.filterMenuOpen.set(false);
+        this.datePresetOpen.set(false);
+      }
+    });
     this.dataRefresh.refresh$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
       this.routesLoading.set(true);
       this.loadRoutes();

@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { type FilterSpecification, type Map as MapLibreMap, type MapLayerMouseEvent, type GeoJSONSource } from 'maplibre-gl';
+import { type Map as MapLibreMap, type MapLayerMouseEvent, type GeoJSONSource } from 'maplibre-gl';
 import { type MapRouteFeature } from './mock-routes';
 
 export const ROUTES_SOURCE_ID = 'trailroam-routes';
@@ -20,8 +20,6 @@ const CLUSTER_MAX_ZOOM = 12;
 
 export type RouteSelectedHandler = (route: MapRouteFeature) => void;
 
-export type RouteHoveredHandler = (route: MapRouteFeature | null) => void;
-
 @Injectable({
   providedIn: 'root',
 })
@@ -32,59 +30,60 @@ export class RouteRendererService {
   private onRouteSelected: RouteSelectedHandler | null = null;
   private routesLookup: Map<string, MapRouteFeature> = new Map();
   private mapEventListeners: (() => void)[] = [];
+  private emphasisActive = false;
+  private emphasisMatchingIds: Set<string> | null = null;
+  private emphasisSelectedId: string | null = null;
+  private heatmapMode = false;
+  private opacityOverride: number | null = null;
+  private readonly categoryColorExpr = [
+    'match', ['get', 'category'],
+    'ride', '#1f6f50',
+    'run', '#2d7fb8',
+    'walk', '#b87a2d',
+    'hike', '#8b5e3c',
+    'water', '#3c9bb8',
+    'paddling', '#3ca8a8',
+    'winter', '#8ba8c8',
+    '#63746a',
+  ] as unknown as string;
 
   init(map: MapLibreMap): void {
     this.map = map;
   }
 
   renderRoutes(routes: MapRouteFeature[], routeSelected: RouteSelectedHandler): void {
-    console.log(`[TRACE] RouteRenderer.renderRoutes: ${routes.length} routes, map=${!!this.map}`);
     this.routes = routes;
     this.onRouteSelected = routeSelected;
     this.routesLookup = new Map(routes.map((r) => [r.activityId, r]));
 
     const map = this.map;
-    if (!map) { console.log('[TRACE] RouteRenderer.renderRoutes: no map instance, returning'); return; }
-
-    const lineFeatures = routes.map((route) => ({
-      type: 'Feature' as const,
-      properties: { activityId: route.activityId, name: route.name, category: route.activity.activityCategory },
-      geometry: { type: 'LineString' as const, coordinates: route.coordinates },
-    }));
-
-    const centroidFeatures = routes.map((route) => {
-      const centroid = this.computeCentroid(route.coordinates);
-      return {
-        type: 'Feature' as const,
-        properties: { activityId: route.activityId, name: route.name, category: route.activity.activityCategory },
-        geometry: { type: 'Point' as const, coordinates: centroid },
-      };
-    });
+    if (!map) { return; }
 
     const existingSource = map.getSource(ROUTES_SOURCE_ID);
     if (existingSource) {
-      console.log(`[TRACE] RouteRenderer.renderRoutes: source exists, updating setData with ${routes.length} routes`);
-      (existingSource as GeoJSONSource).setData({ type: 'FeatureCollection', features: lineFeatures });
-      (map.getSource(ROUTES_POINTS_SOURCE_ID) as GeoJSONSource).setData({ type: 'FeatureCollection', features: centroidFeatures });
-      this.updateHeatmapSource();
+      this.syncRouteSource();
+      this.syncFinal();
       return;
     }
 
-    console.log(`[TRACE] RouteRenderer.renderRoutes: creating new sources/layers for ${routes.length} routes`);
     this.initialized = true;
 
     map.addSource(ROUTES_SOURCE_ID, {
       type: 'geojson',
-      data: { type: 'FeatureCollection', features: lineFeatures },
+      data: { type: 'FeatureCollection', features: [] },
     });
+
+    this.syncRouteSource();
 
     map.addSource(ROUTES_POINTS_SOURCE_ID, {
       type: 'geojson',
-      data: { type: 'FeatureCollection', features: centroidFeatures },
+      data: { type: 'FeatureCollection', features: [] },
       cluster: true,
       clusterMaxZoom: CLUSTER_MAX_ZOOM,
       clusterRadius: 60,
     });
+
+    this.syncCentroidSource();
 
     map.addLayer({
       id: `${ROUTES_LAYER_ID}-casing`,
@@ -93,7 +92,7 @@ export class RouteRendererService {
       minzoom: LINE_MIN_ZOOM,
       paint: {
         'line-color': '#ffffff',
-        'line-opacity': 0.9,
+        'line-opacity': [ 'case', [ '==', [ 'get', 'emphasis' ], 0 ], 0.15, 0.9 ],
         'line-width': 7,
       },
     });
@@ -104,19 +103,9 @@ export class RouteRendererService {
       source: ROUTES_SOURCE_ID,
       minzoom: LINE_MIN_ZOOM,
       paint: {
-        'line-color': [
-          'match', ['get', 'category'],
-          'ride', '#1f6f50',
-          'run', '#2d7fb8',
-          'walk', '#b87a2d',
-          'hike', '#8b5e3c',
-          'water', '#3c9bb8',
-          'paddling', '#3ca8a8',
-          'winter', '#8ba8c8',
-          '#63746a',
-        ],
-        'line-opacity': 0.85,
-        'line-width': 4,
+        'line-color': this.categoryColorExpr,
+        'line-opacity': [ 'case', [ '==', [ 'get', 'emphasis' ], 0 ], 0.15, 0.85 ],
+        'line-width': [ 'case', [ '==', [ 'get', 'emphasis' ], 0 ], 2, [ 'case', [ '==', [ 'get', 'emphasis' ], 3 ], 7, 4 ] ],
       },
     });
 
@@ -125,11 +114,11 @@ export class RouteRendererService {
       type: 'line',
       source: ROUTES_SOURCE_ID,
       minzoom: LINE_MIN_ZOOM,
-      filter: this.buildSelectedRouteFilter(''),
+      filter: ['==', ['get', 'activityId'], ''],
       paint: {
-        'line-color': '#d15b2f',
+        'line-color': this.categoryColorExpr,
         'line-opacity': 1,
-        'line-width': 7,
+        'line-width': 5,
       },
     });
 
@@ -237,6 +226,7 @@ export class RouteRendererService {
     });
 
     this.addEventListeners();
+    this.syncFinal();
   }
 
   showHoverPoint(lng: number, lat: number): void {
@@ -263,31 +253,16 @@ export class RouteRendererService {
     this.routesLookup = new Map(routes.map((r) => [r.activityId, r]));
     const map = this.map;
     if (!map) { return; }
-
-    const lineFeatures = routes.map((route) => ({
-      type: 'Feature' as const,
-      properties: { activityId: route.activityId, name: route.name, category: route.activity.activityCategory },
-      geometry: { type: 'LineString' as const, coordinates: route.coordinates },
-    }));
-
-    const centroidFeatures = routes.map((route) => {
-      const centroid = this.computeCentroid(route.coordinates);
-      return {
-        type: 'Feature' as const,
-        properties: { activityId: route.activityId, name: route.name, category: route.activity.activityCategory },
-        geometry: { type: 'Point' as const, coordinates: centroid },
-      };
-    });
-
-    (map.getSource(ROUTES_SOURCE_ID) as GeoJSONSource)?.setData({ type: 'FeatureCollection', features: lineFeatures });
-    (map.getSource(ROUTES_POINTS_SOURCE_ID) as GeoJSONSource)?.setData({ type: 'FeatureCollection', features: centroidFeatures });
+    this.syncRouteSource();
+    this.syncCentroidSource();
     this.updateHeatmapSource();
+    this.syncFinal();
   }
 
   selectRoute(activityId: string): void {
     const map = this.map;
     if (!map) { return; }
-    map.setFilter(ROUTES_SELECTED_LAYER_ID, this.buildSelectedRouteFilter(activityId));
+    map.setFilter(ROUTES_SELECTED_LAYER_ID, ['==', ['get', 'activityId'], activityId]);
   }
 
   deselectRoute(): void {
@@ -322,9 +297,6 @@ export class RouteRendererService {
     }
   }
 
-  private isHeatmapMode = false;
-  private opacityOverride: number | null = null;
-
   private readonly opacityTargets = [
     `${ROUTES_LAYER_ID}-casing`,
     ROUTES_LAYER_ID,
@@ -349,10 +321,10 @@ export class RouteRendererService {
     const map = this.map;
     if (!map) { return; }
     if (map.getLayer(`${ROUTES_LAYER_ID}-casing`)) {
-      map.setPaintProperty(`${ROUTES_LAYER_ID}-casing`, 'line-opacity', 0.9);
+      map.setPaintProperty(`${ROUTES_LAYER_ID}-casing`, 'line-opacity', [ 'case', [ '==', [ 'get', 'emphasis' ], 0 ], 0.15, 0.9 ]);
     }
     if (map.getLayer(ROUTES_LAYER_ID)) {
-      map.setPaintProperty(ROUTES_LAYER_ID, 'line-opacity', 0.85);
+      map.setPaintProperty(ROUTES_LAYER_ID, 'line-opacity', [ 'case', [ '==', [ 'get', 'emphasis' ], 0 ], 0.15, 0.85 ]);
     }
     if (map.getLayer(ROUTES_SELECTED_LAYER_ID)) {
       map.setPaintProperty(ROUTES_SELECTED_LAYER_ID, 'line-opacity', 1);
@@ -363,7 +335,7 @@ export class RouteRendererService {
   }
 
   toggleHeatmap(): void {
-    this.isHeatmapMode = !this.isHeatmapMode;
+    this.heatmapMode = !this.heatmapMode;
     const map = this.map;
     if (!map) { return; }
     const routeLayers = [
@@ -376,8 +348,8 @@ export class RouteRendererService {
       'trailroam-route-single-label',
     ];
     const heatmapLayers = [ROUTES_HEATMAP_LAYER_ID];
-    const routeVisible = this.isHeatmapMode ? 'none' : 'visible';
-    const heatmapVisible = this.isHeatmapMode ? 'visible' : 'none';
+    const routeVisible = this.heatmapMode ? 'none' : 'visible';
+    const heatmapVisible = this.heatmapMode ? 'visible' : 'none';
     for (const id of routeLayers) {
       if (map.getLayer(id)) {
         map.setLayoutProperty(id, 'visibility', routeVisible);
@@ -391,58 +363,86 @@ export class RouteRendererService {
   }
 
   isHeatmapActive(): boolean {
-    return this.isHeatmapMode;
+    return this.heatmapMode;
   }
 
-  private readonly DEFAULT_LINE_OPACITY = 0.85;
-  private readonly HOVERED_LINE_OPACITY = 1;
-  private readonly NON_SELECTED_LINE_OPACITY = 0.3;
-
-  private readonly hoverOpacityTargets = [
-    `${ROUTES_LAYER_ID}-casing`,
-    ROUTES_LAYER_ID,
-    ROUTES_SELECTED_LAYER_ID,
-  ] as const;
-
-  setNonSelectedOpacity(enabled: boolean): void {
-    const map = this.map;
-    if (!map) { return; }
-    for (const id of this.hoverOpacityTargets) {
-      const layer = map.getLayer(id);
-      if (layer && layer.type === 'line') {
-        map.setPaintProperty(
-          id,
-          'line-opacity',
-          enabled ? this.NON_SELECTED_LINE_OPACITY : this.DEFAULT_LINE_OPACITY,
-        );
-      }
-    }
+  setEmphasis(matchingIds: Set<string> | null, selectedId: string | null): void {
+    this.emphasisActive = true;
+    this.emphasisMatchingIds = matchingIds;
+    this.emphasisSelectedId = selectedId;
+    this.syncRouteSource();
   }
 
-  private hoveredActivityId: string | null = null;
-
-  highlightRoute(activityId: string): void {
-    this.hoveredActivityId = activityId;
-    const map = this.map;
-    if (!map) { return; }
-    for (const id of this.hoverOpacityTargets) {
-      const layer = map.getLayer(id);
-      if (layer && layer.type === 'line') {
-        map.setPaintProperty(id, 'line-opacity', this.HOVERED_LINE_OPACITY);
-      }
-    }
+  clearEmphasis(): void {
+    this.emphasisActive = false;
+    this.emphasisMatchingIds = null;
+    this.emphasisSelectedId = null;
+    this.syncRouteSource();
   }
 
-  clearHighlight(): void {
-    this.hoveredActivityId = null;
+  private syncRouteSource(): void {
+    const source = this.map?.getSource(ROUTES_SOURCE_ID) as GeoJSONSource | undefined;
+    if (!source) { return; }
+
+    const matchingIds = this.emphasisMatchingIds;
+    const selId = this.emphasisSelectedId;
+    const hasMatching = matchingIds != null && matchingIds.size > 0;
+
+    const features = this.routes
+      .filter((route) => {
+        if (!hasMatching) { return true; }
+        if (matchingIds!.has(route.activityId)) { return true; }
+        if (route.activityId === selId) { return true; }
+        return false;
+      })
+      .map((route) => {
+        const isSelected = route.activityId === selId;
+        let emphasis = 2;
+        if (isSelected) { emphasis = 3; }
+        else if (selId) { emphasis = 0; }
+        return {
+          type: 'Feature' as const,
+          properties: { activityId: route.activityId, name: route.name, category: route.activity.activityCategory, emphasis },
+          geometry: { type: 'LineString' as const, coordinates: route.coordinates },
+        };
+      });
+
+    source.setData({ type: 'FeatureCollection', features });
+    this.syncFinal();
+  }
+
+  private syncCentroidSource(): void {
+    const source = this.map?.getSource(ROUTES_POINTS_SOURCE_ID) as GeoJSONSource | undefined;
+    if (!source) { return; }
+    const matchingIds = this.emphasisMatchingIds;
+    const selId = this.emphasisSelectedId;
+    const hasMatching = matchingIds != null && matchingIds.size > 0;
+    const filtered = hasMatching
+      ? this.routes.filter((r) => matchingIds!.has(r.activityId) || r.activityId === selId)
+      : this.routes;
+    const features = filtered.map((route) => {
+      const centroid = this.computeCentroid(route.coordinates);
+      return {
+        type: 'Feature' as const,
+        properties: { activityId: route.activityId, name: route.name, category: route.activity.activityCategory },
+        geometry: { type: 'Point' as const, coordinates: centroid },
+      };
+    });
+    source.setData({ type: 'FeatureCollection', features });
+  }
+
+  private syncFinal(): void {
     const map = this.map;
     if (!map) { return; }
-    for (const id of this.hoverOpacityTargets) {
-      const layer = map.getLayer(id);
-      if (layer && layer.type === 'line') {
-        map.setPaintProperty(id, 'line-opacity', this.DEFAULT_LINE_OPACITY);
-      }
+
+    const selId = this.emphasisSelectedId;
+    if (selId) {
+      map.setFilter(ROUTES_SELECTED_LAYER_ID, ['==', ['get', 'activityId'], selId]);
+    } else {
+      map.setFilter(ROUTES_SELECTED_LAYER_ID, ['==', ['get', 'activityId'], '']);
     }
+
+    this.updateHeatmapSource();
   }
 
   private updateHeatmapSource(): void {
@@ -483,7 +483,7 @@ export class RouteRendererService {
       const selectedRoute = this.routesLookup.get(activityId);
       if (!selectedRoute) { return; }
       this.fitToRoute(selectedRoute.coordinates);
-      map.setFilter(ROUTES_SELECTED_LAYER_ID, this.buildSelectedRouteFilter(selectedRoute.activityId));
+      this.selectRoute(selectedRoute.activityId);
       this.onRouteSelected?.(selectedRoute);
     };
 
@@ -492,7 +492,7 @@ export class RouteRendererService {
       if (typeof activityId !== 'string') { return; }
       const selectedRoute = this.routesLookup.get(activityId);
       if (!selectedRoute) { return; }
-      map.setFilter(ROUTES_SELECTED_LAYER_ID, this.buildSelectedRouteFilter(selectedRoute.activityId));
+      this.selectRoute(selectedRoute.activityId);
       this.onRouteSelected?.(selectedRoute);
     };
 
@@ -538,9 +538,5 @@ export class RouteRendererService {
       sumLat += c[1];
     }
     return [sumLng / coordinates.length, sumLat / coordinates.length];
-  }
-
-  private buildSelectedRouteFilter(activityId: string): FilterSpecification {
-    return ['==', ['get', 'activityId'], activityId];
   }
 }

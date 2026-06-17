@@ -455,6 +455,13 @@ export type PanelSort = 'newest' | 'longest' | 'az';
 
     .panel-item--selected {
       background: #e6f7ef;
+      border-left: 4px solid #1f6f50;
+      font-weight: 700;
+      position: relative;
+    }
+
+    .panel-item--selected .panel-item-name {
+      font-weight: 700;
     }
 
     .panel-item-emoji {

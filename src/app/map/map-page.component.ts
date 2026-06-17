@@ -208,15 +208,6 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
           <div class="map-loading-overlay">
             <app-loading-spinner />
           </div>
-        } @else if (allRoutes().length > 0 && filteredRoutes().length === 0 && !mapFilterEmptyDismissed()) {
-          <div class="map-empty-overlay" (click)="dismissMapFilterEmpty()">
-            <article class="empty-state map-empty-modal" aria-labelledby="map-empty-match-title">
-              <button class="map-empty-close" type="button" (click)="dismissMapFilterEmpty(); $event.stopPropagation()" aria-label="Close empty state notice">&times;</button>
-              <p class="empty-state-kicker">No matching activities</p>
-              <h2 id="map-empty-match-title">No activities match your filters.</h2>
-              <p>Try adjusting your search or filter criteria to find what you're looking for.</p>
-            </article>
-          </div>
         } @else if (!noRouteActivity() && !selectedRoute() && !selectedActivityId() && allRoutes().length === 0 && !mapEmptyDismissed()) {
           <div class="map-empty-overlay" (click)="dismissMapEmpty()">
             <article class="empty-state map-empty-modal" aria-labelledby="map-empty-title">
@@ -921,23 +912,17 @@ export class MapPage implements AfterViewInit {
   protected readonly routesLoading = signal(true);
   protected readonly routesRendered = signal(false);
   protected readonly mapEmptyDismissed = signal(false);
-  protected readonly mapFilterEmptyDismissed = signal(false);
-
   protected dismissMapEmpty(): void {
     this.mapEmptyDismissed.set(true);
-  }
-
-  protected dismissMapFilterEmpty(): void {
-    this.mapFilterEmptyDismissed.set(true);
   }
 
   protected readonly sportTypeFilter = this.filtersService.sportTypeFilter;
   protected readonly detailMenuOpen = signal(false);
   protected readonly hoveredActivityId = signal<string | null>(null);
   protected readonly panelVisibleOnMap = signal(false);
-  private panelNonSelectedOpacityActive = false;
   protected readonly panelViewportBounds = signal<[[number, number], [number, number]] | null>(null);
   protected readonly panelExpanded = signal(true);
+  private emphasisTimeout: ReturnType<typeof setTimeout> | null = null;
 
   protected readonly datePreset = this.filtersService.datePreset;
   protected readonly datePresetLabel = this.filtersService.datePresetLabel;
@@ -1075,7 +1060,7 @@ export class MapPage implements AfterViewInit {
     return null;
   });
 
-  protected readonly selectedActivityId = computed(() => this.activityIdParam());
+  protected readonly selectedActivityId = computed(() => this.activityIdParam() ?? this.selectedMapRoute()?.activityId ?? null);
   protected readonly hasBasemapError = computed(() => this.basemapErrorParam() || this.mapBasemapError());
 
   protected readonly selectedRoute = computed<MapRouteFeature | null>(() => {
@@ -1132,10 +1117,17 @@ export class MapPage implements AfterViewInit {
         this.tryRenderRoutes('effect');
       }
       if (this.allRoutes().length > 0 && filtered.length === 0) {
-        this.mapFilterEmptyDismissed.set(false);
         this.closeFilterMenu();
         this.datePresetOpen.set(false);
       }
+    });
+    effect(() => {
+      this.filtersService.nameSearch();
+      this.filtersService.sportTypeFilter();
+      this.filtersService.dateFrom();
+      this.filtersService.dateTo();
+      this.dataLoaded();
+      this.scheduleEmphasisUpdate();
     });
   }
 
@@ -1196,7 +1188,7 @@ export class MapPage implements AfterViewInit {
     const src = source ?? 'unknown';
     console.log(`[TRACE] tryRenderRoutes from ${src}: dataLoaded=${this.dataLoaded()}, mapReady=${this.mapReady()}, mapComp=${!!this.mapComponent}, filteredRoutes=${this.filteredRoutes().length}`);
     if (!this.dataLoaded() || !this.mapReady()) { console.log(`[TRACE] tryRenderRoutes from ${src}: SKIP (not ready)`); return; }
-    const routes = this.filteredRoutes();
+    const routes = this.allRoutes();
     const mapComp = this.mapComponent;
     const selectId = this.selectedActivityId();
     if (!mapComp) { console.log(`[TRACE] tryRenderRoutes from ${src}: SKIP (no mapComp)`); return; }
@@ -1272,6 +1264,7 @@ export class MapPage implements AfterViewInit {
     setTimeout(() => {
       document.querySelector('.route-detail')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }, 0);
+    this.scheduleEmphasisUpdate();
   }
 
   protected clearSelectedRoute(): void {
@@ -1281,6 +1274,7 @@ export class MapPage implements AfterViewInit {
     if (this.selectedActivityId()) {
       this.router.navigate(['/map']);
     }
+    this.scheduleEmphasisUpdate();
   }
 
   protected onElevationHover(position: { lng: number; lat: number } | null): void {
@@ -1295,6 +1289,7 @@ export class MapPage implements AfterViewInit {
     this.selectedMapRoute.set(null);
     this.routeRendererService.deselectRoute();
     this.router.navigate(['/map']);
+    this.scheduleEmphasisUpdate();
   }
 
   protected syncActivities(): void {
@@ -1346,22 +1341,11 @@ export class MapPage implements AfterViewInit {
     if (this.selectedActivityId()) {
       this.router.navigate(['/map'], { queryParams: {}, replaceUrl: true });
     }
+    this.scheduleEmphasisUpdate();
   }
 
   protected onPanelHoverRoute(route: MapRouteFeature | null): void {
-    if (route) {
-      this.hoveredActivityId.set(route.activityId);
-      this.routeRendererService.setNonSelectedOpacity(true);
-      this.panelNonSelectedOpacityActive = true;
-      this.routeRendererService.highlightRoute(route.activityId);
-    } else {
-      this.hoveredActivityId.set(null);
-      if (this.panelNonSelectedOpacityActive) {
-        this.routeRendererService.clearHighlight();
-        this.routeRendererService.resetLayerOpacity();
-        this.panelNonSelectedOpacityActive = false;
-      }
-    }
+    this.hoveredActivityId.set(route?.activityId ?? null);
   }
 
   protected onPanelVisibleOnMapChange(enabled: boolean): void {
@@ -1370,5 +1354,52 @@ export class MapPage implements AfterViewInit {
 
   protected onViewportChanged(bounds: [[number, number], [number, number]]): void {
     this.panelViewportBounds.set(bounds);
+  }
+
+  private scheduleEmphasisUpdate(): void {
+    if (this.emphasisTimeout) { clearTimeout(this.emphasisTimeout); }
+    this.emphasisTimeout = setTimeout(() => this.updateEmphasis(), 50);
+  }
+
+  private updateEmphasis(): void {
+    if (!this.dataLoaded()) { return; }
+    const search = this.filtersService.nameSearch().toLowerCase().trim();
+    const sportFilter = this.filtersService.sportTypeFilter();
+    const fromDate = this.filtersService.dateFrom();
+    const toDate = this.filtersService.dateTo();
+    const hasActiveFilter = !!(search || sportFilter || fromDate || toDate);
+    const selectedId = this.selectedRoute()?.activityId ?? null;
+
+    if (!hasActiveFilter) {
+      if (selectedId) {
+        this.routeRendererService.setEmphasis(null, selectedId);
+      } else {
+        this.routeRendererService.clearEmphasis();
+      }
+      return;
+    }
+
+    const allRoutes = this.allRoutes();
+    if (allRoutes.length === 0) { return; }
+
+    const matchingIds = new Set<string>();
+    for (const r of allRoutes) {
+      if (search && !r.activity.name.toLowerCase().includes(search) && !r.activity.sportType.toLowerCase().includes(search)) {
+        continue;
+      }
+      if (sportFilter) {
+        if (sportFilter.startsWith('__cat__')) {
+          const cat = sportFilter.slice(7);
+          if (r.activity.activityCategory !== cat) { continue; }
+        } else {
+          if (r.activity.sportType !== sportFilter) { continue; }
+        }
+      }
+      if (fromDate && r.activity.startDate && !isAfterOrEqual(r.activity.startDate, fromDate)) { continue; }
+      if (toDate && r.activity.startDate && !isBeforeOrEqual(r.activity.startDate, toDate)) { continue; }
+      matchingIds.add(r.activityId);
+    }
+
+    this.routeRendererService.setEmphasis(matchingIds, selectedId);
   }
 }

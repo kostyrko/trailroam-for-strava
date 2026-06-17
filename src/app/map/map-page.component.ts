@@ -125,7 +125,7 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
           [viewBounds]="panelViewportBounds()"
           [isFullscreen]="mapFullscreen()"
           [panelExpanded]="panelExpanded()"
-          (panelExpandedChange)="panelExpanded.set($event)"
+          (panelExpandedChange)="onPanelExpandedChange($event)"
           (selectRoute)="onPanelSelectRoute($event)"
           (hoverRoute)="onPanelHoverRoute($event)"
           (visibleOnMapChange)="onPanelVisibleOnMapChange($event)"
@@ -922,6 +922,7 @@ export class MapPage implements AfterViewInit {
   protected readonly panelVisibleOnMap = signal(false);
   protected readonly panelViewportBounds = signal<[[number, number], [number, number]] | null>(null);
   protected readonly panelExpanded = signal(true);
+  private panelLoaded = false;
   private emphasisTimeout: ReturnType<typeof setTimeout> | null = null;
 
   protected readonly datePreset = this.filtersService.datePreset;
@@ -1103,7 +1104,7 @@ export class MapPage implements AfterViewInit {
 
   constructor() {
     this.destroyRef.onDestroy(() => this.retryDestroyed.set(true));
-    this.loadRoutes();
+    this.loadRoutes().then(() => this.restorePanelState());
     globalThis.addEventListener('click', (e) => {
       this.detailMenuOpen.set(false);
       if (!(e.target as HTMLElement)?.closest('.toolbar-select')) {
@@ -1352,6 +1353,27 @@ export class MapPage implements AfterViewInit {
 
   protected onPanelHoverRoute(route: MapRouteFeature | null): void {
     this.hoveredActivityId.set(route?.activityId ?? null);
+  }
+
+  protected onPanelExpandedChange(expanded: boolean): void {
+    this.panelExpanded.set(expanded);
+    this.persistPanelState(expanded);
+  }
+
+  private async restorePanelState(): Promise<void> {
+    if (this.panelLoaded) { return; }
+    this.panelLoaded = true;
+    const settings = await this.repositories.settings.getOrCreateDefault();
+    this.panelExpanded.set(settings.mapExplorerPanelExpanded ?? true);
+  }
+
+  private async persistPanelState(expanded: boolean): Promise<void> {
+    const settings = await this.repositories.settings.getOrCreateDefault();
+    await this.repositories.settings.put({
+      ...settings,
+      mapExplorerPanelExpanded: expanded,
+      updatedAt: new Date().toISOString(),
+    });
   }
 
   protected onPanelVisibleOnMapChange(enabled: boolean): void {

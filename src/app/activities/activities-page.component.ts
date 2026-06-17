@@ -1688,7 +1688,11 @@ export class ActivitiesPageComponent {
   constructor() {
     this.loadPage(1);
     this.initLocalNotice();
-    globalThis.addEventListener('click', () => this.closeAllMenus());
+    globalThis.addEventListener('click', (e) => {
+      if (!(e.target as HTMLElement)?.closest('.toolbar-select')) {
+        this.closeAllMenus();
+      }
+    });
     this.dataRefresh.refresh$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.loadPage(1));
     effect(() => {
       const focusId = this.focusActivityId();

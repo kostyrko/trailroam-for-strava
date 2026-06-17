@@ -103,6 +103,7 @@ export interface SettingsRecord {
   dismissedSyncAt?: string;
   dismissedLocalDataNoticeAt?: string;
   autoFilterHintCount?: number;
+  mapExplorerPanelExpanded?: boolean;
   createdAt: string;
   updatedAt: string;
 }

@@ -20,6 +20,8 @@ const CLUSTER_MAX_ZOOM = 12;
 
 export type RouteSelectedHandler = (route: MapRouteFeature) => void;
 
+export type RouteHoveredHandler = (route: MapRouteFeature | null) => void;
+
 @Injectable({
   providedIn: 'root',
 })
@@ -390,6 +392,57 @@ export class RouteRendererService {
 
   isHeatmapActive(): boolean {
     return this.isHeatmapMode;
+  }
+
+  private readonly DEFAULT_LINE_OPACITY = 0.85;
+  private readonly HOVERED_LINE_OPACITY = 1;
+  private readonly NON_SELECTED_LINE_OPACITY = 0.3;
+
+  private readonly hoverOpacityTargets = [
+    `${ROUTES_LAYER_ID}-casing`,
+    ROUTES_LAYER_ID,
+    ROUTES_SELECTED_LAYER_ID,
+  ] as const;
+
+  setNonSelectedOpacity(enabled: boolean): void {
+    const map = this.map;
+    if (!map) { return; }
+    for (const id of this.hoverOpacityTargets) {
+      const layer = map.getLayer(id);
+      if (layer && layer.type === 'line') {
+        map.setPaintProperty(
+          id,
+          'line-opacity',
+          enabled ? this.NON_SELECTED_LINE_OPACITY : this.DEFAULT_LINE_OPACITY,
+        );
+      }
+    }
+  }
+
+  private hoveredActivityId: string | null = null;
+
+  highlightRoute(activityId: string): void {
+    this.hoveredActivityId = activityId;
+    const map = this.map;
+    if (!map) { return; }
+    for (const id of this.hoverOpacityTargets) {
+      const layer = map.getLayer(id);
+      if (layer && layer.type === 'line') {
+        map.setPaintProperty(id, 'line-opacity', this.HOVERED_LINE_OPACITY);
+      }
+    }
+  }
+
+  clearHighlight(): void {
+    this.hoveredActivityId = null;
+    const map = this.map;
+    if (!map) { return; }
+    for (const id of this.hoverOpacityTargets) {
+      const layer = map.getLayer(id);
+      if (layer && layer.type === 'line') {
+        map.setPaintProperty(id, 'line-opacity', this.DEFAULT_LINE_OPACITY);
+      }
+    }
   }
 
   private updateHeatmapSource(): void {

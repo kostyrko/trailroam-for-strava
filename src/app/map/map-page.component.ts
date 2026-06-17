@@ -24,6 +24,7 @@ import { ToastService } from '../shared/toast.service';
 import { DataRefreshService } from '../shared/data-refresh.service';
 import { GpxExportService } from '../shared/gpx-export.service';
 import { IconComponent } from '../shared/icon.component';
+import { MapActivityPanelComponent } from './map-activity-panel.component';
 
 function formatDurationHours(seconds: number | undefined): string {
   if (seconds === undefined || seconds === 0) { return '—'; }
@@ -84,7 +85,7 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
 
 @Component({
   selector: 'app-map-page',
-  imports: [MapLibreMapComponent, ElevationProfileComponent, LoadingSpinnerComponent, IconComponent],
+  imports: [MapLibreMapComponent, ElevationProfileComponent, LoadingSpinnerComponent, IconComponent, MapActivityPanelComponent],
   template: `
       @if (performanceWarning(); as warning) {
         <article class="notice-bar warning-state" role="alert">
@@ -113,9 +114,22 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
         </article>
       }
 
-    <section class="map-page-layout" aria-labelledby="map-title">
+    <section class="map-page-layout" [class.map-page-layout--panel-open]="panelExpanded()" aria-labelledby="map-title">
 
       @if (!hasBasemapError()) {
+        <app-map-activity-panel
+          [routes]="filteredRoutes()"
+          [totalRoutes]="allRoutes().length"
+          [selectedActivityId]="selectedActivityId()"
+          [hoveredActivityId]="hoveredActivityId()"
+          [viewBounds]="panelViewportBounds()"
+          [isFullscreen]="mapFullscreen()"
+          [panelExpanded]="panelExpanded()"
+          (panelExpandedChange)="panelExpanded.set($event)"
+          (selectRoute)="onPanelSelectRoute($event)"
+          (hoverRoute)="onPanelHoverRoute($event)"
+          (visibleOnMapChange)="onPanelVisibleOnMapChange($event)"
+        />
         <div class="map-filters-overlay">
           <div class="map-filters-row">
             <div class="toolbar-select" tabindex="0" (click)="toggleFilterMenu()" (keydown.enter)="toggleFilterMenu()" (blur)="closeFilterMenu()" aria-label="Filter by activity type">
@@ -223,6 +237,7 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
           (routeSelected)="selectRoute($event)"
           (fullscreenChanged)="mapFullscreen.set($event)"
           (routesRendered)="onRoutesRendered()"
+          (viewportChanged)="onViewportChanged($event)"
         />
         @if (selectedRoute(); as route) {
           <article class="route-detail route-detail-overlay" aria-label="Selected route details">
@@ -319,11 +334,11 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
       bottom: 52px;
       box-shadow: 0 4px 20px rgb(20 33 27 / 25%);
       box-sizing: border-box;
-      left: 24px;
       margin: 0;
       max-width: 380px;
       padding: 12px 16px;
       position: fixed;
+      right: 24px;
       z-index: 1001;
     }
 
@@ -742,6 +757,11 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
       position: relative;
     }
 
+    .map-page-layout--panel-open ::ng-deep .map-shell .maplibregl-ctrl-top-left {
+      margin: 12px 0 0 340px;
+      top: 12px !important;
+    }
+
     .map-page-layout ::ng-deep app-maplibre-map {
       display: flex;
       flex: 1;
@@ -913,6 +933,12 @@ export class MapPage implements AfterViewInit {
 
   protected readonly sportTypeFilter = this.filtersService.sportTypeFilter;
   protected readonly detailMenuOpen = signal(false);
+  protected readonly hoveredActivityId = signal<string | null>(null);
+  protected readonly panelVisibleOnMap = signal(false);
+  private panelNonSelectedOpacityActive = false;
+  protected readonly panelViewportBounds = signal<[[number, number], [number, number]] | null>(null);
+  protected readonly panelExpanded = signal(true);
+
   protected readonly datePreset = this.filtersService.datePreset;
   protected readonly datePresetLabel = this.filtersService.datePresetLabel;
   protected readonly datePresetOpen = signal(false);
@@ -1306,5 +1332,43 @@ export class MapPage implements AfterViewInit {
     } else {
       window.open(url, '_blank');
     }
+  }
+
+  protected onPanelSelectRoute(route: MapRouteFeature): void {
+    this.hoveredActivityId.set(null);
+    const mapComp = this.mapComponent;
+    if (mapComp) {
+      mapComp.flyToBounds(route.coordinates);
+    }
+    this.routeRendererService.selectRoute(route.activityId);
+    this.routeRendererService.fitToRoute(route.coordinates);
+    this.selectedMapRoute.set(route);
+    if (this.selectedActivityId()) {
+      this.router.navigate(['/map'], { queryParams: {}, replaceUrl: true });
+    }
+  }
+
+  protected onPanelHoverRoute(route: MapRouteFeature | null): void {
+    if (route) {
+      this.hoveredActivityId.set(route.activityId);
+      this.routeRendererService.setNonSelectedOpacity(true);
+      this.panelNonSelectedOpacityActive = true;
+      this.routeRendererService.highlightRoute(route.activityId);
+    } else {
+      this.hoveredActivityId.set(null);
+      if (this.panelNonSelectedOpacityActive) {
+        this.routeRendererService.clearHighlight();
+        this.routeRendererService.resetLayerOpacity();
+        this.panelNonSelectedOpacityActive = false;
+      }
+    }
+  }
+
+  protected onPanelVisibleOnMapChange(enabled: boolean): void {
+    this.panelVisibleOnMap.set(enabled);
+  }
+
+  protected onViewportChanged(bounds: [[number, number], [number, number]]): void {
+    this.panelViewportBounds.set(bounds);
   }
 }

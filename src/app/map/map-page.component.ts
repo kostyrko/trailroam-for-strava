@@ -235,7 +235,7 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
             <div class="route-detail-header">
               <h2 class="route-detail-title">
                 <button class="route-title-link" type="button" (click)="navigateToActivity(route.activity)">
-                  {{ route.name }}
+                  <span class="route-title-text" [title]="route.name">{{ route.name }}</span>
                   <app-icon name="external-link" [size]="14" strokeWidth="2" [class]="'route-title-icon'"></app-icon>
                 </button>
               </h2>
@@ -359,13 +359,18 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
       border: 0;
       color: #14211b;
       cursor: pointer;
-      display: inline-flex;
+      display: flex;
       font: inherit;
       font-size: inherit;
       gap: 4px;
-      max-width: 100%;
-      overflow: hidden;
+      min-width: 0;
       padding: 0;
+      width: 100%;
+    }
+
+    .route-title-text {
+      min-width: 0;
+      overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }

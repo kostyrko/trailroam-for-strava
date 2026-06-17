@@ -168,6 +168,13 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
     if (!map) { return; }
     this.pendingReadyTasks = [];
     map.setStyle(config.styleUrl!);
+    map.on('styleimagemissing', (e: { id: string }) => {
+      if (map.hasImage(e.id)) { return; }
+      const canvas = document.createElement('canvas');
+      canvas.width = 1;
+      canvas.height = 1;
+      map.addImage(e.id, canvas as unknown as HTMLImageElement | ImageData);
+    });
     map.once('style.load', () => {
       console.log('[TRACE] selectLayer style.load fired');
       this.routeRendererService.init(map);
@@ -281,6 +288,14 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
     this.routeRendererService.init(map);
 
     map.once('load', () => this.addMapControls());
+
+    map.on('styleimagemissing', (e: { id: string }) => {
+      if (map.hasImage(e.id)) { return; }
+      const canvas = document.createElement('canvas');
+      canvas.width = 1;
+      canvas.height = 1;
+      map.addImage(e.id, canvas as unknown as HTMLImageElement | ImageData);
+    });
 
     const emitViewport = () => {
       const b = map.getBounds();

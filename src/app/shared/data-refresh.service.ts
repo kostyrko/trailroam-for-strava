@@ -19,5 +19,6 @@ export class DataRefreshService {
   completeSync(): void {
     this.syncInProgress.set(false);
     this.syncProgressLabel.set(null);
+    this.emitRefresh();
   }
 }

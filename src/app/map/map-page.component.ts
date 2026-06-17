@@ -1300,6 +1300,7 @@ export class MapPage implements AfterViewInit {
   }
 
   protected syncActivities(): void {
+    this.dataRefresh.startSync('Syncing...');
     const c = (globalThis as any).chrome;
     if (c?.tabs?.create) {
       c.tabs.create({ url: 'https://www.strava.com/dashboard?trailroamSync=true' });

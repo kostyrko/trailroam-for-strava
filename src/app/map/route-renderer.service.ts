@@ -408,6 +408,7 @@ export class RouteRendererService {
       });
 
     source.setData({ type: 'FeatureCollection', features });
+    this.syncCentroidSource();
     this.syncFinal();
   }
 

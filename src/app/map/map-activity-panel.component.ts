@@ -175,6 +175,7 @@ export type PanelSort = 'newest' | 'longest' | 'az';
     }
 
     .map-panel.map-panel--fullscreen {
+      top: -67px;
       z-index: 1001;
     }
 

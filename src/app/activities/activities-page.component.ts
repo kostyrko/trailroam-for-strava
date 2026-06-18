@@ -187,7 +187,7 @@ function routeStatusLabel(status: string): string {
               <app-icon name="chevron-down" [size]="12" strokeWidth="2" [class]="'toolbar-select__arrow'"></app-icon>
             </span>
             @if (filterMenuOpen()) {
-              <ul class="toolbar-select__options sport-type-filter" (mousedown)="$event.preventDefault()">
+              <ul class="toolbar-select__options sport-type-filter" (mousedown)="$event.preventDefault()" (click)="$event.stopPropagation()">
                 <li role="option" (click)="onSportTypeChange('')" [class.active]="!sportTypeFilter()">All Activities</li>
                 @for (group of sportTypeGroups(); track group.category) {
                   <li class="sport-type-group-header" role="option" (click)="onCategoryFilterChange(group.category)" [class.active]="sportTypeFilter() === '__cat__' + group.category">
@@ -210,7 +210,7 @@ function routeStatusLabel(status: string): string {
               <app-icon name="chevron-down" [size]="12" strokeWidth="2" [class]="'toolbar-select__arrow'"></app-icon>
             </span>
             @if (datePresetOpen()) {
-              <ul class="toolbar-select__options" (mousedown)="$event.preventDefault()">
+              <ul class="toolbar-select__options" (mousedown)="$event.preventDefault()" (click)="$event.stopPropagation()">
                 <li role="option" (click)="applyDatePreset('all')" [class.active]="datePreset() === 'all'">All dates</li>
                 <li role="option" (click)="applyDatePreset('7d')" [class.active]="datePreset() === '7d'">Last 7 days</li>
                 <li role="option" (click)="applyDatePreset('30d')" [class.active]="datePreset() === '30d'">Last 30 days</li>
@@ -1688,7 +1688,11 @@ export class ActivitiesPageComponent {
   constructor() {
     this.loadPage(1);
     this.initLocalNotice();
-    globalThis.addEventListener('click', () => this.closeAllMenus());
+    globalThis.addEventListener('click', (e) => {
+      if (!(e.target as HTMLElement)?.closest('.toolbar-select')) {
+        this.closeAllMenus();
+      }
+    });
     this.dataRefresh.refresh$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.loadPage(1));
     effect(() => {
       const focusId = this.focusActivityId();
@@ -1734,19 +1738,24 @@ export class ActivitiesPageComponent {
     const ids = this.selectedIds();
     const all = this.allFiltered();
     const selected = all.filter((a) => ids.has(a.id));
-    if (selected.length > 10) {
-      const ok = window.confirm(`Exporting ${selected.length} files — your browser may prompt to allow multiple downloads.`);
-      if (!ok) { return; }
+    if (selected.length === 0) { return; }
+    const count = await this.gpxExportService.buildZip(new (await import('jszip')).default(), selected);
+    if (count.exported === 0) {
+      this.toastService.show('No GPS routes available for the selected activities.');
+      return;
+    }
+    if (count.exported > 10) {
+      const confirmed = await this.confirmService.confirm({
+        title: `Download ${count.exported} GPX ${count.exported === 1 ? 'file' : 'files'} as zip?`,
+        message: `${count.skipped} ${count.skipped === 1 ? 'activity' : 'activities'} skipped (no route).`,
+        confirmLabel: 'Download',
+        danger: false,
+      });
+      if (!confirmed) { return; }
     }
     const result = await this.gpxExportService.exportActivitiesAsZip(selected);
     this.clearSelection();
-    if (result.exported > 0 && result.skipped > 0) {
-      this.toastService.show(`Exported ${result.exported} GPX file(s) as zip, ${result.skipped} skipped (no route).`);
-    } else if (result.exported > 0) {
-      this.toastService.show(`Exported ${result.exported} GPX file(s) as zip.`);
-    } else {
-      this.toastService.show('No GPS routes available for the selected activities.');
-    }
+    this.toastService.show(`Downloaded ${result.exported} GPX ${result.exported === 1 ? 'file' : 'files'} as zip.`);
   }
 
   protected async deleteSelected(): Promise<void> {
@@ -1866,6 +1875,8 @@ export class ActivitiesPageComponent {
 
   protected closeAllMenus(): void {
     this.openMenuId.set(null);
+    this.filterMenuOpen.set(false);
+    this.datePresetOpen.set(false);
   }
 
   protected openOnStrava(event: MouseEvent, activity: ActivityRecord): void {

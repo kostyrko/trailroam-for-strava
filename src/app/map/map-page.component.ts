@@ -23,7 +23,9 @@ import { formatSportType, formatCategory, mapSportTypeToCategory } from '../shar
 import { ToastService } from '../shared/toast.service';
 import { DataRefreshService } from '../shared/data-refresh.service';
 import { GpxExportService } from '../shared/gpx-export.service';
+import { ConfirmService } from '../shared/confirm.service';
 import { IconComponent } from '../shared/icon.component';
+import { MapActivityPanelComponent } from './map-activity-panel.component';
 
 function formatDurationHours(seconds: number | undefined): string {
   if (seconds === undefined || seconds === 0) { return '—'; }
@@ -84,13 +86,21 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
 
 @Component({
   selector: 'app-map-page',
-  imports: [MapLibreMapComponent, ElevationProfileComponent, LoadingSpinnerComponent, IconComponent],
+  imports: [MapLibreMapComponent, ElevationProfileComponent, LoadingSpinnerComponent, IconComponent, MapActivityPanelComponent],
   template: `
       @if (performanceWarning(); as warning) {
         <article class="notice-bar warning-state" role="alert">
           <p class="notice-bar-kicker">Performance notice</p>
           <p>{{ warning }}</p>
           <button class="notice-bar-dismiss" type="button" (click)="dismissPerformanceWarning()">Dismiss</button>
+        </article>
+      }
+
+      @if (autoFilterHintBanner(); as hint) {
+        <article class="notice-bar info-state" role="status">
+          <p class="notice-bar-kicker">Auto-filtered</p>
+          <p>{{ hint }}</p>
+          <button class="notice-bar-dismiss" type="button" (click)="dismissAutoFilterHint()">Got it</button>
         </article>
       }
 
@@ -105,9 +115,26 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
         </article>
       }
 
-    <section class="map-page-layout" aria-labelledby="map-title">
+    <section class="map-page-layout" [class.map-page-layout--panel-open]="panelReady() && panelExpanded()" aria-labelledby="map-title">
 
       @if (!hasBasemapError()) {
+        @if (panelReady()) {
+          <app-map-activity-panel
+            [routes]="filteredRoutes()"
+            [totalRoutes]="allRoutes().length"
+            [selectedActivityId]="selectedActivityId()"
+            [hoveredActivityId]="hoveredActivityId()"
+            [viewBounds]="panelViewportBounds()"
+            [isFullscreen]="mapFullscreen()"
+            [panelExpanded]="panelExpanded()"
+            [noTransition]="panelNoTransition()"
+            (panelExpandedChange)="onPanelExpandedChange($event)"
+            (selectRoute)="onPanelSelectRoute($event)"
+            (hoverRoute)="onPanelHoverRoute($event)"
+            (visibleOnMapChange)="onPanelVisibleOnMapChange($event)"
+            (downloadPanelGpx)="onDownloadPanelGpx($event)"
+          />
+        }
         <div class="map-filters-overlay">
           <div class="map-filters-row">
             <div class="toolbar-select" tabindex="0" (click)="toggleFilterMenu()" (keydown.enter)="toggleFilterMenu()" (blur)="closeFilterMenu()" aria-label="Filter by activity type">
@@ -124,7 +151,7 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
                 <app-icon name="chevron-down" [size]="12" strokeWidth="2" [class]="'toolbar-select__arrow'"></app-icon>
               </span>
               @if (filterMenuOpen()) {
-                <ul class="toolbar-select__options sport-type-filter" (mousedown)="$event.preventDefault()">
+                <ul class="toolbar-select__options sport-type-filter" (mousedown)="$event.preventDefault()" (click)="$event.stopPropagation()">
                   <li role="option" (click)="onSportTypeChange('')" [class.active]="!sportTypeFilter()">All Activities</li>
                   @for (group of sportTypeGroups(); track group.category) {
                     <li class="sport-type-group-header" role="option" (click)="onCategoryFilterChange(group.category)" [class.active]="sportTypeFilter() === '__cat__' + group.category">
@@ -140,14 +167,14 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
               }
             </div>
 
-            <div class="toolbar-select" tabindex="0" (click)="datePresetOpen.set(!datePresetOpen())" (keydown.enter)="datePresetOpen.set(!datePresetOpen())" (blur)="datePresetOpen.set(false)" aria-label="Filter by date range">
+            <div class="toolbar-select" [class.auto-filter-highlight]="autoFilterHighlight()" tabindex="0" (click)="autoFilterHighlight.set(false); datePresetOpen.set(!datePresetOpen())" (keydown.enter)="datePresetOpen.set(!datePresetOpen())" (blur)="datePresetOpen.set(false)" aria-label="Filter by date range">
               <span class="toolbar-select__trigger">
                 <app-icon name="calendar" [size]="14" strokeWidth="2"></app-icon>
                 {{ datePresetLabel() }}
                 <app-icon name="chevron-down" [size]="12" strokeWidth="2" [class]="'toolbar-select__arrow'"></app-icon>
               </span>
               @if (datePresetOpen()) {
-                <ul class="toolbar-select__options" (mousedown)="$event.preventDefault()">
+                <ul class="toolbar-select__options" (mousedown)="$event.preventDefault()" (click)="$event.stopPropagation()">
                   <li role="option" (click)="applyDatePreset('all')" [class.active]="datePreset() === 'all'">All dates</li>
                   <li role="option" (click)="applyDatePreset('7d')" [class.active]="datePreset() === '7d'">Last 7 days</li>
                   <li role="option" (click)="applyDatePreset('30d')" [class.active]="datePreset() === '30d'">Last 30 days</li>
@@ -186,15 +213,6 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
           <div class="map-loading-overlay">
             <app-loading-spinner />
           </div>
-        } @else if (allRoutes().length > 0 && filteredRoutes().length === 0 && !mapFilterEmptyDismissed()) {
-          <div class="map-empty-overlay" (click)="dismissMapFilterEmpty()">
-            <article class="empty-state map-empty-modal" aria-labelledby="map-empty-match-title">
-              <button class="map-empty-close" type="button" (click)="dismissMapFilterEmpty(); $event.stopPropagation()" aria-label="Close empty state notice">&times;</button>
-              <p class="empty-state-kicker">No matching activities</p>
-              <h2 id="map-empty-match-title">No activities match your filters.</h2>
-              <p>Try adjusting your search or filter criteria to find what you're looking for.</p>
-            </article>
-          </div>
         } @else if (!noRouteActivity() && !selectedRoute() && !selectedActivityId() && allRoutes().length === 0 && !mapEmptyDismissed()) {
           <div class="map-empty-overlay" (click)="dismissMapEmpty()">
             <article class="empty-state map-empty-modal" aria-labelledby="map-empty-title">
@@ -215,13 +233,14 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
           (routeSelected)="selectRoute($event)"
           (fullscreenChanged)="mapFullscreen.set($event)"
           (routesRendered)="onRoutesRendered()"
+          (viewportChanged)="onViewportChanged($event)"
         />
         @if (selectedRoute(); as route) {
           <article class="route-detail route-detail-overlay" aria-label="Selected route details">
             <div class="route-detail-header">
               <h2 class="route-detail-title">
                 <button class="route-title-link" type="button" (click)="navigateToActivity(route.activity)">
-                  {{ route.name }}
+                  <span class="route-title-text" [title]="route.name">{{ route.name }}</span>
                   <app-icon name="external-link" [size]="14" strokeWidth="2" [class]="'route-title-icon'"></app-icon>
                 </button>
               </h2>
@@ -311,11 +330,11 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
       bottom: 52px;
       box-shadow: 0 4px 20px rgb(20 33 27 / 25%);
       box-sizing: border-box;
-      left: 24px;
       margin: 0;
       max-width: 380px;
       padding: 12px 16px;
       position: fixed;
+      right: 24px;
       z-index: 1001;
     }
 
@@ -345,13 +364,18 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
       border: 0;
       color: #14211b;
       cursor: pointer;
-      display: inline-flex;
+      display: flex;
       font: inherit;
       font-size: inherit;
       gap: 4px;
-      max-width: 100%;
-      overflow: hidden;
+      min-width: 0;
       padding: 0;
+      width: 100%;
+    }
+
+    .route-title-text {
+      min-width: 0;
+      overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
@@ -549,6 +573,12 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
       user-select: none;
     }
 
+    .toolbar-select.auto-filter-highlight .toolbar-select__trigger {
+      border-color: #dc2626;
+      box-shadow: 0 0 0 2px rgb(220 38 38 / 25%);
+      transition: border-color 0.5s ease, box-shadow 0.5s ease;
+    }
+
     .toolbar-select__trigger {
       align-items: center;
       background: #ffffff;
@@ -686,6 +716,12 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
       color: #7a621a;
     }
 
+    .notice-bar.info-state {
+      background: #fbf5e1;
+      color: #7a621a;
+      border-bottom-color: #d2b96d;
+    }
+
     .notice-bar-kicker {
       font-size: 0.75rem;
       font-weight: 800;
@@ -720,6 +756,11 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
       flex-direction: column;
       height: calc(100dvh - 64px);
       position: relative;
+    }
+
+    .map-page-layout--panel-open ::ng-deep .map-shell .maplibregl-ctrl-top-left {
+      margin: 12px 0 0 340px;
+      top: 12px !important;
     }
 
     .map-page-layout ::ng-deep app-maplibre-map {
@@ -848,6 +889,7 @@ export class MapPage implements AfterViewInit {
   private readonly routeRendererService = inject(RouteRendererService);
   private readonly toastService = inject(ToastService);
   private readonly gpxExportService = inject(GpxExportService);
+  private readonly confirmService = inject(ConfirmService);
   private readonly dataRefresh = inject(DataRefreshService);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -870,6 +912,8 @@ export class MapPage implements AfterViewInit {
   protected readonly filterMenuOpen = signal(false);
   protected readonly mapFullscreen = signal(false);
   private readonly perfWarningDismissed = signal(false);
+  private readonly autoFilterHintDismissed = signal(false);
+  protected readonly autoFilterHighlight = signal(false);
   private readonly dataLoaded = signal(false);
   private readonly mapReady = signal(false);
   private readonly retryDestroyed = signal(false);
@@ -879,18 +923,21 @@ export class MapPage implements AfterViewInit {
   protected readonly routesLoading = signal(true);
   protected readonly routesRendered = signal(false);
   protected readonly mapEmptyDismissed = signal(false);
-  protected readonly mapFilterEmptyDismissed = signal(false);
-
   protected dismissMapEmpty(): void {
     this.mapEmptyDismissed.set(true);
   }
 
-  protected dismissMapFilterEmpty(): void {
-    this.mapFilterEmptyDismissed.set(true);
-  }
-
   protected readonly sportTypeFilter = this.filtersService.sportTypeFilter;
   protected readonly detailMenuOpen = signal(false);
+  protected readonly hoveredActivityId = signal<string | null>(null);
+  protected readonly panelVisibleOnMap = signal(false);
+  protected readonly panelViewportBounds = signal<[[number, number], [number, number]] | null>(null);
+  protected readonly panelExpanded = signal(true);
+  protected readonly panelNoTransition = signal(true);
+  protected readonly panelReady = signal(false);
+  private panelLoaded = false;
+  private emphasisTimeout: ReturnType<typeof setTimeout> | null = null;
+
   protected readonly datePreset = this.filtersService.datePreset;
   protected readonly datePresetLabel = this.filtersService.datePresetLabel;
   protected readonly datePresetOpen = signal(false);
@@ -1006,6 +1053,14 @@ export class MapPage implements AfterViewInit {
     this.filteredRoutes().reduce((sum, r) => sum + r.coordinates.length, 0),
   );
 
+  protected readonly autoFilterTriggered = signal(false);
+
+  protected readonly autoFilterHintBanner = computed<string | null>(() => {
+    if (this.autoFilterHintDismissed()) { return null; }
+    if (!this.autoFilterTriggered()) { return null; }
+    return 'Filtered to "This year" for better performance. You can change the date range in the filter below.';
+  });
+
   protected readonly performanceWarning = computed<string | null>(() => {
     if (this.perfWarningDismissed()) { return null; }
     const routes = this.visibleRouteCount();
@@ -1019,7 +1074,7 @@ export class MapPage implements AfterViewInit {
     return null;
   });
 
-  protected readonly selectedActivityId = computed(() => this.activityIdParam());
+  protected readonly selectedActivityId = computed(() => this.activityIdParam() ?? this.selectedMapRoute()?.activityId ?? null);
   protected readonly hasBasemapError = computed(() => this.basemapErrorParam() || this.mapBasemapError());
 
   protected readonly selectedRoute = computed<MapRouteFeature | null>(() => {
@@ -1062,8 +1117,14 @@ export class MapPage implements AfterViewInit {
 
   constructor() {
     this.destroyRef.onDestroy(() => this.retryDestroyed.set(true));
-    this.loadRoutes();
-    globalThis.addEventListener('click', () => this.detailMenuOpen.set(false));
+    this.loadRoutes().then(() => this.restorePanelState());
+    globalThis.addEventListener('click', (e) => {
+      this.detailMenuOpen.set(false);
+      if (!(e.target as HTMLElement)?.closest('.toolbar-select')) {
+        this.filterMenuOpen.set(false);
+        this.datePresetOpen.set(false);
+      }
+    });
     this.dataRefresh.refresh$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
       this.routesLoading.set(true);
       this.loadRoutes();
@@ -1076,10 +1137,17 @@ export class MapPage implements AfterViewInit {
         this.tryRenderRoutes('effect');
       }
       if (this.allRoutes().length > 0 && filtered.length === 0) {
-        this.mapFilterEmptyDismissed.set(false);
         this.closeFilterMenu();
         this.datePresetOpen.set(false);
       }
+    });
+    effect(() => {
+      this.filtersService.nameSearch();
+      this.filtersService.sportTypeFilter();
+      this.filtersService.dateFrom();
+      this.filtersService.dateTo();
+      this.dataLoaded();
+      this.scheduleEmphasisUpdate();
     });
   }
 
@@ -1120,6 +1188,13 @@ export class MapPage implements AfterViewInit {
       const totalPoints = routes.reduce((sum, r) => sum + r.coordinates.length, 0);
       if (totalPoints > POINTS_WARN_THRESHOLD / 2 && this.filtersService.datePreset() === 'all' && !this.filtersService.userInteracted) {
         this.applyDatePreset('year');
+        this.autoFilterHighlight.set(true);
+        setTimeout(() => this.autoFilterHighlight.set(false), 6_500);
+        const settings = await this.repositories.settings.getOrCreateDefault();
+        const count = settings.autoFilterHintCount ?? 0;
+        if (count < 4) {
+          this.autoFilterTriggered.set(true);
+        }
       }
     } catch {
     } finally {
@@ -1133,7 +1208,7 @@ export class MapPage implements AfterViewInit {
     const src = source ?? 'unknown';
     console.log(`[TRACE] tryRenderRoutes from ${src}: dataLoaded=${this.dataLoaded()}, mapReady=${this.mapReady()}, mapComp=${!!this.mapComponent}, filteredRoutes=${this.filteredRoutes().length}`);
     if (!this.dataLoaded() || !this.mapReady()) { console.log(`[TRACE] tryRenderRoutes from ${src}: SKIP (not ready)`); return; }
-    const routes = this.filteredRoutes();
+    const routes = this.allRoutes();
     const mapComp = this.mapComponent;
     const selectId = this.selectedActivityId();
     if (!mapComp) { console.log(`[TRACE] tryRenderRoutes from ${src}: SKIP (no mapComp)`); return; }
@@ -1187,6 +1262,16 @@ export class MapPage implements AfterViewInit {
     this.mapBasemapError.set(false);
   }
 
+  protected async dismissAutoFilterHint(): Promise<void> {
+    this.autoFilterHintDismissed.set(true);
+    const settings = await this.repositories.settings.getOrCreateDefault();
+    await this.repositories.settings.put({
+      ...settings,
+      autoFilterHintCount: (settings.autoFilterHintCount ?? 0) + 1,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
   protected dismissPerformanceWarning(): void {
     this.perfWarningDismissed.set(true);
   }
@@ -1199,6 +1284,7 @@ export class MapPage implements AfterViewInit {
     setTimeout(() => {
       document.querySelector('.route-detail')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }, 0);
+    this.scheduleEmphasisUpdate();
   }
 
   protected clearSelectedRoute(): void {
@@ -1208,6 +1294,7 @@ export class MapPage implements AfterViewInit {
     if (this.selectedActivityId()) {
       this.router.navigate(['/map']);
     }
+    this.scheduleEmphasisUpdate();
   }
 
   protected onElevationHover(position: { lng: number; lat: number } | null): void {
@@ -1222,9 +1309,11 @@ export class MapPage implements AfterViewInit {
     this.selectedMapRoute.set(null);
     this.routeRendererService.deselectRoute();
     this.router.navigate(['/map']);
+    this.scheduleEmphasisUpdate();
   }
 
   protected syncActivities(): void {
+    this.dataRefresh.startSync('Syncing...');
     const c = (globalThis as any).chrome;
     if (c?.tabs?.create) {
       c.tabs.create({ url: 'https://www.strava.com/dashboard?trailroamSync=true' });
@@ -1259,5 +1348,121 @@ export class MapPage implements AfterViewInit {
     } else {
       window.open(url, '_blank');
     }
+  }
+
+  protected onPanelSelectRoute(route: MapRouteFeature): void {
+    this.hoveredActivityId.set(null);
+    const mapComp = this.mapComponent;
+    if (mapComp) {
+      mapComp.flyToBounds(route.coordinates);
+    }
+    this.routeRendererService.selectRoute(route.activityId);
+    this.routeRendererService.fitToRoute(route.coordinates);
+    this.selectedMapRoute.set(route);
+    if (this.selectedActivityId()) {
+      this.router.navigate(['/map'], { queryParams: {}, replaceUrl: true });
+    }
+    this.scheduleEmphasisUpdate();
+  }
+
+  protected onPanelHoverRoute(route: MapRouteFeature | null): void {
+    this.hoveredActivityId.set(route?.activityId ?? null);
+  }
+
+  protected onPanelExpandedChange(expanded: boolean): void {
+    this.panelExpanded.set(expanded);
+    this.persistPanelState(expanded);
+  }
+
+  protected async onDownloadPanelGpx(routes: MapRouteFeature[]): Promise<void> {
+    const activities = routes.map((r) => r.activity);
+    if (activities.length === 0) { return; }
+    const count = await this.gpxExportService.buildZip(new (await import('jszip')).default(), activities);
+    if (count.exported === 0) {
+      this.toastService.show('No GPS routes available for the displayed activities.');
+      return;
+    }
+    if (count.exported > 10) {
+      const confirmed = await this.confirmService.confirm({
+        title: `Download ${count.exported} GPX ${count.exported === 1 ? 'file' : 'files'} as zip?`,
+        message: `${count.skipped} ${count.skipped === 1 ? 'activity' : 'activities'} skipped (no route).`,
+        confirmLabel: 'Download',
+        danger: false,
+      });
+      if (!confirmed) { return; }
+    }
+    await this.gpxExportService.exportActivitiesAsZip(activities);
+  }
+
+  private async restorePanelState(): Promise<void> {
+    if (this.panelLoaded) { return; }
+    this.panelLoaded = true;
+    const settings = await this.repositories.settings.getOrCreateDefault();
+    this.panelExpanded.set(settings.mapExplorerPanelExpanded ?? true);
+    this.panelReady.set(true);
+  }
+
+  private async persistPanelState(expanded: boolean): Promise<void> {
+    const settings = await this.repositories.settings.getOrCreateDefault();
+    await this.repositories.settings.put({
+      ...settings,
+      mapExplorerPanelExpanded: expanded,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
+  protected onPanelVisibleOnMapChange(enabled: boolean): void {
+    this.panelVisibleOnMap.set(enabled);
+  }
+
+  protected onViewportChanged(bounds: [[number, number], [number, number]]): void {
+    this.panelViewportBounds.set(bounds);
+  }
+
+  private scheduleEmphasisUpdate(): void {
+    if (this.emphasisTimeout) { clearTimeout(this.emphasisTimeout); }
+    this.emphasisTimeout = setTimeout(() => this.updateEmphasis(), 50);
+  }
+
+  private updateEmphasis(): void {
+    if (!this.dataLoaded()) { return; }
+    const search = this.filtersService.nameSearch().toLowerCase().trim();
+    const sportFilter = this.filtersService.sportTypeFilter();
+    const fromDate = this.filtersService.dateFrom();
+    const toDate = this.filtersService.dateTo();
+    const hasActiveFilter = !!(search || sportFilter || fromDate || toDate);
+    const selectedId = this.selectedRoute()?.activityId ?? null;
+
+    if (!hasActiveFilter) {
+      if (selectedId) {
+        this.routeRendererService.setEmphasis(null, selectedId);
+      } else {
+        this.routeRendererService.clearEmphasis();
+      }
+      return;
+    }
+
+    const allRoutes = this.allRoutes();
+    if (allRoutes.length === 0) { return; }
+
+    const matchingIds = new Set<string>();
+    for (const r of allRoutes) {
+      if (search && !r.activity.name.toLowerCase().includes(search) && !r.activity.sportType.toLowerCase().includes(search)) {
+        continue;
+      }
+      if (sportFilter) {
+        if (sportFilter.startsWith('__cat__')) {
+          const cat = sportFilter.slice(7);
+          if (r.activity.activityCategory !== cat) { continue; }
+        } else {
+          if (r.activity.sportType !== sportFilter) { continue; }
+        }
+      }
+      if (fromDate && r.activity.startDate && !isAfterOrEqual(r.activity.startDate, fromDate)) { continue; }
+      if (toDate && r.activity.startDate && !isBeforeOrEqual(r.activity.startDate, toDate)) { continue; }
+      matchingIds.add(r.activityId);
+    }
+
+    this.routeRendererService.setEmphasis(matchingIds, selectedId);
   }
 }

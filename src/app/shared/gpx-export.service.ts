@@ -13,6 +13,16 @@ function slugify(text: string): string {
     .substring(0, 100) || 'activity';
 }
 
+function sportTypeSlug(sportType: string): string {
+  return sportType
+    .replace(/([a-z])([A-Z])/g, '$1_$2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1_$2')
+    .toLowerCase()
+    .replace(/[^\w-]/g, '')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '');
+}
+
 function buildGpx(activity: ActivityRecord, route: ActivityRouteRecord): string {
   const lines: string[] = [
     '<?xml version="1.0" encoding="UTF-8"?>',
@@ -43,7 +53,7 @@ function escapeXml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 }
 
-function triggerDownload(content: string, filename: string): void {
+export function triggerDownload(content: string, filename: string): void {
   const blob = new Blob([content], { type: 'application/gpx+xml' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -55,7 +65,7 @@ function triggerDownload(content: string, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
-function triggerZipDownload(zip: JSZip, filename: string): void {
+export function triggerZipDownload(zip: JSZip, filename: string): void {
   zip.generateAsync({ type: 'blob' }).then((blob) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -83,13 +93,25 @@ export class GpxExportService {
     }
 
     const gpx = buildGpx(activity, route);
-    const filename = `${slugify(activity.name)}.gpx`;
-    triggerDownload(gpx, filename);
+    const date = activity.startDate ? activity.startDate.slice(0, 10) : 'unknown';
+    const id = activity.providerActivityId;
+    const type = sportTypeSlug(activity.sportType);
+    triggerDownload(gpx, `${date}_${id}_${type}.gpx`);
     return { success: true };
   }
 
   async exportActivitiesAsZip(activities: ActivityRecord[]): Promise<{ exported: number; skipped: number }> {
     const zip = new JSZip();
+    const built = await this.buildZip(zip, activities);
+    if (built.exported === 0) {
+      return { exported: 0, skipped: built.skipped };
+    }
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    triggerZipDownload(zip, `${environment.appSlug}-export-${timestamp}.zip`);
+    return built;
+  }
+
+  async buildZip(zip: JSZip, activities: ActivityRecord[]): Promise<{ exported: number; skipped: number }> {
     let exported = 0;
     let skipped = 0;
     for (const activity of activities) {
@@ -103,15 +125,13 @@ export class GpxExportService {
         continue;
       }
       const gpx = buildGpx(activity, route);
-      const filename = `${slugify(activity.name)}.gpx`;
+      const date = activity.startDate ? activity.startDate.slice(0, 10) : 'unknown';
+      const id = activity.providerActivityId;
+      const type = sportTypeSlug(activity.sportType);
+      const filename = `${date}_${id}_${type}.gpx`;
       zip.file(filename, gpx);
       exported++;
     }
-    if (exported === 0) {
-      return { exported: 0, skipped };
-    }
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    triggerZipDownload(zip, `${environment.appSlug}-export-${timestamp}.zip`);
     return { exported, skipped };
   }
 }

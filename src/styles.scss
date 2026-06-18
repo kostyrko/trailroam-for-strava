@@ -80,7 +80,18 @@ p {
   width: 100%;
 }
 
-.map-container :where(.maplibregl-ctrl-top-left, .maplibregl-ctrl-top-right) {
+.maplibregl-ctrl-top-left .maplibregl-ctrl {
+  float: left;
+  margin: 12px 0 0 10px;
+}
+
+.map-container .maplibregl-ctrl-top-left {
+  margin: 12px 0 0 10px;
+  top: 60px !important;
+  transition: margin 200ms ease, top 200ms ease;
+}
+
+.map-container .maplibregl-ctrl-top-right {
   margin-top: 12px;
 }
 
@@ -93,7 +104,9 @@ p {
   border: 2px solid #1f6f50;
   border-radius: 6px;
   box-shadow: 0 2px 6px rgb(20 33 27 / 18%);
+  margin: 10px 0 0 10px;
   overflow: hidden;
+  transition: margin 200ms ease;
 }
 
 .maplibregl-ctrl-group button {

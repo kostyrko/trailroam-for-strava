@@ -102,6 +102,8 @@ export interface SettingsRecord {
   preferredDefaultRoute?: 'map' | 'activities';
   dismissedSyncAt?: string;
   dismissedLocalDataNoticeAt?: string;
+  autoFilterHintCount?: number;
+  mapExplorerPanelExpanded?: boolean;
   createdAt: string;
   updatedAt: string;
 }

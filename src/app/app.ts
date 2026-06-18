@@ -52,7 +52,7 @@ export class App {
   protected readonly buildDate: string =
     document.documentElement.getAttribute('data-build') ?? 'dev';
   protected readonly appMenuOpen = signal(false);
-  protected readonly extVersion: string = (globalThis as any).chrome?.runtime?.getManifest?.()?.version ?? '1.0.0';
+  protected readonly extVersion: string = (globalThis as any).chrome?.runtime?.getManifest?.()?.version ?? 'dev';
 
   constructor() {
     this.loadSyncSummary();
@@ -377,7 +377,7 @@ export class App {
   protected openAbout(): void {
     this.appMenuOpen.set(false);
     this.dialog.open(AboutDialog, {
-      data: { buildDate: this.buildDate, version: this.extVersion },
+      data: { version: this.extVersion },
       panelClass: 'trailroam-confirm-dialog',
     });
   }
@@ -590,7 +590,7 @@ export class App {
           </div>
           <div>
             <h2 class="about-name">{{ appName }}</h2>
-            <p class="about-version">v{{ data.version }} · build {{ data.buildDate }}</p>
+            <p class="about-version">v{{ data.version }}</p>
           </div>
         </div>
 
@@ -631,7 +631,7 @@ export class AboutDialog {
   protected readonly appDescription = environment.appDescription;
   protected licensesOpen = false;
 
-  constructor(@Inject(MAT_DIALOG_DATA) protected readonly data: { buildDate: string; version: string }) {}
+  constructor(@Inject(MAT_DIALOG_DATA) protected readonly data: { version: string }) {}
 
   protected openRepo(): void {
     const c = (globalThis as any).chrome;
@@ -695,7 +695,7 @@ export class AboutDialog {
   `,
 })
 export class BugReportDialog {
-  protected readonly extVersion: string = (globalThis as any).chrome?.runtime?.getManifest?.()?.version ?? '1.0.0';
+  protected readonly extVersion: string = (globalThis as any).chrome?.runtime?.getManifest?.()?.version ?? 'dev';
   protected readonly buildDate: string = document.documentElement.getAttribute('data-build') ?? 'dev';
 
   protected openGitHub(): void {

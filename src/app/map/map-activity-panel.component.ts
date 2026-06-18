@@ -153,6 +153,13 @@ export type PanelSort = 'newest' | 'longest' | 'az';
             </button>
           }
         </div>
+
+        <div class="panel-gpx-bar">
+          <button class="panel-gpx-btn" type="button" [disabled]="filteredActivities().length === 0" (click)="downloadPanelGpx.emit(filteredActivities())">
+            <app-icon name="download" [size]="16" strokeWidth="2"></app-icon>
+            Download GPX
+          </button>
+        </div>
       </div>
     </div>
   `,
@@ -502,6 +509,41 @@ export type PanelSort = 'newest' | 'longest' | 'az';
       font-weight: 500;
       white-space: nowrap;
     }
+
+    .panel-gpx-bar {
+      border-top: 1px solid #dce6df;
+      flex-shrink: 0;
+      padding: 10px 12px;
+    }
+
+    .panel-gpx-btn {
+      align-items: center;
+      background: #15803d;
+      border: 0;
+      border-radius: 8px;
+      color: #ffffff;
+      cursor: pointer;
+      display: flex;
+      font: inherit;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      gap: 6px;
+      height: 36px;
+      justify-content: center;
+      padding: 0 14px;
+      transition: background 120ms ease;
+      width: 100%;
+    }
+
+    .panel-gpx-btn:hover:not(:disabled) {
+      background: #166f38;
+    }
+
+    .panel-gpx-btn:disabled {
+      background: #b6cdbe;
+      cursor: default;
+      opacity: 0.5;
+    }
   `],
 })
 export class MapActivityPanelComponent {
@@ -517,6 +559,7 @@ export class MapActivityPanelComponent {
   @Output() hoverRoute = new EventEmitter<MapRouteFeature | null>();
   @Output() visibleOnMapChange = new EventEmitter<boolean>();
   @Output() panelExpandedChange = new EventEmitter<boolean>();
+  @Output() downloadPanelGpx = new EventEmitter<MapRouteFeature[]>();
 
   protected readonly searchQuery = signal('');
   protected readonly visibleOnMap = signal(false);

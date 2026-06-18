@@ -23,6 +23,7 @@ import { formatSportType, formatCategory, mapSportTypeToCategory } from '../shar
 import { ToastService } from '../shared/toast.service';
 import { DataRefreshService } from '../shared/data-refresh.service';
 import { GpxExportService } from '../shared/gpx-export.service';
+import { ConfirmService } from '../shared/confirm.service';
 import { IconComponent } from '../shared/icon.component';
 import { MapActivityPanelComponent } from './map-activity-panel.component';
 
@@ -129,6 +130,7 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
           (selectRoute)="onPanelSelectRoute($event)"
           (hoverRoute)="onPanelHoverRoute($event)"
           (visibleOnMapChange)="onPanelVisibleOnMapChange($event)"
+          (downloadPanelGpx)="onDownloadPanelGpx($event)"
         />
         <div class="map-filters-overlay">
           <div class="map-filters-row">
@@ -884,6 +886,7 @@ export class MapPage implements AfterViewInit {
   private readonly routeRendererService = inject(RouteRendererService);
   private readonly toastService = inject(ToastService);
   private readonly gpxExportService = inject(GpxExportService);
+  private readonly confirmService = inject(ConfirmService);
   private readonly dataRefresh = inject(DataRefreshService);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -1364,6 +1367,26 @@ export class MapPage implements AfterViewInit {
   protected onPanelExpandedChange(expanded: boolean): void {
     this.panelExpanded.set(expanded);
     this.persistPanelState(expanded);
+  }
+
+  protected async onDownloadPanelGpx(routes: MapRouteFeature[]): Promise<void> {
+    const activities = routes.map((r) => r.activity);
+    if (activities.length === 0) { return; }
+    const count = await this.gpxExportService.buildZip(new (await import('jszip')).default(), activities);
+    if (count.exported === 0) {
+      this.toastService.show('No GPS routes available for the displayed activities.');
+      return;
+    }
+    if (count.exported > 10) {
+      const confirmed = await this.confirmService.confirm({
+        title: `Download ${count.exported} GPX ${count.exported === 1 ? 'file' : 'files'} as zip?`,
+        message: `${count.skipped} ${count.skipped === 1 ? 'activity' : 'activities'} skipped (no route).`,
+        confirmLabel: 'Download',
+        danger: false,
+      });
+      if (!confirmed) { return; }
+    }
+    await this.gpxExportService.exportActivitiesAsZip(activities);
   }
 
   private async restorePanelState(): Promise<void> {

@@ -1738,19 +1738,24 @@ export class ActivitiesPageComponent {
     const ids = this.selectedIds();
     const all = this.allFiltered();
     const selected = all.filter((a) => ids.has(a.id));
-    if (selected.length > 10) {
-      const ok = window.confirm(`Exporting ${selected.length} files — your browser may prompt to allow multiple downloads.`);
-      if (!ok) { return; }
+    if (selected.length === 0) { return; }
+    const count = await this.gpxExportService.buildZip(new (await import('jszip')).default(), selected);
+    if (count.exported === 0) {
+      this.toastService.show('No GPS routes available for the selected activities.');
+      return;
+    }
+    if (count.exported > 10) {
+      const confirmed = await this.confirmService.confirm({
+        title: `Download ${count.exported} GPX ${count.exported === 1 ? 'file' : 'files'} as zip?`,
+        message: `${count.skipped} ${count.skipped === 1 ? 'activity' : 'activities'} skipped (no route).`,
+        confirmLabel: 'Download',
+        danger: false,
+      });
+      if (!confirmed) { return; }
     }
     const result = await this.gpxExportService.exportActivitiesAsZip(selected);
     this.clearSelection();
-    if (result.exported > 0 && result.skipped > 0) {
-      this.toastService.show(`Exported ${result.exported} GPX file(s) as zip, ${result.skipped} skipped (no route).`);
-    } else if (result.exported > 0) {
-      this.toastService.show(`Exported ${result.exported} GPX file(s) as zip.`);
-    } else {
-      this.toastService.show('No GPS routes available for the selected activities.');
-    }
+    this.toastService.show(`Downloaded ${result.exported} GPX ${result.exported === 1 ? 'file' : 'files'} as zip.`);
   }
 
   protected async deleteSelected(): Promise<void> {

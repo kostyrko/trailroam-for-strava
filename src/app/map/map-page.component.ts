@@ -115,23 +115,26 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
         </article>
       }
 
-    <section class="map-page-layout" [class.map-page-layout--panel-open]="panelExpanded()" aria-labelledby="map-title">
+    <section class="map-page-layout" [class.map-page-layout--panel-open]="panelReady() && panelExpanded()" aria-labelledby="map-title">
 
       @if (!hasBasemapError()) {
-        <app-map-activity-panel
-          [routes]="filteredRoutes()"
-          [totalRoutes]="allRoutes().length"
-          [selectedActivityId]="selectedActivityId()"
-          [hoveredActivityId]="hoveredActivityId()"
-          [viewBounds]="panelViewportBounds()"
-          [isFullscreen]="mapFullscreen()"
-          [panelExpanded]="panelExpanded()"
-          (panelExpandedChange)="onPanelExpandedChange($event)"
-          (selectRoute)="onPanelSelectRoute($event)"
-          (hoverRoute)="onPanelHoverRoute($event)"
-          (visibleOnMapChange)="onPanelVisibleOnMapChange($event)"
-          (downloadPanelGpx)="onDownloadPanelGpx($event)"
-        />
+        @if (panelReady()) {
+          <app-map-activity-panel
+            [routes]="filteredRoutes()"
+            [totalRoutes]="allRoutes().length"
+            [selectedActivityId]="selectedActivityId()"
+            [hoveredActivityId]="hoveredActivityId()"
+            [viewBounds]="panelViewportBounds()"
+            [isFullscreen]="mapFullscreen()"
+            [panelExpanded]="panelExpanded()"
+            [noTransition]="panelNoTransition()"
+            (panelExpandedChange)="onPanelExpandedChange($event)"
+            (selectRoute)="onPanelSelectRoute($event)"
+            (hoverRoute)="onPanelHoverRoute($event)"
+            (visibleOnMapChange)="onPanelVisibleOnMapChange($event)"
+            (downloadPanelGpx)="onDownloadPanelGpx($event)"
+          />
+        }
         <div class="map-filters-overlay">
           <div class="map-filters-row">
             <div class="toolbar-select" tabindex="0" (click)="toggleFilterMenu()" (keydown.enter)="toggleFilterMenu()" (blur)="closeFilterMenu()" aria-label="Filter by activity type">
@@ -930,6 +933,8 @@ export class MapPage implements AfterViewInit {
   protected readonly panelVisibleOnMap = signal(false);
   protected readonly panelViewportBounds = signal<[[number, number], [number, number]] | null>(null);
   protected readonly panelExpanded = signal(true);
+  protected readonly panelNoTransition = signal(true);
+  protected readonly panelReady = signal(false);
   private panelLoaded = false;
   private emphasisTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -1394,6 +1399,7 @@ export class MapPage implements AfterViewInit {
     this.panelLoaded = true;
     const settings = await this.repositories.settings.getOrCreateDefault();
     this.panelExpanded.set(settings.mapExplorerPanelExpanded ?? true);
+    this.panelReady.set(true);
   }
 
   private async persistPanelState(expanded: boolean): Promise<void> {

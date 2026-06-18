@@ -59,7 +59,7 @@ export type PanelSort = 'newest' | 'longest' | 'az';
   standalone: true,
   imports: [IconComponent],
   template: `
-    <div class="map-panel" [class.map-panel--collapsed]="!panelExpanded()" [class.map-panel--fullscreen]="isFullscreen()">
+    <div class="map-panel" [class.map-panel--collapsed]="!panelExpanded()" [class.map-panel--fullscreen]="isFullscreen()" [class.map-panel--no-transition]="noTransition()">
       <div class="map-panel-side" [class.map-panel-side--hidden]="panelExpanded()">
         <button class="map-panel-handle" type="button" (click)="toggle()" [attr.aria-label]="panelExpanded() ? 'Collapse activities panel' : 'Expand activities panel'" title="Activities">
           <app-icon name="activity" [size]="25" strokeWidth="2"></app-icon>
@@ -244,6 +244,10 @@ export type PanelSort = 'newest' | 'longest' | 'az';
     .map-panel--collapsed .map-panel-inner {
       transform: translateX(-100%);
       pointer-events: none;
+    }
+
+    .map-panel--no-transition .map-panel-inner {
+      transition: none;
     }
 
     .panel-header {
@@ -554,6 +558,7 @@ export class MapActivityPanelComponent {
   readonly viewBounds = input<[[number, number], [number, number]] | null>(null);
   readonly isFullscreen = input(false);
   readonly panelExpanded = input(true);
+  readonly noTransition = input(false);
 
   @Output() selectRoute = new EventEmitter<MapRouteFeature>();
   @Output() hoverRoute = new EventEmitter<MapRouteFeature | null>();

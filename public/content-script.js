@@ -1,5 +1,40 @@
+var syncId = Math.random().toString(36).slice(2, 8);
+
 function log(msg, data) {
-  console.log('[Trailroam:cs]', msg, data !== undefined ? data : '');
+  console.log('[Trailroam:cs:' + syncId + ']', msg, data !== undefined ? data : '');
+}
+
+var urlParam = getUrlParam('trailroamSync') === 'true' ? 'sync' : getUrlParam('trailroamSyncMissing') === 'true' ? 'missing' : null;
+if (urlParam) {
+  var started = sessionStorage.getItem('trailroam_sync_active');
+  log('urlParam=' + urlParam + ', sessionStorage started=' + started);
+  if (started) {
+    log('Aborting — sync already started by another context');
+  } else {
+    sessionStorage.setItem('trailroam_sync_active', '1');
+    startSync();
+  }
+}
+
+function startSync() {
+  var isMissing = getUrlParam('trailroamSyncMissing') === 'true';
+  if (isMissing) {
+    document.title = 'Trailroam Sync';
+    document.body.innerHTML =
+      '<div style="font-family: system-ui, sans-serif; padding: 40px; text-align: center;">' +
+      '<h1>Syncing missing routes to Trailroam</h1>' +
+      '<p id="trailroam-sync-status">Getting list of activities needing routes...</p>' +
+      '</div>';
+    runMissingRoutesSync();
+  } else {
+    document.title = 'Trailroam Sync';
+    document.body.innerHTML =
+      '<div style="font-family: system-ui, sans-serif; padding: 40px; text-align: center;">' +
+      '<h1>Syncing to Trailroam</h1>' +
+      '<p id="trailroam-sync-status">Starting...</p>' +
+      '</div>';
+    runSync();
+  }
 }
 
 function getUrlParam(name) {
@@ -31,14 +66,17 @@ async function runSync() {
   setStatus('Fetching your activities from Strava...');
 
   var syncedIds = new Set();
+  var routeSyncedIds = new Set();
 
   try {
-    syncedIds = await new Promise(function (resolve) {
+    var meta = await new Promise(function (resolve) {
       chrome.runtime.sendMessage({ type: 'TRAILROAM_GET_SYNCED_IDS' }, function (response) {
-        resolve(new Set((response && response.syncedIds) || []));
+        resolve(response || {});
       });
     });
-    log('Known synced IDs: ' + syncedIds.size);
+    syncedIds = new Set(meta.syncedIds || []);
+    routeSyncedIds = new Set(meta.routeSyncedIds || []);
+    log('Known synced IDs: ' + syncedIds.size + ', route-synced IDs: ' + routeSyncedIds.size);
   } catch (err) {
     log('Failed to get synced IDs, will fetch all', err);
   }
@@ -74,8 +112,9 @@ async function runSync() {
     log('Fetched ' + rawActivities.length + ' activities from Strava');
     setStatus('Fetched ' + rawActivities.length + ' activities. Now fetching routes...');
 
+    var needRouteFetch = rawActivities.length;
     var activitiesWithRoutes = [];
-    var skippedRoutes = 0;
+    var noGpsCount = 0;
     var CONCURRENCY = 3;
 
     for (var k = 0; k < rawActivities.length; k += CONCURRENCY) {
@@ -90,20 +129,20 @@ async function runSync() {
       for (var r = 0; r < batchResults.length; r++) {
         var br = batchResults[r];
         activitiesWithRoutes.push(br);
-        if (!br.hasGps) skippedRoutes++;
+        if (!br.hasGps) noGpsCount++;
       }
 
-      setStatus('Fetched routes for ' + Math.min(k + CONCURRENCY, rawActivities.length) + '/' + rawActivities.length + ' activities');
+      setStatus('Fetched routes for ' + Math.min(k + CONCURRENCY, needRouteFetch) + '/' + needRouteFetch + ' activities');
     }
 
-    var routeCount = activitiesWithRoutes.length - skippedRoutes;
-    log('Fetched routes: ' + routeCount + ' with GPS, ' + skippedRoutes + ' without GPS');
+    var routeCount = activitiesWithRoutes.length - noGpsCount;
+    log('Fetched routes: ' + routeCount + ' with GPS, ' + noGpsCount + ' without GPS');
     setStatus('Sending all data to Trailroam...');
 
     return new Promise(function (resolve, reject) {
       chrome.runtime.sendMessage({
         type: 'TRAILROAM_IMPORT',
-        activities: rawActivities,
+        activities: activitiesWithRoutes.map(function (item) { return item.activity; }),
         routes: activitiesWithRoutes.map(function (item) {
           return { activityId: item.activity.id, routeData: item.hasGps ? item.routeData : null };
         })
@@ -116,7 +155,7 @@ async function runSync() {
         }
         log('Background response', response);
         if (response && response.ok) {
-          setStatus('Sync complete! ' + response.importedCount + ' activities' + (skippedRoutes > 0 ? (', ' + (response.importedCount - skippedRoutes) + ' with routes, ' + skippedRoutes + ' without GPS') : '') + '. You can close this tab and reload Trailroam.');
+          setStatus('Sync complete! ' + response.importedCount + ' activities' + (routeCount > 0 ? ', ' + routeCount + ' with routes' : '') + (noGpsCount > 0 ? ', ' + noGpsCount + ' without GPS' : '') + '. You can close this tab and reload Trailroam.');
         } else {
           setStatus('Sync completed with issues. Check the background console for details.');
         }
@@ -204,22 +243,3 @@ function setStatus(msg) {
   if (el) el.textContent = msg;
 }
 
-if (getUrlParam('trailroamSyncMissing') === 'true') {
-  log('Missing routes sync started');
-  document.title = 'Trailroam Sync';
-  document.body.innerHTML =
-    '<div style="font-family: system-ui, sans-serif; padding: 40px; text-align: center;">' +
-    '<h1>Syncing missing routes to Trailroam</h1>' +
-    '<p id="trailroam-sync-status">Getting list of activities needing routes...</p>' +
-    '</div>';
-  runMissingRoutesSync();
-} else if (getUrlParam('trailroamSync') === 'true') {
-  log('trailroamSync detected');
-  document.title = 'Trailroam Sync';
-  document.body.innerHTML =
-    '<div style="font-family: system-ui, sans-serif; padding: 40px; text-align: center;">' +
-    '<h1>Syncing to Trailroam</h1>' +
-    '<p id="trailroam-sync-status">Starting...</p>' +
-    '</div>';
-  runSync();
-}

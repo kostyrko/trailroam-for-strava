@@ -289,7 +289,10 @@ export class App {
   private async sendSyncedIds(sendResponse: (response: any) => void): Promise<void> {
     const activities = await this.repositories.activities.list();
     const ids = new Set(activities.map((a) => a.providerActivityId));
-    sendResponse({ syncedIds: [...ids] });
+    const routeSyncedIds = new Set(
+      activities.filter((a) => a.routeSyncStatus === 'route_synced').map((a) => a.providerActivityId),
+    );
+    sendResponse({ syncedIds: [...ids], routeSyncedIds: [...routeSyncedIds] });
   }
 
   private async sendMissingActivityIds(sendResponse: (response: any) => void): Promise<void> {

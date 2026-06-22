@@ -1416,43 +1416,15 @@ export class MapPage implements AfterViewInit {
 
   private updateEmphasis(): void {
     if (!this.dataLoaded()) { return; }
-    const search = this.filtersService.nameSearch().toLowerCase().trim();
-    const sportFilter = this.filtersService.sportTypeFilter();
-    const fromDate = this.filtersService.dateFrom();
-    const toDate = this.filtersService.dateTo();
-    const hasActiveFilter = !!(search || sportFilter || fromDate || toDate);
+    const filtered = this.filteredRoutes();
     const selectedId = this.selectedRoute()?.activityId ?? null;
 
-    if (!hasActiveFilter) {
-      if (selectedId) {
-        this.routeRendererService.setEmphasis(null, selectedId);
-      } else {
-        this.routeRendererService.clearEmphasis();
-      }
+    if (filtered.length === this.allRoutes().length && !selectedId) {
+      this.routeRendererService.clearEmphasis();
       return;
     }
 
-    const allRoutes = this.allRoutes();
-    if (allRoutes.length === 0) { return; }
-
-    const matchingIds = new Set<string>();
-    for (const r of allRoutes) {
-      if (search && !r.activity.name.toLowerCase().includes(search) && !r.activity.sportType.toLowerCase().includes(search)) {
-        continue;
-      }
-      if (sportFilter) {
-        if (sportFilter.startsWith('__cat__')) {
-          const cat = sportFilter.slice(7);
-          if (r.activity.activityCategory !== cat) { continue; }
-        } else {
-          if (r.activity.sportType !== sportFilter) { continue; }
-        }
-      }
-      if (fromDate && r.activity.startDate && !isAfterOrEqual(r.activity.startDate, fromDate)) { continue; }
-      if (toDate && r.activity.startDate && !isBeforeOrEqual(r.activity.startDate, toDate)) { continue; }
-      matchingIds.add(r.activityId);
-    }
-
+    const matchingIds = new Set(filtered.map((r) => r.activityId));
     this.routeRendererService.setEmphasis(matchingIds, selectedId);
   }
 }

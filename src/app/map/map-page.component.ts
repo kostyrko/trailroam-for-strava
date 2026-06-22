@@ -1025,33 +1025,42 @@ export class MapPage implements AfterViewInit {
 
   protected readonly visibleRouteCount = computed(() => this.filteredRoutes().length);
 
-  protected readonly statDistance = computed(() => {
+  private readonly routeStats = computed(() => {
     const routes = this.filteredRoutes();
-    const totalDistanceMeters = routes.reduce((s, r) => s + (r.activity.distanceMeters ?? 0), 0);
-    const distanceKm = totalDistanceMeters / 1000;
+    let totalDistanceMeters = 0;
+    let totalMovingSeconds = 0;
+    let totalPoints = 0;
+    let speedSum = 0;
+    let speedCount = 0;
+    for (const r of routes) {
+      totalDistanceMeters += r.activity.distanceMeters ?? 0;
+      totalMovingSeconds += r.activity.movingTimeSeconds ?? 0;
+      totalPoints += r.coordinates.length;
+      const speed = computeSpeed(r.activity.averageSpeedMetersPerSecond, r.activity.distanceMeters, r.activity.movingTimeSeconds);
+      if (speed !== undefined) { speedSum += speed; speedCount++; }
+    }
+    return { totalDistanceMeters, totalMovingSeconds, totalPoints, speedSum, speedCount };
+  });
+
+  protected readonly statDistance = computed(() => {
+    const { totalDistanceMeters } = this.routeStats();
     if (totalDistanceMeters === 0) { return '0 km'; }
-    return distanceKm >= 100 ? `${distanceKm.toFixed(0)} km` : `${distanceKm.toFixed(1)} km`;
+    const d = totalDistanceMeters / 1000;
+    return d >= 100 ? `${d.toFixed(0)} km` : `${d.toFixed(1)} km`;
   });
 
   protected readonly statMovingTime = computed(() => {
-    const routes = this.filteredRoutes();
-    const totalMovingSeconds = routes.reduce((s, r) => s + (r.activity.movingTimeSeconds ?? 0), 0);
-    if (totalMovingSeconds === 0) { return '0h 0m'; }
-    return formatDurationHours(totalMovingSeconds);
+    const { totalMovingSeconds } = this.routeStats();
+    return totalMovingSeconds === 0 ? '0h 0m' : formatDurationHours(totalMovingSeconds);
   });
 
   protected readonly statAvgSpeed = computed(() => {
-    const routes = this.filteredRoutes();
-    const activitiesWithSpeed = routes.filter((r) => computeSpeed(r.activity.averageSpeedMetersPerSecond, r.activity.distanceMeters, r.activity.movingTimeSeconds) !== undefined);
-    if (activitiesWithSpeed.length === 0) { return '—'; }
-    const speedsMs = activitiesWithSpeed.map((r) => computeSpeed(r.activity.averageSpeedMetersPerSecond, r.activity.distanceMeters, r.activity.movingTimeSeconds)!);
-    const avgMs = speedsMs.reduce((s, v) => s + v, 0) / speedsMs.length;
-    return `${(avgMs * 3.6).toFixed(1)} km/h`;
+    const { speedSum, speedCount } = this.routeStats();
+    if (speedCount === 0) { return '—'; }
+    return `${((speedSum / speedCount) * 3.6).toFixed(1)} km/h`;
   });
 
-  protected readonly visiblePointCount = computed(() =>
-    this.filteredRoutes().reduce((sum, r) => sum + r.coordinates.length, 0),
-  );
+  protected readonly visiblePointCount = computed(() => this.routeStats().totalPoints);
 
   protected readonly autoFilterTriggered = signal(false);
 

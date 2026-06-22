@@ -1841,7 +1841,12 @@ export class ActivitiesPageComponent {
         if (route && geometry) {
           this.selectedRoute.set({ ...route, coordinates: geometry.coordinates, elevations: geometry.elevations, cumulativeDistances: geometry.cumulativeDistances });
         } else if (route) {
-          this.selectedRoute.set(null);
+          const oldCoords = (route as any).coordinates;
+          if (oldCoords && oldCoords.length > 0) {
+            this.selectedRoute.set({ ...route, coordinates: oldCoords, elevations: (route as any).elevations, cumulativeDistances: (route as any).cumulativeDistances });
+          } else {
+            this.selectedRoute.set(null);
+          }
         } else {
           this.selectedRoute.set(null);
         }

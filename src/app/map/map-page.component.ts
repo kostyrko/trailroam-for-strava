@@ -1300,7 +1300,18 @@ export class MapPage implements AfterViewInit {
   private fetchFullGeometryForRoute(route: MapRouteFeature): void {
     if (route.fullGeometryId) {
       this.repositories.routeGeometry.get(route.fullGeometryId).then((geom) => {
-        this.selectedRouteGeometry.set(geom ?? null);
+        if (geom) {
+          this.selectedRouteGeometry.set(geom);
+        } else {
+          const oldCoords = (route.route as any).coordinates;
+          const oldElevations = (route.route as any).elevations;
+          const oldDistances = (route.route as any).cumulativeDistances;
+          if (oldCoords && oldCoords.length > 0) {
+            this.selectedRouteGeometry.set({ activityId: route.fullGeometryId!, providerActivityId: '', coordinates: oldCoords, elevations: oldElevations, cumulativeDistances: oldDistances, syncedAt: '', updatedAt: '' });
+          } else {
+            this.selectedRouteGeometry.set(null);
+          }
+        }
       });
     } else {
       this.selectedRouteGeometry.set(null);

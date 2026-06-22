@@ -124,7 +124,7 @@ describe('MapLibreMapComponent', () => {
 
     expect(renderRoutes).toHaveBeenCalledOnce();
     expect(selectRoute).toHaveBeenCalledWith('test:1');
-    expect(fitToRoute).toHaveBeenCalledWith(routes[0].coordinates);
+    expect(fitToRoute).toHaveBeenCalledWith(routes[0].coordinates, routes[0].route.bounds);
   });
 
   it('should emit selected routes from the renderer callback', async () => {
@@ -148,9 +148,9 @@ describe('MapLibreMapComponent', () => {
     fixture.detectChanges();
     await fixture.whenStable();
 
-    fixture.componentInstance.flyToBounds([[19.9, 50.05], [19.91, 50.06]]);
+    fixture.componentInstance.flyToBounds([[19.9, 50.05], [19.91, 50.06]], { west: 19.9, south: 50.05, east: 19.91, north: 50.06 });
 
-    expect(fitToRoute).toHaveBeenCalledWith([[19.9, 50.05], [19.91, 50.06]]);
+    expect(fitToRoute).toHaveBeenCalledWith([[19.9, 50.05], [19.91, 50.06]], { west: 19.9, south: 50.05, east: 19.91, north: 50.06 });
   });
 
   it('should ignore flyToBounds with empty coordinates', async () => {

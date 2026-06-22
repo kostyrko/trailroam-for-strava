@@ -886,7 +886,7 @@ export class MapPage implements AfterViewInit {
   private readonly router = inject(Router);
   private readonly repositories = inject(TRAILROAM_REPOSITORIES);
   protected readonly filtersService = inject(FiltersService);
-  private readonly routeRendererService = inject(RouteRendererService);
+  protected readonly routeRendererService = inject(RouteRendererService);
   private readonly toastService = inject(ToastService);
   private readonly gpxExportService = inject(GpxExportService);
   private readonly confirmService = inject(ConfirmService);
@@ -1213,12 +1213,6 @@ export class MapPage implements AfterViewInit {
     const selectId = this.selectedActivityId();
     if (!mapComp) { console.log(`[TRACE] tryRenderRoutes from ${src}: SKIP (no mapComp)`); return; }
     mapComp.renderRouteFeatures(routes, selectId ?? undefined);
-    if (selectId) {
-      const selected = this.selectedRoute();
-      if (selected) {
-        mapComp.flyToBounds(selected.coordinates);
-      }
-    }
   }
 
   protected onRoutesRendered(): void {
@@ -1352,12 +1346,8 @@ export class MapPage implements AfterViewInit {
 
   protected onPanelSelectRoute(route: MapRouteFeature): void {
     this.hoveredActivityId.set(null);
-    const mapComp = this.mapComponent;
-    if (mapComp) {
-      mapComp.flyToBounds(route.coordinates);
-    }
     this.routeRendererService.selectRoute(route.activityId);
-    this.routeRendererService.fitToRoute(route.coordinates);
+    this.routeRendererService.fitToRoute(route.coordinates, route.route.bounds);
     this.selectedMapRoute.set(route);
     if (this.selectedActivityId()) {
       this.router.navigate(['/map'], { queryParams: {}, replaceUrl: true });

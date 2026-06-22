@@ -15,6 +15,7 @@ import { type Map } from 'maplibre-gl';
 import { AVAILABLE_PROVIDERS, BasemapProviderService } from './basemap-provider.service';
 import { type BasemapProviderConfig } from './basemap-provider';
 import { type MapRouteFeature } from './mock-routes';
+import type { RouteBounds } from '../storage/storage.models';
 import { MapLibreService } from './maplibre.service';
 import { RouteRendererService } from './route-renderer.service';
 import { IconComponent } from '../shared/icon.component';
@@ -208,7 +209,7 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
         this.routeRendererService.selectRoute(selectedId);
         const selected = routes.find((r) => r.activityId === selectedId || r.activity.id === selectedId);
         if (selected) {
-          this.routeRendererService.fitToRoute(selected.coordinates);
+          this.routeRendererService.fitToRoute(selected.coordinates, selected.route.bounds);
         }
       }
       return;
@@ -230,7 +231,7 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
         this.routeRendererService.selectRoute(selectedId);
         const selected = routes.find((r) => r.activityId === selectedId || r.activity.id === selectedId);
         if (selected) {
-          this.routeRendererService.fitToRoute(selected.coordinates);
+          this.routeRendererService.fitToRoute(selected.coordinates, selected.route.bounds);
         }
       }
       return;
@@ -262,7 +263,7 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
       const selected = routes.find((r) => r.activityId === selectedId || r.activity.id === selectedId);
       if (selected) {
         this.routeRendererService.selectRoute(selectedId);
-        this.routeRendererService.fitToRoute(selected.coordinates);
+        this.routeRendererService.fitToRoute(selected.coordinates, selected.route.bounds);
       }
     }
   }
@@ -330,15 +331,14 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  flyToBounds(coordinates: [number, number][]): void {
+  flyToBounds(coordinates: [number, number][], bounds?: RouteBounds): void {
     if (coordinates.length === 0) { return; }
     const map = this.mapInstance;
     if (!map || !map.isStyleLoaded()) {
-      console.log(`[TRACE] flyToBounds: map=${!!map}, styleLoaded=${map?.isStyleLoaded()}, queuing`);
-      this.pendingReadyTasks.push(() => this.flyToBounds(coordinates));
+      this.pendingReadyTasks.push(() => this.flyToBounds(coordinates, bounds));
       return;
     }
-    this.routeRendererService.fitToRoute(coordinates);
+    this.routeRendererService.fitToRoute(coordinates, bounds);
   }
 
 

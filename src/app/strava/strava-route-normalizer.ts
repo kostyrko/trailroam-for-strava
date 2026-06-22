@@ -1,10 +1,10 @@
 import { Injectable } from '@angular/core';
-import type { ActivityRouteRecord } from '../storage/storage.models';
+import type { ActivityRouteRecord, RouteGeometryRecord } from '../storage/storage.models';
 import type { RouteFetchResult } from './strava-session.service';
-import { normalizeRouteCoordinates } from './route-coordinate-utils';
+import { normalizeRouteCoordinates, simplifyCoordinates } from './route-coordinate-utils';
 
 export type RouteNormalizationResult =
-  | { success: true; route: ActivityRouteRecord }
+  | { success: true; route: ActivityRouteRecord; geometry?: RouteGeometryRecord }
   | { success: false; errorCode: 'NO_GPS_ROUTE' | 'EMPTY_ROUTE' | 'INVALID_COORDINATES' };
 
 @Injectable({
@@ -28,19 +28,29 @@ export class StravaRouteNormalizer {
     }
 
     const now = new Date().toISOString();
+    const simplified = simplifyCoordinates(normalized.coordinates);
 
     const route: ActivityRouteRecord = {
       activityId,
       providerActivityId,
-      coordinates: normalized.coordinates,
+      simplifiedCoordinates: simplified,
+      simplifiedPointCount: simplified.length,
       pointCount: normalized.coordinates.length,
       bounds: normalized.bounds,
+      syncedAt: now,
+      updatedAt: now,
+    };
+
+    const geometry: RouteGeometryRecord = {
+      activityId,
+      providerActivityId,
+      coordinates: normalized.coordinates,
       elevations: fetchResult.elevations,
       cumulativeDistances: fetchResult.cumulativeDistances,
       syncedAt: now,
       updatedAt: now,
     };
 
-    return { success: true, route };
+    return { success: true, route, geometry };
   }
 }

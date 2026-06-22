@@ -1461,7 +1461,7 @@ export class ActivitiesPageComponent {
   private readonly routesCache = new Map<string, [number, number][]>();
   protected readonly routesCacheFilled = signal(false);
   protected readonly selectedActivity = signal<ActivityRecord | null>(null);
-  protected readonly selectedRoute = signal<ActivityRouteRecord | null>(null);
+  protected readonly selectedRoute = signal<(ActivityRouteRecord & { coordinates: [number, number][]; elevations?: number[]; cumulativeDistances?: number[] }) | null>(null);
 
   private async initLocalNotice(): Promise<void> {
     const settings = await this.repositories.settings.get();
@@ -1834,8 +1834,17 @@ export class ActivitiesPageComponent {
   protected navigateToActivity(activity: ActivityRecord): void {
     this.selectedActivity.set(activity);
     if (activity.hasRoute) {
-      this.repositories.activityRoutes.get(activity.id).then((route) => {
-        this.selectedRoute.set(route ?? null);
+      Promise.all([
+        this.repositories.activityRoutes.get(activity.id),
+        this.repositories.routeGeometry.get(activity.id),
+      ]).then(([route, geometry]) => {
+        if (route && geometry) {
+          this.selectedRoute.set({ ...route, coordinates: geometry.coordinates, elevations: geometry.elevations, cumulativeDistances: geometry.cumulativeDistances });
+        } else if (route) {
+          this.selectedRoute.set(null);
+        } else {
+          this.selectedRoute.set(null);
+        }
       });
     } else {
       this.selectedRoute.set(null);
@@ -1997,7 +2006,7 @@ export class ActivitiesPageComponent {
         const routes = await Promise.all(routeIds.map((id) => this.repositories.activityRoutes.get(id)));
         for (const route of routes) {
           if (route) {
-            this.routesCache.set(route.activityId, route.coordinates);
+            this.routesCache.set(route.activityId, (route as any).simplifiedCoordinates ?? (route as any).coordinates ?? []);
           }
         }
       }

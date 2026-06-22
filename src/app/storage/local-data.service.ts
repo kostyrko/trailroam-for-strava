@@ -10,6 +10,7 @@ export interface TrailroamBackupFile {
   syncState: unknown[];
   activities: unknown[];
   activityRoutes: unknown[];
+  routeGeometry: unknown[];
 }
 
 export interface RestoreResult {
@@ -18,6 +19,7 @@ export interface RestoreResult {
   syncStateCount: number;
   activitiesCount: number;
   activityRoutesCount: number;
+  routeGeometryCount: number;
 }
 
 @Injectable({
@@ -30,6 +32,7 @@ export class LocalDataService {
     await Promise.all([
       this.repositories.activities.clear(),
       this.repositories.activityRoutes.clear(),
+      this.repositories.routeGeometry.clear(),
       this.repositories.syncState.clear(),
       this.repositories.syncHistory.clear(),
     ]);
@@ -39,7 +42,7 @@ export class LocalDataService {
     if (!data || typeof data !== 'object') {
       throw new Error('Invalid backup file: not an object.');
     }
-    const backup = data as { [key: string]: unknown };
+    const backup = data as Record<string, unknown>;
     if (typeof backup['schemaVersion'] !== 'number') {
       throw new Error('Invalid backup file: missing or invalid schemaVersion.');
     }
@@ -70,6 +73,7 @@ export class LocalDataService {
       this.repositories.syncState.clear(),
       this.repositories.activities.clear(),
       this.repositories.activityRoutes.clear(),
+      this.repositories.routeGeometry.clear(),
     ]);
 
     const settingsCount = await Promise.all(backup.settings.map((s) => this.repositories.settings.put(s as any)))
@@ -83,17 +87,21 @@ export class LocalDataService {
     const activityRoutesCount = await Promise.all(
       backup.activityRoutes.map((r) => this.repositories.activityRoutes.put(r as any)),
     ).then((r) => r.length);
+    const routeGeometryCount = backup.routeGeometry
+      ? await Promise.all(backup.routeGeometry.map((g: any) => this.repositories.routeGeometry.put(g))).then((r) => r.length)
+      : 0;
 
-    return { settingsCount, accessStateCount, syncStateCount, activitiesCount, activityRoutesCount };
+    return { settingsCount, accessStateCount, syncStateCount, activitiesCount, activityRoutesCount, routeGeometryCount };
   }
 
   async backup(): Promise<TrailroamBackupFile> {
-    const [settings, accessState, syncState, activities, activityRoutes] = await Promise.all([
+    const [settings, accessState, syncState, activities, activityRoutes, routeGeometry] = await Promise.all([
       this.repositories.settings.list(),
       this.repositories.accessState.list(),
       this.repositories.syncState.list(),
       this.repositories.activities.list(),
       this.repositories.activityRoutes.list(),
+      this.repositories.routeGeometry.list(),
     ]);
 
     return {
@@ -104,6 +112,7 @@ export class LocalDataService {
       syncState,
       activities,
       activityRoutes,
+      routeGeometry,
     };
   }
 }

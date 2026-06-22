@@ -13,6 +13,7 @@ import { TRAILROAM_REPOSITORIES } from './storage/repositories/repositories.toke
 import { StravaActivityNormalizer } from './strava/strava-activity-normalizer';
 import { StravaSessionService } from './strava/strava-session.service';
 import { StravaRouteNormalizer } from './strava/strava-route-normalizer';
+import { simplifyCoordinates } from './strava/route-coordinate-utils';
 import { SyncEngineService, type SyncNewResult } from './sync/sync-engine.service';
 import { DataRefreshService } from './shared/data-refresh.service';
 import type { StravaActivityResponse } from './strava/strava-session.service';
@@ -175,17 +176,27 @@ export class App {
             rawRoute.distance && Array.isArray(rawRoute.distance.data)
               ? rawRoute.distance.data
               : undefined;
+          const simplified = simplifyCoordinates(validCoords);
           const route = {
             activityId: 'strava:' + activityId,
             providerActivityId: activityId,
-            coordinates: validCoords,
+            simplifiedCoordinates: simplified,
+            simplifiedPointCount: simplified.length,
             pointCount: validCoords.length,
+            syncedAt: now,
+            updatedAt: now,
+          };
+          await this.repositories.activityRoutes.put(route);
+          const geometry = {
+            activityId: 'strava:' + activityId,
+            providerActivityId: activityId,
+            coordinates: validCoords,
             elevations,
             cumulativeDistances,
             syncedAt: now,
             updatedAt: now,
           };
-          await this.repositories.activityRoutes.put(route);
+          await this.repositories.routeGeometry.put(geometry);
 
           const existing = await this.repositories.activities.get('strava:' + activityId);
           if (existing) {

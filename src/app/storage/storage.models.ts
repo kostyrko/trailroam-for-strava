@@ -1,4 +1,4 @@
-export const DATABASE_SCHEMA_VERSION = 3;
+export const DATABASE_SCHEMA_VERSION = 4;
 export const DEFAULT_RECORD_ID = 'default';
 
 export type ActivityCategory =
@@ -56,14 +56,20 @@ export interface RouteBounds {
 export interface ActivityRouteRecord {
   activityId: string;
   providerActivityId: string;
-  coordinates: [number, number][];
+  simplifiedCoordinates: [number, number][];
+  simplifiedPointCount: number;
   pointCount: number;
   bounds?: RouteBounds;
+  syncedAt: string;
+  updatedAt: string;
+}
+
+export interface RouteGeometryRecord {
+  activityId: string;
+  providerActivityId: string;
+  coordinates: [number, number][];
   elevations?: number[];
   cumulativeDistances?: number[];
-  simplifiedCoordinates?: [number, number][];
-  simplifiedPointCount?: number;
-  hasSimplifiedGeometry?: boolean;
   syncedAt: string;
   updatedAt: string;
 }

@@ -292,16 +292,18 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
                 </dd>
               </div>
             </dl>
-            @if (route.route.elevations && route.route.elevations.length > 0) {
-              <div class="elevation-profile-wrap">
-                <app-elevation-profile
-                  [elevations]="route.route.elevations"
-                  [cumulativeDistances]="route.route.cumulativeDistances"
-                  [coordinates]="route.route.coordinates"
-                  [totalDistanceMeters]="route.activity.distanceMeters"
-                  (hoveredPosition)="onElevationHover($event)"
-                />
-              </div>
+            @if (selectedRouteGeometry(); as geom) {
+              @if (geom.elevations && geom.elevations.length > 0) {
+                <div class="elevation-profile-wrap">
+                  <app-elevation-profile
+                    [elevations]="geom.elevations"
+                    [cumulativeDistances]="geom.cumulativeDistances"
+                    [coordinates]="geom.coordinates"
+                    [totalDistanceMeters]="route.activity.distanceMeters"
+                    (hoveredPosition)="onElevationHover($event)"
+                  />
+                </div>
+              }
             }
           </article>
         }
@@ -1086,6 +1088,8 @@ export class MapPage implements AfterViewInit {
   protected readonly selectedActivityId = computed(() => this.activityIdParam() ?? this.selectedMapRoute()?.activityId ?? null);
   protected readonly hasBasemapError = computed(() => this.basemapErrorParam() || this.mapBasemapError());
 
+  protected readonly selectedRouteGeometry = signal<import('../storage/storage.models').RouteGeometryRecord | null>(null);
+
   protected readonly selectedRoute = computed<MapRouteFeature | null>(() => {
     const activityId = this.selectedActivityId();
     if (activityId) {
@@ -1182,19 +1186,21 @@ export class MapPage implements AfterViewInit {
         if (!activity || activity.routeSyncStatus !== 'route_synced') {
           continue;
         }
+        const coords = (routeRecord as any).simplifiedCoordinates ?? (routeRecord as any).coordinates ?? [];
         routes.push({
           activityId: routeRecord.activityId,
           activity,
           route: routeRecord,
-          coordinates: routeRecord.coordinates,
+          coordinates: coords,
           name: activity.name,
+          fullGeometryId: routeRecord.activityId,
         });
       }
 
       this.allRoutes.set(routes);
       this.dataLoaded.set(true);
 
-      const totalPoints = routes.reduce((sum, r) => sum + r.coordinates.length, 0);
+      const totalPoints = routes.reduce((sum, r) => sum + (r.route.pointCount ?? 0), 0);
       if (totalPoints > POINTS_WARN_THRESHOLD / 2 && this.filtersService.datePreset() === 'all' && !this.filtersService.userInteracted) {
         this.applyDatePreset('year');
         this.autoFilterHighlight.set(true);
@@ -1284,14 +1290,26 @@ export class MapPage implements AfterViewInit {
     if (this.selectedActivityId()) {
       this.router.navigate(['/map'], { queryParams: {}, replaceUrl: true });
     }
+    this.fetchFullGeometryForRoute(route);
     setTimeout(() => {
       document.querySelector('.route-detail')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }, 0);
     this.scheduleEmphasisUpdate();
   }
 
+  private fetchFullGeometryForRoute(route: MapRouteFeature): void {
+    if (route.fullGeometryId) {
+      this.repositories.routeGeometry.get(route.fullGeometryId).then((geom) => {
+        this.selectedRouteGeometry.set(geom ?? null);
+      });
+    } else {
+      this.selectedRouteGeometry.set(null);
+    }
+  }
+
   protected clearSelectedRoute(): void {
     this.selectedMapRoute.set(null);
+    this.selectedRouteGeometry.set(null);
     this.routeRendererService.deselectRoute();
     this.routeRendererService.clearHoverPoint();
     if (this.selectedActivityId()) {
@@ -1310,6 +1328,7 @@ export class MapPage implements AfterViewInit {
 
   protected clearSelectedActivity(): void {
     this.selectedMapRoute.set(null);
+    this.selectedRouteGeometry.set(null);
     this.routeRendererService.deselectRoute();
     this.router.navigate(['/map']);
     this.scheduleEmphasisUpdate();
@@ -1355,9 +1374,10 @@ export class MapPage implements AfterViewInit {
 
   protected onPanelSelectRoute(route: MapRouteFeature): void {
     this.hoveredActivityId.set(null);
+    this.selectedMapRoute.set(route);
+    this.fetchFullGeometryForRoute(route);
     this.routeRendererService.selectRoute(route.activityId);
     this.routeRendererService.fitToRoute(route.coordinates, route.route.bounds);
-    this.selectedMapRoute.set(route);
     if (this.selectedActivityId()) {
       this.router.navigate(['/map'], { queryParams: {}, replaceUrl: true });
     }

@@ -6,4 +6,5 @@ export interface MapRouteFeature {
   route: ActivityRouteRecord;
   coordinates: [number, number][];
   name: string;
+  fullGeometryId?: string;
 }

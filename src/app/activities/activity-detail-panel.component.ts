@@ -653,7 +653,7 @@ export class ActivityDetailPanelComponent {
   private readonly dataRefresh = inject(DataRefreshService);
 
   readonly activity = input<ActivityRecord | null>(null);
-  readonly route = input<ActivityRouteRecord | null>(null);
+  readonly route = input<ActivityRouteRecord & { coordinates: [number, number][]; elevations?: number[]; cumulativeDistances?: number[] } | null>(null);
   readonly close = output<void>();
 
   protected readonly routeLoading = signal(false);

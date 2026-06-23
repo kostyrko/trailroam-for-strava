@@ -1,5 +1,5 @@
 import { Component, computed, Inject, inject, signal } from '@angular/core';
-import { MAT_DIALOG_DATA, MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { environment } from '../environments/environment';
 import { IconComponent } from './shared/icon.component';
@@ -9,7 +9,8 @@ import { ToastService } from './shared/toast.service';
 import { SyncSummaryService, type SyncSummary } from './storage/sync-summary.service';
 import { SyncHistoryService, type SyncTrigger } from './storage/sync-history.service';
 import { LocalDataService } from './storage/local-data.service';
-import { TRAILROAM_REPOSITORIES } from './storage/repositories/repositories.token';
+import { TRAILROAM_DATABASE, TRAILROAM_REPOSITORIES } from './storage/repositories/repositories.token';
+import { DATABASE_SCHEMA_VERSION } from './storage/storage.models';
 import { StravaActivityNormalizer } from './strava/strava-activity-normalizer';
 import { StravaSessionService } from './strava/strava-session.service';
 import { StravaRouteNormalizer } from './strava/strava-route-normalizer';
@@ -37,6 +38,7 @@ export class App {
   private readonly dataRefresh = inject(DataRefreshService);
   private readonly syncHistoryService = inject(SyncHistoryService);
   private readonly dialog = inject(MatDialog);
+  private readonly database = inject(TRAILROAM_DATABASE);
 
   private pendingRouteCount = 0;
   private totalRouteCount = 0;
@@ -59,7 +61,38 @@ export class App {
     this.loadSyncSummary();
     this.loadLastSyncLabel();
     this.listenForMessages();
+    this.checkForUpdate();
     globalThis.addEventListener('click', () => { this.closeSyncMenu(); this.appMenuOpen.set(false); });
+  }
+
+  private async checkForUpdate(): Promise<void> {
+    try {
+      const settings = await this.repositories.settings.getOrCreateDefault();
+      const currentSchema = this.database.verno;
+      if (!settings.lastSeenVersion) {
+        const hasExistingData = (await this.repositories.activities.count()) > 0;
+        if (!hasExistingData) {
+          settings.lastSeenVersion = this.extVersion;
+          settings.updatedAt = new Date().toISOString();
+          await this.repositories.settings.put(settings);
+          return;
+        }
+      } else if (settings.lastSeenVersion === this.extVersion) {
+        return;
+      }
+      settings.lastSeenVersion = this.extVersion;
+      settings.updatedAt = new Date().toISOString();
+      await this.repositories.settings.put(settings);
+      this.dialog.open(ReleaseDialog, {
+        data: {
+          version: this.extVersion,
+          appName: environment.appName,
+          schemaOutdated: currentSchema < DATABASE_SCHEMA_VERSION,
+        },
+        panelClass: 'trailroam-confirm-dialog',
+      });
+    } catch {
+    }
   }
 
   private async loadLastSyncLabel(): Promise<void> {
@@ -445,6 +478,7 @@ export class App {
     await Promise.all([
       this.repositories.activities.clear(),
       this.repositories.activityRoutes.clear(),
+      this.repositories.routeGeometry.clear(),
       this.repositories.syncState.clear(),
     ]);
     this.resetCounters();
@@ -659,6 +693,82 @@ export class AboutDialog {
     if (c?.tabs?.create) {
       c.tabs.create({ url: environment.releaseNotesUrl });
     }
+  }
+}
+
+@Component({
+  selector: 'app-release-dialog',
+  standalone: true,
+  imports: [MatDialogModule],
+  styles: [`
+    :host { display: block; max-width: 420px; padding: 28px; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    h2 { font-size: 1.125rem; font-weight: 700; color: #14211b; margin: 0 0 4px; text-align: center; }
+    .version { font-size: 1.25rem; font-weight: 700; color: #14211b; text-align: center; margin: 0 0 20px; }
+    .btn-row { display: flex; gap: 8px; }
+    .btn-row .btn { align-items: center; border: 0; border-radius: 8px; cursor: pointer; display: inline-flex; font: inherit; font-size: 0.8125rem; font-weight: 600; height: 36px; justify-content: center; padding: 0 14px; text-align: center; }
+    .btn-primary { background: #15803d; color: #fff; flex: 1; }
+    .btn-primary:hover { background: #166f38; }
+    .btn-secondary { background: #fff; border: 1px solid #dce6df; color: #314b3f; }
+    .btn-secondary:hover { background: #eef5f0; }
+    .btn-link { background: transparent; border: 0; color: #1f6f50; cursor: pointer; font: inherit; font-size: 0.8125rem; font-weight: 600; padding: 0; text-align: center; text-decoration: underline; width: 100%; }
+    .btn-link:hover { color: #185940; }
+    .schema-section { background: #fbf5e1; border-radius: 8px; margin-top: 16px; padding: 14px; }
+    .schema-section p { font-size: 0.8125rem; line-height: 1.5; margin: 0 0 10px; }
+    .schema-note { color: #63746a; font-size: 0.75rem; margin: 6px 0 0; }
+  `],
+  template: `
+    <h2>{{ data.appName }}</h2>
+    <p class="version">v{{ data.version }}</p>
+    <div class="btn-row">
+      <button class="btn btn-link" type="button" (click)="openReleaseNotes()">View release notes on GitHub</button>
+    </div>
+    @if (data.schemaOutdated) {
+      <div class="schema-section">
+        <p><strong>Database schema updated</strong></p>
+        <p>Your local database is using an older schema. Clearing and re-syncing will improve map performance.</p>
+        <p class="schema-note">(also available in Settings → Clear and re-sync)</p>
+        <div class="btn-row" style="margin-top: 10px;">
+          <button class="btn btn-primary" type="button" (click)="clearAndResync()">Clear and re-sync now</button>
+        </div>
+      </div>
+    }
+    <div class="btn-row" style="margin-top: 16px;">
+      <button class="btn btn-secondary" type="button" (click)="dismiss()" style="flex:1">Dismiss</button>
+    </div>
+  `,
+})
+export class ReleaseDialog {
+  readonly repositories = inject(TRAILROAM_REPOSITORIES);
+  private readonly dialogRef = inject<MatDialogRef<ReleaseDialog>>(MatDialogRef);
+
+  constructor(@Inject(MAT_DIALOG_DATA) protected readonly data: { version: string; appName: string; schemaOutdated: boolean }) {}
+
+  protected openReleaseNotes(): void {
+    const c = (globalThis as any).chrome;
+    if (c?.tabs?.create) {
+      c.tabs.create({ url: environment.releaseNotesUrl });
+    }
+  }
+
+  protected clearAndResync(): void {
+    (async () => {
+      await Promise.all([
+        this.repositories.activities.clear(),
+        this.repositories.activityRoutes.clear(),
+        this.repositories.routeGeometry.clear(),
+        this.repositories.syncState.clear(),
+      ]);
+      this.dialogRef.close();
+      await new Promise((r) => setTimeout(r, 200));
+      const c = (globalThis as any).chrome;
+      if (c?.tabs?.create) {
+        c.tabs.create({ url: 'https://www.strava.com/dashboard?trailroamSync=true' });
+      }
+    })();
+  }
+
+  protected dismiss(): void {
+    this.dialogRef.close();
   }
 }
 

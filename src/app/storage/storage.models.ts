@@ -110,6 +110,7 @@ export interface SettingsRecord {
   dismissedLocalDataNoticeAt?: string;
   autoFilterHintCount?: number;
   mapExplorerPanelExpanded?: boolean;
+  lastSeenVersion?: string;
   createdAt: string;
   updatedAt: string;
 }

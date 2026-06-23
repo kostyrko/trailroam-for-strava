@@ -117,6 +117,9 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
   readonly routesRendered = new EventEmitter<void>();
 
   @Output()
+  readonly mapIdle = new EventEmitter<void>();
+
+  @Output()
   readonly viewportChanged = new EventEmitter<[[number, number], [number, number]]>();
 
   @ViewChild('mapContainer', { static: true })
@@ -302,6 +305,7 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
       const b = map.getBounds();
       this.ngZone.run(() => this.viewportChanged.emit([b.getSouthWest().toArray() as [number, number], b.getNorthEast().toArray() as [number, number]]));
     };
+    map.on('idle', () => this.ngZone.run(() => this.mapIdle.emit()));
     map.on('moveend', emitViewport);
     map.once('load', emitViewport);
 

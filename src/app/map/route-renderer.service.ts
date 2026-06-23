@@ -387,6 +387,14 @@ export class RouteRendererService {
     const matchingIds = this.emphasisMatchingIds;
     const selId = this.emphasisSelectedId;
     const hasMatching = matchingIds != null && matchingIds.size > 0;
+    const hasFilter = matchingIds != null;
+
+    if (hasFilter && !hasMatching && !selId) {
+      source.setData({ type: 'FeatureCollection', features: [] });
+      this.syncCentroidSource();
+      this.syncFinal();
+      return;
+    }
 
     const features = this.routes
       .filter((route) => {
@@ -418,9 +426,12 @@ export class RouteRendererService {
     const matchingIds = this.emphasisMatchingIds;
     const selId = this.emphasisSelectedId;
     const hasMatching = matchingIds != null && matchingIds.size > 0;
-    const filtered = hasMatching
-      ? this.routes.filter((r) => matchingIds!.has(r.activityId) || r.activityId === selId)
-      : this.routes;
+    const hasFilter = matchingIds != null;
+    const filtered = (hasFilter && !hasMatching)
+      ? []
+      : hasMatching
+        ? this.routes.filter((r) => matchingIds!.has(r.activityId) || r.activityId === selId)
+        : this.routes;
     const features = filtered.map((route) => {
       const centroid = this.computeCentroid(route.coordinates);
       return {
@@ -454,6 +465,13 @@ export class RouteRendererService {
     const matchingIds = this.emphasisMatchingIds;
     const selId = this.emphasisSelectedId;
     const hasMatching = matchingIds != null && matchingIds.size > 0;
+    const hasFilter = matchingIds != null;
+
+    if (hasFilter && !hasMatching && !selId) {
+      source.setData({ type: 'FeatureCollection', features: [] });
+      return;
+    }
+
     const lineFeatures = this.routes
       .filter((route) => {
         if (!hasMatching) { return true; }

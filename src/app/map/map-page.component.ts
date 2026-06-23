@@ -209,9 +209,18 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
           }
         </div>
 
-        @if (routesLoading() || (allRoutes().length > 0 && !routesRendered())) {
+        @if (routesLoading() || filterLoading() || (allRoutes().length > 0 && !routesRendered())) {
           <div class="map-loading-overlay">
             <app-loading-spinner />
+          </div>
+        } @else if (allRoutes().length > 0 && filteredRoutes().length === 0) {
+          <div class="map-empty-overlay">
+            <article class="empty-state map-empty-modal" aria-labelledby="no-filtered-title">
+              <p class="empty-state-kicker">No routes match</p>
+              <h2 id="no-filtered-title">No routes match the current filters.</h2>
+              <p>Try changing your activity type or date range.</p>
+              <button class="primary-action" type="button" (click)="clearAllFilters()">Clear all filters</button>
+            </article>
           </div>
         } @else if (!noRouteActivity() && !selectedRoute() && !selectedActivityId() && allRoutes().length === 0 && !mapEmptyDismissed()) {
           <div class="map-empty-overlay" (click)="dismissMapEmpty()">
@@ -233,6 +242,7 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
           (routeSelected)="selectRoute($event)"
           (fullscreenChanged)="mapFullscreen.set($event)"
           (routesRendered)="onRoutesRendered()"
+          (mapIdle)="onMapIdle()"
           (viewportChanged)="onViewportChanged($event)"
         />
         @if (selectedRoute(); as route) {
@@ -923,6 +933,7 @@ export class MapPage implements AfterViewInit {
   private readonly MAX_RENDER_RETRIES = 20;
 
   protected readonly routesLoading = signal(true);
+  protected readonly filterLoading = signal(false);
   protected readonly routesRendered = signal(false);
   protected readonly mapEmptyDismissed = signal(false);
   protected dismissMapEmpty(): void {
@@ -1234,6 +1245,10 @@ export class MapPage implements AfterViewInit {
     setTimeout(() => this.routesRendered.set(true), 500);
   }
 
+  protected onMapIdle(): void {
+    this.filterLoading.set(false);
+  }
+
   private scheduleRenderRetry(): void {
     if (this.dataLoaded() && this.mapReady()) { return; }
     if (this.renderRetryCount >= this.MAX_RENDER_RETRIES) { return; }
@@ -1343,6 +1358,14 @@ export class MapPage implements AfterViewInit {
     this.routeRendererService.deselectRoute();
     this.router.navigate(['/map']);
     this.scheduleEmphasisUpdate();
+  }
+
+  protected clearAllFilters(): void {
+    this.filtersService.clearAll();
+    const totalPoints = this.allRoutes().reduce((sum, r) => sum + (r.route.pointCount ?? 0), 0);
+    if (totalPoints > POINTS_WARN_THRESHOLD / 2) {
+      this.applyDatePreset('year');
+    }
   }
 
   protected syncActivities(): void {
@@ -1464,6 +1487,7 @@ export class MapPage implements AfterViewInit {
       return;
     }
 
+    this.filterLoading.set(filtered.length > 0);
     const matchingIds = new Set(filtered.map((r) => r.activityId));
     this.routeRendererService.setEmphasis(matchingIds, selectedId);
   }

@@ -39,5 +39,11 @@
     "https://www.strava.com/*",
     "https://strava.com/*",
     "https://tiles.openfreemap.org/*"
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["app/*", "welcome.html"],
+      "matches": ["<all_urls>"]
+    }
   ]
 }

@@ -451,11 +451,21 @@ export class RouteRendererService {
     if (!map) { return; }
     const source = map.getSource(HEATMAP_SOURCE_ID) as GeoJSONSource;
     if (!source) { return; }
-    const lineFeatures = this.routes.map((route) => ({
-      type: 'Feature' as const,
-      properties: {},
-      geometry: { type: 'LineString' as const, coordinates: route.coordinates },
-    }));
+    const matchingIds = this.emphasisMatchingIds;
+    const selId = this.emphasisSelectedId;
+    const hasMatching = matchingIds != null && matchingIds.size > 0;
+    const lineFeatures = this.routes
+      .filter((route) => {
+        if (!hasMatching) { return true; }
+        if (matchingIds!.has(route.activityId)) { return true; }
+        if (route.activityId === selId) { return true; }
+        return false;
+      })
+      .map((route) => ({
+        type: 'Feature' as const,
+        properties: {},
+        geometry: { type: 'LineString' as const, coordinates: route.coordinates },
+      }));
     source.setData({ type: 'FeatureCollection', features: lineFeatures });
   }
 

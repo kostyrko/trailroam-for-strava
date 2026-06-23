@@ -68,3 +68,61 @@ export const OPENTOPOMAP_BASEMAP_PROVIDER: BasemapProviderConfig = {
   enabled: true,
 };
 
+const VERSATILES_AERIAL_STYLE = {
+  version: 8,
+  sources: {
+    versatiles_aerial: {
+      type: 'raster',
+      tiles: ['https://tiles.versatiles.org/tiles/satellite/{z}/{x}/{y}'],
+      tileSize: 256,
+      minzoom: 0,
+      maxzoom: 19,
+      attribution: '<a href="https://versatiles.org/sources/">VersaTiles sources</a>',
+    },
+  },
+  layers: [
+    { id: 'versatiles-aerial', type: 'raster', source: 'versatiles_aerial' },
+  ],
+};
+
+const VERSATILES_AERIAL_STYLE_URL = `data:application/json,${encodeURIComponent(JSON.stringify(VERSATILES_AERIAL_STYLE))}`;
+
+export const VERSATILES_AERIAL_BASEMAP_PROVIDER: BasemapProviderConfig = {
+  id: 'versatiles-aerial',
+  label: 'Aerial (VersaTiles)',
+  kind: 'openfreemap',
+  styleUrl: VERSATILES_AERIAL_STYLE_URL,
+  attribution: '<a href="https://versatiles.org/sources/">VersaTiles sources</a>',
+  requiresApiKey: false,
+  enabled: true,
+};
+
+const ESRI_SATELLITE_STYLE = {
+  version: 8,
+  sources: {
+    esri_satellite: {
+      type: 'raster',
+      tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+      tileSize: 256,
+      minzoom: 0,
+      maxzoom: 19,
+      attribution: 'Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
+    },
+  },
+  layers: [
+    { id: 'esri-satellite', type: 'raster', source: 'esri_satellite' },
+  ],
+};
+
+const ESRI_SATELLITE_STYLE_URL = `data:application/json,${encodeURIComponent(JSON.stringify(ESRI_SATELLITE_STYLE))}`;
+
+export const ESRI_SATELLITE_BASEMAP_PROVIDER: BasemapProviderConfig = {
+  id: 'esri-satellite',
+  label: 'Satellite (Esri)',
+  kind: 'openfreemap',
+  styleUrl: ESRI_SATELLITE_STYLE_URL,
+  attribution: 'Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
+  requiresApiKey: false,
+  enabled: true,
+};
+

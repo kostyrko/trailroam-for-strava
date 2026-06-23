@@ -6,6 +6,8 @@ import { type ResolvedBasemapProvider } from './basemap-provider';
 const ALLOWED_TILE_HOSTS = [
   'tiles.openfreemap.org',
   'tile.opentopomap.org',
+  'server.arcgisonline.com',
+  'tiles.versatiles.org',
 ];
 
 const DEFAULT_CENTER: [number, number] = [0, 20];
@@ -26,10 +28,7 @@ export class MapLibreService {
       center,
       zoom,
       transformRequest: (url, resourceType) => {
-        if (
-          resourceType !== undefined &&
-          (resourceType === 'Style' || resourceType === 'Source' || resourceType === 'Tile')
-        ) {
+        if (resourceType === 'Style' || resourceType === 'Source' || resourceType === 'Tile') {
           const host = new URL(url).hostname;
           if (ALLOWED_TILE_HOSTS.some((allowed) => host === allowed || host.endsWith('.' + allowed))) {
             return { url, credentials: 'same-origin' };

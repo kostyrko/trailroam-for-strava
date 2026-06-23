@@ -63,8 +63,10 @@ import { IconComponent } from '../shared/icon.component';
               <button class="map-layer-menu-item" type="button" [class.active]="provider.id === activeProviderId()" (click)="selectLayer(provider)">
                 @if (provider.id === 'opentopomap') {
                   <app-icon name="mountain" [size]="20" strokeWidth="2" [class]="'map-layer-icon'"></app-icon>
+                } @else if (provider.id === 'esri-satellite' || provider.id === 'versatiles-aerial') {
+                  <app-icon name="satellite" [size]="20" strokeWidth="2" [class]="'map-layer-icon'"></app-icon>
                 } @else {
-                  <app-icon name="map-pin" [size]="20" strokeWidth="2" [class]="'map-layer-icon'"></app-icon>
+                  <app-icon name="map" [size]="20" strokeWidth="2" [class]="'map-layer-icon'"></app-icon>
                 }
                 <span class="map-layer-name">{{ provider.label }}</span>
                 @if (provider.id === activeProviderId()) {
@@ -171,20 +173,12 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
     const map = this.mapInstance;
     if (!map) { return; }
     this.pendingReadyTasks = [];
-    map.setStyle(config.styleUrl!);
-    map.on('styleimagemissing', (e: { id: string }) => {
-      if (map.hasImage(e.id)) { return; }
-      const canvas = document.createElement('canvas');
-      canvas.width = 1;
-      canvas.height = 1;
-      map.addImage(e.id, canvas as unknown as HTMLImageElement | ImageData);
-    });
     map.once('style.load', () => {
-      console.log('[TRACE] selectLayer style.load fired');
       this.routeRendererService.init(map);
       this.drainPendingTasks('selectLayer');
       this.rerenderRoutes();
     });
+    map.setStyle(config.styleUrl!);
   }
 
   private drainPendingTasks(source: string): void {

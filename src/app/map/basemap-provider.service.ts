@@ -1,7 +1,9 @@
 import { Injectable, signal } from '@angular/core';
 import {
+  ESRI_SATELLITE_BASEMAP_PROVIDER,
   OPENFREEMAP_BASEMAP_PROVIDER,
   OPENTOPOMAP_BASEMAP_PROVIDER,
+  VERSATILES_AERIAL_BASEMAP_PROVIDER,
   type BasemapProviderConfig,
   type ResolvedBasemapProvider,
 } from './basemap-provider';
@@ -9,6 +11,8 @@ import {
 export const AVAILABLE_PROVIDERS: BasemapProviderConfig[] = [
   OPENFREEMAP_BASEMAP_PROVIDER,
   OPENTOPOMAP_BASEMAP_PROVIDER,
+  ESRI_SATELLITE_BASEMAP_PROVIDER,
+  VERSATILES_AERIAL_BASEMAP_PROVIDER,
 ];
 
 @Injectable({

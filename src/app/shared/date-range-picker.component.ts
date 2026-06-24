@@ -80,60 +80,128 @@ function today(): Date {
         <div class="drp-calendars">
           <div class="drp-cal">
             <div class="drp-cal-header">
-              <button class="drp-nav" type="button" (click)="prev(false)" aria-label="Previous month">&lsaquo;</button>
-              <span class="drp-cal-title">{{ leftMonthLabel() }}</span>
-              <button class="drp-nav" type="button" (click)="next(false)" aria-label="Next month">&rsaquo;</button>
-            </div>
-            <div class="drp-wdays">
-              @for (d of DAYS_SHORT; track d) { <span class="drp-wd">{{ d }}</span> }
-            </div>
-            <div class="drp-grid">
-              @for (cell of leftCells(); track cell.key) {
-                @if (cell.empty) { <span class="drp-cell"></span> }
-                @else {
-                  <button
-                    class="drp-cell drp-day"
-                    [class.drp-today]="cell.today"
-                    [class.drp-selected]="cell.selected"
-                    [class.drp-in-range]="cell.inRange"
-                    [class.drp-range-start]="cell.rangeStart"
-                    [class.drp-range-end]="cell.rangeEnd"
-                    type="button"
-                    (click)="pickDay(cell.date)"
-                    (mouseenter)="hoverDay(cell.date)"
-                  >{{ cell.day }}</button>
-                }
+              @if (leftMode() === 'calendar') {
+                <button class="drp-nav" type="button" (click)="prev(false)" aria-label="Previous month">&lsaquo;</button>
+                <button class="drp-cal-title-btn" type="button" (click)="leftMode.set('months')">{{ leftMonthLabel() }}</button>
+                <button class="drp-nav" type="button" (click)="next(false)" aria-label="Next month">&rsaquo;</button>
+              } @else if (leftMode() === 'months') {
+                <button class="drp-nav" type="button" (click)="leftMpPrevYear()" aria-label="Previous year">&lsaquo;</button>
+                <button class="drp-cal-title-btn" type="button" (click)="leftMode.set('years')">{{ leftMpYearLabel() }}</button>
+                <button class="drp-nav" type="button" (click)="leftMpNextYear()" aria-label="Next year">&rsaquo;</button>
+              } @else {
+                <button class="drp-nav" type="button" (click)="leftMpPrevDecade()" aria-label="Previous decade">&lsaquo;</button>
+                <span class="drp-mp-decade">{{ leftDecadeLabel() }}</span>
+                <button class="drp-nav" type="button" (click)="leftMpNextDecade()" aria-label="Next decade">&rsaquo;</button>
               }
             </div>
+            @if (leftMode() === 'calendar') {
+              <div class="drp-wdays">
+                @for (d of DAYS_SHORT; track d) { <span class="drp-wd">{{ d }}</span> }
+              </div>
+              <div class="drp-grid">
+                @for (cell of leftCells(); track cell.key) {
+                  @if (cell.empty) { <span class="drp-cell"></span> }
+                  @else {
+                    <button
+                      class="drp-cell drp-day"
+                      [class.drp-today]="cell.today"
+                      [class.drp-selected]="cell.selected"
+                      [class.drp-in-range]="cell.inRange"
+                      [class.drp-range-start]="cell.rangeStart"
+                      [class.drp-range-end]="cell.rangeEnd"
+                      type="button"
+                      (click)="pickDay(cell.date)"
+                      (mouseenter)="hoverDay(cell.date)"
+                    >{{ cell.day }}</button>
+                  }
+                }
+              </div>
+            } @else if (leftMode() === 'months') {
+              <div class="drp-mp-grid">
+                @for (m of monthsGrid; track m.n) {
+                  <button
+                    class="drp-mp-btn"
+                    [class.drp-mp-active]="leftMpMonth() === m.n && leftMpYear() === leftMpYear()"
+                    type="button"
+                    (click)="leftPickMonth(m.n)"
+                  >{{ m.label }}</button>
+                }
+              </div>
+            } @else {
+              <div class="drp-mp-grid">
+                @for (y of leftYearsGrid(); track y) {
+                  <button
+                    class="drp-mp-btn"
+                    [class.drp-mp-active]="y === leftMpYear()"
+                    type="button"
+                    (click)="leftPickYear(y)"
+                  >{{ y }}</button>
+                }
+              </div>
+            }
           </div>
 
           <div class="drp-cal">
             <div class="drp-cal-header">
-              <button class="drp-nav" type="button" (click)="prev(true)" aria-label="Previous month">&lsaquo;</button>
-              <span class="drp-cal-title">{{ rightMonthLabel() }}</span>
-              <button class="drp-nav" type="button" (click)="next(true)" aria-label="Next month">&rsaquo;</button>
-            </div>
-            <div class="drp-wdays">
-              @for (d of DAYS_SHORT; track d) { <span class="drp-wd">{{ d }}</span> }
-            </div>
-            <div class="drp-grid">
-              @for (cell of rightCells(); track cell.key) {
-                @if (cell.empty) { <span class="drp-cell"></span> }
-                @else {
-                  <button
-                    class="drp-cell drp-day"
-                    [class.drp-today]="cell.today"
-                    [class.drp-selected]="cell.selected"
-                    [class.drp-in-range]="cell.inRange"
-                    [class.drp-range-start]="cell.rangeStart"
-                    [class.drp-range-end]="cell.rangeEnd"
-                    type="button"
-                    (click)="pickDay(cell.date)"
-                    (mouseenter)="hoverDay(cell.date)"
-                  >{{ cell.day }}</button>
-                }
+              @if (rightMode() === 'calendar') {
+                <button class="drp-nav" type="button" (click)="prev(true)" aria-label="Previous month">&lsaquo;</button>
+                <button class="drp-cal-title-btn" type="button" (click)="rightMode.set('months')">{{ rightMonthLabel() }}</button>
+                <button class="drp-nav" type="button" (click)="next(true)" aria-label="Next month">&rsaquo;</button>
+              } @else if (rightMode() === 'months') {
+                <button class="drp-nav" type="button" (click)="rightMpPrevYear()" aria-label="Previous year">&lsaquo;</button>
+                <button class="drp-cal-title-btn" type="button" (click)="rightMode.set('years')">{{ rightMpYearLabel() }}</button>
+                <button class="drp-nav" type="button" (click)="rightMpNextYear()" aria-label="Next year">&rsaquo;</button>
+              } @else {
+                <button class="drp-nav" type="button" (click)="rightMpPrevDecade()" aria-label="Previous decade">&lsaquo;</button>
+                <span class="drp-mp-decade">{{ rightDecadeLabel() }}</span>
+                <button class="drp-nav" type="button" (click)="rightMpNextDecade()" aria-label="Next decade">&rsaquo;</button>
               }
             </div>
+            @if (rightMode() === 'calendar') {
+              <div class="drp-wdays">
+                @for (d of DAYS_SHORT; track d) { <span class="drp-wd">{{ d }}</span> }
+              </div>
+              <div class="drp-grid">
+                @for (cell of rightCells(); track cell.key) {
+                  @if (cell.empty) { <span class="drp-cell"></span> }
+                  @else {
+                    <button
+                      class="drp-cell drp-day"
+                      [class.drp-today]="cell.today"
+                      [class.drp-selected]="cell.selected"
+                      [class.drp-in-range]="cell.inRange"
+                      [class.drp-range-start]="cell.rangeStart"
+                      [class.drp-range-end]="cell.rangeEnd"
+                      type="button"
+                      (click)="pickDay(cell.date)"
+                      (mouseenter)="hoverDay(cell.date)"
+                    >{{ cell.day }}</button>
+                  }
+                }
+              </div>
+            } @else if (rightMode() === 'months') {
+              <div class="drp-mp-grid">
+                @for (m of monthsGrid; track m.n) {
+                  <button
+                    class="drp-mp-btn"
+                    [class.drp-mp-active]="rightMpMonth() === m.n && rightMpYear() === rightMpYear()"
+                    type="button"
+                    (click)="rightPickMonth(m.n)"
+                  >{{ m.label }}</button>
+                }
+              </div>
+            } @else {
+              <div class="drp-mp-grid">
+                @for (y of rightYearsGrid(); track y) {
+                  <button
+                    class="drp-mp-btn"
+                    [class.drp-mp-active]="y === rightMpYear()"
+                    type="button"
+                    (click)="rightPickYear(y)"
+                  >{{ y }}</button>
+                }
+              </div>
+            }
           </div>
         </div>
 
@@ -238,6 +306,28 @@ function today(): Date {
       padding: 8px 20px;
     }
     .drp-apply-btn:hover { background: #166f38; }
+    .drp-cal-title-btn {
+      background: transparent; border: 0; border-radius: 6px; color: #14211b;
+      cursor: pointer; font: inherit; font-size: 0.8125rem; font-weight: 700;
+      padding: 2px 6px;
+    }
+    .drp-cal-title-btn:hover { background: #eef5f0; }
+    .drp-mp { margin-bottom: 12px; }
+    .drp-mp-header {
+      align-items: center; display: flex; gap: 4px; justify-content: space-between;
+      margin-bottom: 10px; padding: 0 2px;
+    }
+    .drp-mp-decade { font-size: 0.8125rem; font-weight: 700; color: #14211b; }
+    .drp-mp-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+    }
+    .drp-mp-btn {
+      background: #ffffff; border: 1px solid #dce6df; border-radius: 8px;
+      color: #374151; cursor: pointer; font: inherit; font-size: 0.8125rem;
+      font-weight: 600; padding: 8px 4px; text-align: center;
+    }
+    .drp-mp-btn:hover { background: #eef5f0; border-color: #c0cfc6; }
+    .drp-mp-active { background: #15803d !important; border-color: #15803d !important; color: #ffffff !important; }
   `],
 })
 export class DateRangePickerComponent {
@@ -263,27 +353,31 @@ export class DateRangePickerComponent {
   protected readonly DAYS_SHORT = DAYS_SHORT;
   protected readonly presets = PRESETS;
 
-  private readonly viewOffset = signal(0);
-  private readonly viewBase = computed(() => {
-    const o = this.viewOffset();
+  private readonly leftOffset = signal(0);
+  private readonly rightOffset = signal(1);
+  private readonly leftBase = computed(() => {
+    const o = this.leftOffset();
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth() + o, 1);
+  });
+  private readonly rightBase = computed(() => {
+    const o = this.rightOffset();
     const d = new Date();
     return new Date(d.getFullYear(), d.getMonth() + o, 1);
   });
 
   protected readonly leftMonthLabel = computed(() => {
-    const d = this.viewBase();
+    const d = this.leftBase();
     return `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
   });
   protected readonly rightMonthLabel = computed(() => {
-    const d = addDays(endOfMonth(this.viewBase()), 1);
+    const d = this.rightBase();
     return `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
   });
 
   protected readonly draftStart = signal<Date | null>(null);
   protected readonly draftEnd = signal<Date | null>(null);
   protected readonly hoverDate = signal<Date | null>(null);
-
-  private readonly rightMonth = computed(() => addDays(endOfMonth(this.viewBase()), 1));
 
   protected readonly activePreset = computed(() => {
     const s = this.draftStart();
@@ -312,19 +406,17 @@ export class DateRangePickerComponent {
 
   protected prev(right: boolean): void {
     if (right) {
-      const r = this.rightMonth();
-      this.viewOffset.set(r.getMonth() - (new Date()).getMonth() + (r.getFullYear() - (new Date()).getFullYear()) * 12 - 1);
+      this.rightOffset.update(v => v - 1);
     } else {
-      this.viewOffset.update(v => v - 1);
+      this.leftOffset.update(v => v - 1);
     }
   }
 
   protected next(right: boolean): void {
     if (right) {
-      const r = this.rightMonth();
-      this.viewOffset.set(r.getMonth() - (new Date()).getMonth() + (r.getFullYear() - (new Date()).getFullYear()) * 12 + 1);
+      this.rightOffset.update(v => v + 1);
     } else {
-      this.viewOffset.update(v => v + 1);
+      this.leftOffset.update(v => v + 1);
     }
   }
 
@@ -400,6 +492,62 @@ export class DateRangePickerComponent {
     this.applied.emit({ dateFrom: s ? fmt(s) : '', dateTo: e ? fmt(e) : '' });
   }
 
+  protected readonly monthsGrid = MONTHS.map((label, i) => ({ n: i, label: label.slice(0, 3) }));
+
+  protected readonly leftMode = signal<'calendar' | 'months' | 'years'>('calendar');
+  protected readonly leftMpYear = signal(new Date().getFullYear());
+  protected readonly leftMpDecade = signal(0);
+  protected readonly leftMpYearLabel = computed(() => String(this.leftMpYear()));
+  protected readonly leftMpMonth = computed(() => this.leftBase().getMonth());
+  protected readonly leftYearsGrid = computed(() => {
+    const d = this.leftMpDecade() * 12;
+    const start = new Date().getFullYear() + d - 6;
+    return Array.from({ length: 12 }, (_, i) => start + i);
+  });
+  protected readonly leftDecadeLabel = computed(() => {
+    const g = this.leftYearsGrid();
+    return `${g[0]} – ${g[g.length - 1]}`;
+  });
+  protected leftPickMonth(n: number): void {
+    this.leftOffset.set(n - (new Date()).getMonth() + (this.leftMpYear() - (new Date()).getFullYear()) * 12);
+    this.leftMode.set('calendar');
+  }
+  protected leftPickYear(y: number): void {
+    this.leftMpYear.set(y);
+    this.leftMode.set('months');
+  }
+  protected leftMpPrevYear(): void { this.leftMpYear.update(v => v - 1); }
+  protected leftMpNextYear(): void { this.leftMpYear.update(v => v + 1); }
+  protected leftMpPrevDecade(): void { this.leftMpDecade.update(v => v - 1); }
+  protected leftMpNextDecade(): void { this.leftMpDecade.update(v => v + 1); }
+
+  protected readonly rightMode = signal<'calendar' | 'months' | 'years'>('calendar');
+  protected readonly rightMpYear = signal(new Date().getFullYear());
+  protected readonly rightMpDecade = signal(0);
+  protected readonly rightMpYearLabel = computed(() => String(this.rightMpYear()));
+  protected readonly rightMpMonth = computed(() => this.rightBase().getMonth());
+  protected readonly rightYearsGrid = computed(() => {
+    const d = this.rightMpDecade() * 12;
+    const start = new Date().getFullYear() + d - 6;
+    return Array.from({ length: 12 }, (_, i) => start + i);
+  });
+  protected readonly rightDecadeLabel = computed(() => {
+    const g = this.rightYearsGrid();
+    return `${g[0]} – ${g[g.length - 1]}`;
+  });
+  protected rightPickMonth(n: number): void {
+    this.rightOffset.set(n - (new Date()).getMonth() + (this.rightMpYear() - (new Date()).getFullYear()) * 12);
+    this.rightMode.set('calendar');
+  }
+  protected rightPickYear(y: number): void {
+    this.rightMpYear.set(y);
+    this.rightMode.set('months');
+  }
+  protected rightMpPrevYear(): void { this.rightMpYear.update(v => v - 1); }
+  protected rightMpNextYear(): void { this.rightMpYear.update(v => v + 1); }
+  protected rightMpPrevDecade(): void { this.rightMpDecade.update(v => v - 1); }
+  protected rightMpNextDecade(): void { this.rightMpDecade.update(v => v + 1); }
+
   private calcCells(monthStart: Date): Array<{ key: string; day: number; date: Date; empty?: boolean; today?: boolean; selected?: boolean; inRange?: boolean; rangeStart?: boolean; rangeEnd?: boolean }> {
     const dim = daysInMonth(monthStart);
     const sdow = startDow(monthStart);
@@ -432,6 +580,6 @@ export class DateRangePickerComponent {
     return cells;
   }
 
-  protected readonly leftCells = computed(() => this.calcCells(this.viewBase()));
-  protected readonly rightCells = computed(() => this.calcCells(this.rightMonth()));
+  protected readonly leftCells = computed(() => this.calcCells(this.leftBase()));
+  protected readonly rightCells = computed(() => this.calcCells(this.rightBase()));
 }

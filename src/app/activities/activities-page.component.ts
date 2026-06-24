@@ -1,16 +1,20 @@
 import { Component, computed, effect, inject, signal, DestroyRef } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
-const CATEGORY_EMOJI: Record<string, string> = {
-  ride: '🚴',
-  run: '🏃',
-  walk: '🚶',
-  hike: '🥾',
-  water: '🏊',
-  paddling: '🛶',
-  winter: '⛷️',
-  other: '🏋️',
+const SPORT_TYPE_EMOJI: Record<string, string> = {
+  Ride: '🚴', GravelRide: '🚴', MountainBikeRide: '🚵', EBikeRide: '🚴', EMountainBikeRide: '🚵', VirtualRide: '🚴',
+  Run: '🏃', TrailRun: '🏃', VirtualRun: '🏃',
+  Walk: '🚶', Hike: '🥾',
+  Swim: '🏊',
+  Kayaking: '🛶', Canoeing: '🛶', StandUpPaddling: '🛶', Rowing: '🛶',
+  AlpineSki: '⛷️', BackcountrySki: '⛷️', NordicSki: '⛷️', Snowboard: '🏂', Snowshoe: '🥾',
+  RockClimbing: '🧗', Golf: '🏌️',
+  Other: '🏋️', Workout: '🏋️',
 };
+
+function sportTypeEmoji(activity: { sportType: string; activityCategory?: string }): string {
+  return SPORT_TYPE_EMOJI[activity.sportType] ?? SPORT_TYPE_EMOJI['Other'] ?? '🏋️';
+}
 import { ActivatedRoute, Router } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { map } from 'rxjs';
@@ -356,7 +360,7 @@ function routeStatusLabel(status: string): string {
                     <app-route-sparkline [coordinates]="getRouteCoords(activity.id)" />
                   </td>
                   <td class="cell-name cell-name-bold">{{ activity.name }}</td>
-                  <td><span class="category-tag" [style.background]="categoryTagBg(activity.activityCategory)" [style.color]="categoryTagFg(activity.activityCategory)"><span class="cat-emoji">{{ sportTypeEmoji(activity.activityCategory) }}</span>{{ formatSportType(activity.sportType) }}</span></td>
+                  <td><span class="category-tag" [style.background]="categoryTagBg(activity.activityCategory)" [style.color]="categoryTagFg(activity.activityCategory)"><span class="cat-emoji">{{ sportTypeEmoji(activity) }}</span>{{ formatSportType(activity.sportType) }}</span></td>
                   <td class="cell-num cell-distance-bold">{{ formatDistance(activity.distanceMeters) }}</td>
                   <td class="cell-num">{{ formatSpeed(computeSpeed(activity.averageSpeedMetersPerSecond, activity.distanceMeters, activity.movingTimeSeconds)) }}</td>
                   <td class="cell-num">{{ formatDuration(activity.movingTimeSeconds) }}</td>
@@ -1448,7 +1452,7 @@ export class ActivitiesPageComponent {
   protected readonly PAGE_SIZE_OPTIONS = PAGE_SIZE_OPTIONS;
   protected readonly pageSize = signal(50);
   protected readonly CATEGORY_COLORS = CATEGORY_COLORS;
-  protected readonly CATEGORY_EMOJI = CATEGORY_EMOJI;
+  protected readonly SPORT_TYPE_EMOJI = SPORT_TYPE_EMOJI;
   protected readonly sortColumn = signal<SortColumn>('date');
   protected readonly sortDirection = signal<-1 | 1>(-1);
   protected readonly filterMenuOpen = signal(false);
@@ -1978,7 +1982,7 @@ export class ActivitiesPageComponent {
   protected formatSportType = formatSportType;
   protected formatCategory = formatCategory;
   protected mapSportTypeToCategory = mapSportTypeToCategory;
-  protected sportTypeEmoji = (cat: string): string => CATEGORY_EMOJI[cat] ?? '🏋️';
+  protected readonly sportTypeEmoji = sportTypeEmoji;
 
   protected categoryTagBg = (cat: string): string => {
     const c = CATEGORY_COLORS[cat as keyof typeof CATEGORY_COLORS];

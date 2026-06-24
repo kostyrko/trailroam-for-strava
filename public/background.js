@@ -2,6 +2,12 @@ function log(msg, data) {
   console.log('[Trailroam:bg]', msg, data !== undefined ? data : '');
 }
 
+chrome.runtime.onInstalled.addListener(function (details) {
+  if (details.reason === 'install') {
+    chrome.tabs.create({ url: chrome.runtime.getURL('welcome.html') });
+  }
+});
+
 var STORE_ACTIVITIES_TYPE = 'TRAILROAM_STORE_ACTIVITIES';
 
 function forwardToApp(type, payload) {

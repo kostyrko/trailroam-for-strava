@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import JSZip from 'jszip';
 import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
 import { environment } from '../../environments/environment';
-import type { ActivityRecord, ActivityRouteRecord } from '../storage/storage.models';
+import type { ActivityRecord, RouteGeometryRecord } from '../storage/storage.models';
 
 function slugify(text: string): string {
   return text
@@ -23,7 +23,7 @@ function sportTypeSlug(sportType: string): string {
     .replace(/^_|_$/g, '');
 }
 
-function buildGpx(activity: ActivityRecord, route: ActivityRouteRecord): string {
+function buildGpx(activity: ActivityRecord, route: RouteGeometryRecord): string {
   const lines: string[] = [
     '<?xml version="1.0" encoding="UTF-8"?>',
     `<gpx version="1.1" creator="${environment.appName}"`,
@@ -87,11 +87,12 @@ export class GpxExportService {
       return { success: false, reason: `No GPS route available for "${activity.name}".` };
     }
 
-    const route = await this.repositories.activityRoutes.get(activity.id);
-    if (!route || route.coordinates.length < 2) {
+    const geometry = await this.repositories.routeGeometry.get(activity.id);
+    if (!geometry || geometry.coordinates.length < 2) {
       return { success: false, reason: `No GPS route available for "${activity.name}".` };
     }
 
+    const route: RouteGeometryRecord = geometry;
     const gpx = buildGpx(activity, route);
     const date = activity.startDate ? activity.startDate.slice(0, 10) : 'unknown';
     const id = activity.providerActivityId;
@@ -119,12 +120,12 @@ export class GpxExportService {
         skipped++;
         continue;
       }
-      const route = await this.repositories.activityRoutes.get(activity.id);
-      if (!route || route.coordinates.length < 2) {
+      const geometry = await this.repositories.routeGeometry.get(activity.id);
+      if (!geometry || geometry.coordinates.length < 2) {
         skipped++;
         continue;
       }
-      const gpx = buildGpx(activity, route);
+      const gpx = buildGpx(activity, geometry);
       const date = activity.startDate ? activity.startDate.slice(0, 10) : 'unknown';
       const id = activity.providerActivityId;
       const type = sportTypeSlug(activity.sportType);

@@ -15,6 +15,7 @@ import { type Map } from 'maplibre-gl';
 import { AVAILABLE_PROVIDERS, BasemapProviderService } from './basemap-provider.service';
 import { type BasemapProviderConfig } from './basemap-provider';
 import { type MapRouteFeature } from './mock-routes';
+import type { RouteBounds } from '../storage/storage.models';
 import { MapLibreService } from './maplibre.service';
 import { RouteRendererService } from './route-renderer.service';
 import { IconComponent } from '../shared/icon.component';
@@ -62,8 +63,10 @@ import { IconComponent } from '../shared/icon.component';
               <button class="map-layer-menu-item" type="button" [class.active]="provider.id === activeProviderId()" (click)="selectLayer(provider)">
                 @if (provider.id === 'opentopomap') {
                   <app-icon name="mountain" [size]="20" strokeWidth="2" [class]="'map-layer-icon'"></app-icon>
+                } @else if (provider.id === 'esri-satellite' || provider.id === 'versatiles-aerial') {
+                  <app-icon name="satellite" [size]="20" strokeWidth="2" [class]="'map-layer-icon'"></app-icon>
                 } @else {
-                  <app-icon name="map-pin" [size]="20" strokeWidth="2" [class]="'map-layer-icon'"></app-icon>
+                  <app-icon name="map" [size]="20" strokeWidth="2" [class]="'map-layer-icon'"></app-icon>
                 }
                 <span class="map-layer-name">{{ provider.label }}</span>
                 @if (provider.id === activeProviderId()) {
@@ -114,6 +117,9 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
 
   @Output()
   readonly routesRendered = new EventEmitter<void>();
+
+  @Output()
+  readonly mapIdle = new EventEmitter<void>();
 
   @Output()
   readonly viewportChanged = new EventEmitter<[[number, number], [number, number]]>();
@@ -167,20 +173,12 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
     const map = this.mapInstance;
     if (!map) { return; }
     this.pendingReadyTasks = [];
-    map.setStyle(config.styleUrl!);
-    map.on('styleimagemissing', (e: { id: string }) => {
-      if (map.hasImage(e.id)) { return; }
-      const canvas = document.createElement('canvas');
-      canvas.width = 1;
-      canvas.height = 1;
-      map.addImage(e.id, canvas as unknown as HTMLImageElement | ImageData);
-    });
     map.once('style.load', () => {
-      console.log('[TRACE] selectLayer style.load fired');
       this.routeRendererService.init(map);
       this.drainPendingTasks('selectLayer');
       this.rerenderRoutes();
     });
+    map.setStyle(config.styleUrl!);
   }
 
   private drainPendingTasks(source: string): void {
@@ -208,7 +206,7 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
         this.routeRendererService.selectRoute(selectedId);
         const selected = routes.find((r) => r.activityId === selectedId || r.activity.id === selectedId);
         if (selected) {
-          this.routeRendererService.fitToRoute(selected.coordinates);
+          this.routeRendererService.fitToRoute(selected.coordinates, selected.route.bounds);
         }
       }
       return;
@@ -230,7 +228,7 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
         this.routeRendererService.selectRoute(selectedId);
         const selected = routes.find((r) => r.activityId === selectedId || r.activity.id === selectedId);
         if (selected) {
-          this.routeRendererService.fitToRoute(selected.coordinates);
+          this.routeRendererService.fitToRoute(selected.coordinates, selected.route.bounds);
         }
       }
       return;
@@ -252,6 +250,12 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
       this.pendingReadyTasks.push(() => this.renderRouteFeatures(routes, selectedId));
       return;
     }
+    const sourceExists = map.getSource('trailroam-routes') !== undefined;
+    if (sourceExists) {
+      this.routeRendererService.updateRoutes(routes);
+      this.routesRendered.emit();
+      return;
+    }
     if (!map.isStyleLoaded()) {
       this.queueOrRender(routes, selectedId);
       return;
@@ -262,7 +266,7 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
       const selected = routes.find((r) => r.activityId === selectedId || r.activity.id === selectedId);
       if (selected) {
         this.routeRendererService.selectRoute(selectedId);
-        this.routeRendererService.fitToRoute(selected.coordinates);
+        this.routeRendererService.fitToRoute(selected.coordinates, selected.route.bounds);
       }
     }
   }
@@ -301,6 +305,7 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
       const b = map.getBounds();
       this.ngZone.run(() => this.viewportChanged.emit([b.getSouthWest().toArray() as [number, number], b.getNorthEast().toArray() as [number, number]]));
     };
+    map.on('idle', () => this.ngZone.run(() => this.mapIdle.emit()));
     map.on('moveend', emitViewport);
     map.once('load', emitViewport);
 
@@ -330,15 +335,14 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  flyToBounds(coordinates: [number, number][]): void {
+  flyToBounds(coordinates: [number, number][], bounds?: RouteBounds): void {
     if (coordinates.length === 0) { return; }
     const map = this.mapInstance;
     if (!map || !map.isStyleLoaded()) {
-      console.log(`[TRACE] flyToBounds: map=${!!map}, styleLoaded=${map?.isStyleLoaded()}, queuing`);
-      this.pendingReadyTasks.push(() => this.flyToBounds(coordinates));
+      this.pendingReadyTasks.push(() => this.flyToBounds(coordinates, bounds));
       return;
     }
-    this.routeRendererService.fitToRoute(coordinates);
+    this.routeRendererService.fitToRoute(coordinates, bounds);
   }
 
 

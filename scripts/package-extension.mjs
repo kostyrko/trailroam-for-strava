@@ -1,7 +1,11 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const browserOutputPath = join('dist', 'trailroam-for-strava', 'browser');
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const projectRoot = join(__dirname, '..');
+
+const browserOutputPath = join(projectRoot, 'dist', 'trailroam-for-strava', 'browser');
 const rootIndexPath = join(browserOutputPath, 'index.html');
 const appOutputPath = join(browserOutputPath, 'app');
 const appIndexPath = join(appOutputPath, 'index.html');
@@ -12,6 +16,7 @@ const buildDate =
 
 await mkdir(appOutputPath, { recursive: true });
 
+// Move angular app index.html into nested app/ directory
 const rootIndex = await readFile(rootIndexPath, 'utf8');
 const nestedAppIndex = rootIndex
   .replaceAll('href="favicon.ico"', 'href="../favicon.ico"')
@@ -22,5 +27,14 @@ const nestedAppIndex = rootIndex
   .replace('<html lang="en">', `<html lang="en" data-build="${buildDate}">`);
 
 await writeFile(appIndexPath, nestedAppIndex);
+
+// Copy welcome.html to output bundle
+await copyFile(join(projectRoot, 'public', 'welcome.html'), join(browserOutputPath, 'welcome.html'));
+
+// Copy background.js to output bundle
+await copyFile(join(projectRoot, 'public', 'background.js'), join(browserOutputPath, 'background.js'));
+
+// Copy popup.html to output bundle
+try { await copyFile(join(projectRoot, 'public', 'popup.html'), join(browserOutputPath, 'popup.html')); } catch {}
 
 console.log(`Packaged extension app page: ${appIndexPath} (build ${buildDate})`);

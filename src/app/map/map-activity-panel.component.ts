@@ -10,22 +10,19 @@ import { IconComponent } from '../shared/icon.component';
 import { type MapRouteFeature } from './mock-routes';
 import { mapSportTypeToCategory } from '../shared/activity-category';
 
-const CATEGORY_EMOJI: Record<string, string> = {
-  ride: '🚴',
-  run: '🏃',
-  walk: '🚶',
-  hike: '🥾',
-  water: '🏊',
-  paddling: '🛶',
-  winter: '⛷️',
-  winter_sport: '⛷️',
-  mountaineering: '🧗',
-  other: '🏋️',
+const SPORT_TYPE_EMOJI: Record<string, string> = {
+  Ride: '🚴', GravelRide: '🚴', MountainBikeRide: '🚵', EBikeRide: '🚴', EMountainBikeRide: '🚵', VirtualRide: '🚴',
+  Run: '🏃', TrailRun: '🏃', VirtualRun: '🏃',
+  Walk: '🚶', Hike: '🥾',
+  Swim: '🏊',
+  Kayaking: '🛶', Canoeing: '🛶', StandUpPaddling: '🛶', Rowing: '🛶',
+  AlpineSki: '⛷️', BackcountrySki: '⛷️', NordicSki: '⛷️', Snowboard: '🏂', Snowshoe: '🥾',
+  RockClimbing: '🧗', Golf: '🏌️',
+  Other: '🏋️', Workout: '🏋️',
 };
 
 function sportTypeEmoji(sportType: string): string {
-  const category = mapSportTypeToCategory(sportType);
-  return CATEGORY_EMOJI[category] ?? CATEGORY_EMOJI['other'];
+  return SPORT_TYPE_EMOJI[sportType] ?? SPORT_TYPE_EMOJI['Other'] ?? '🏋️';
 }
 
 function formatDuration(movingTimeSeconds: number | undefined): string {

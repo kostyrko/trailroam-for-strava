@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { type Map as MapLibreMap, type MapLayerMouseEvent, type GeoJSONSource } from 'maplibre-gl';
 import { type MapRouteFeature } from './mock-routes';
+import type { RouteBounds } from '../storage/storage.models';
 
 export const ROUTES_SOURCE_ID = 'trailroam-routes';
 export const ROUTES_POINTS_SOURCE_ID = 'trailroam-route-points';
@@ -271,22 +272,21 @@ export class RouteRendererService {
     map.setFilter(ROUTES_SELECTED_LAYER_ID, ['==', ['get', 'activityId'], '']);
   }
 
-  fitToRoute(coordinates: [number, number][]): void {
+  fitToRoute(coordinates: [number, number][], bounds?: RouteBounds): void {
     const map = this.map;
     if (!map || coordinates.length === 0) { return; }
 
-    const lngs = coordinates.map((c) => c[0]);
-    const lats = coordinates.map((c) => c[1]);
-    const minLng = Math.min(...lngs);
-    const maxLng = Math.max(...lngs);
-    const minLat = Math.min(...lats);
-    const maxLat = Math.max(...lats);
-
     const fit = () => {
-      map.fitBounds(
-        [minLng, minLat, maxLng, maxLat],
-        { padding: 80, maxZoom: 15 },
-      );
+      if (bounds) {
+        map.fitBounds([bounds.west, bounds.south, bounds.east, bounds.north], { padding: 80, maxZoom: 15 });
+      } else {
+        const lngs = coordinates.map((c) => c[0]);
+        const lats = coordinates.map((c) => c[1]);
+        map.fitBounds(
+          [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)],
+          { padding: 80, maxZoom: 15 },
+        );
+      }
     };
 
     if (map.isStyleLoaded()) {
@@ -387,6 +387,14 @@ export class RouteRendererService {
     const matchingIds = this.emphasisMatchingIds;
     const selId = this.emphasisSelectedId;
     const hasMatching = matchingIds != null && matchingIds.size > 0;
+    const hasFilter = matchingIds != null;
+
+    if (hasFilter && !hasMatching && !selId) {
+      source.setData({ type: 'FeatureCollection', features: [] });
+      this.syncCentroidSource();
+      this.syncFinal();
+      return;
+    }
 
     const features = this.routes
       .filter((route) => {
@@ -418,9 +426,12 @@ export class RouteRendererService {
     const matchingIds = this.emphasisMatchingIds;
     const selId = this.emphasisSelectedId;
     const hasMatching = matchingIds != null && matchingIds.size > 0;
-    const filtered = hasMatching
-      ? this.routes.filter((r) => matchingIds!.has(r.activityId) || r.activityId === selId)
-      : this.routes;
+    const hasFilter = matchingIds != null;
+    const filtered = (hasFilter && !hasMatching)
+      ? []
+      : hasMatching
+        ? this.routes.filter((r) => matchingIds!.has(r.activityId) || r.activityId === selId)
+        : this.routes;
     const features = filtered.map((route) => {
       const centroid = this.computeCentroid(route.coordinates);
       return {
@@ -451,11 +462,28 @@ export class RouteRendererService {
     if (!map) { return; }
     const source = map.getSource(HEATMAP_SOURCE_ID) as GeoJSONSource;
     if (!source) { return; }
-    const lineFeatures = this.routes.map((route) => ({
-      type: 'Feature' as const,
-      properties: {},
-      geometry: { type: 'LineString' as const, coordinates: route.coordinates },
-    }));
+    const matchingIds = this.emphasisMatchingIds;
+    const selId = this.emphasisSelectedId;
+    const hasMatching = matchingIds != null && matchingIds.size > 0;
+    const hasFilter = matchingIds != null;
+
+    if (hasFilter && !hasMatching && !selId) {
+      source.setData({ type: 'FeatureCollection', features: [] });
+      return;
+    }
+
+    const lineFeatures = this.routes
+      .filter((route) => {
+        if (!hasMatching) { return true; }
+        if (matchingIds!.has(route.activityId)) { return true; }
+        if (route.activityId === selId) { return true; }
+        return false;
+      })
+      .map((route) => ({
+        type: 'Feature' as const,
+        properties: {},
+        geometry: { type: 'LineString' as const, coordinates: route.coordinates },
+      }));
     source.setData({ type: 'FeatureCollection', features: lineFeatures });
   }
 
@@ -483,7 +511,7 @@ export class RouteRendererService {
       if (typeof activityId !== 'string') { return; }
       const selectedRoute = this.routesLookup.get(activityId);
       if (!selectedRoute) { return; }
-      this.fitToRoute(selectedRoute.coordinates);
+      this.fitToRoute(selectedRoute.coordinates, selectedRoute.route.bounds);
       this.selectRoute(selectedRoute.activityId);
       this.onRouteSelected?.(selectedRoute);
     };

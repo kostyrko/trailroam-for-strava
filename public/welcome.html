@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Welcome to TrailRoam for Strava</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f3f5f7; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; }
+  .card { background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); max-width: 1100px; width: 100%; padding: 48px; }
+  .header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 40px; }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .header-left img { width: 40px; height: 40px; }
+  .header-left h1 { font-size: 1.5rem; font-weight: 700; color: #14211b; }
+  .header-left .subtitle { font-size: 0.875rem; color: #63746a; margin-top: 4px; }
+  .header-right { display: flex; align-items: center; gap: 16px; }
+  .header-right a { color: #63746a; text-decoration: none; font-size: 0.8125rem; }
+  .header-right a:hover { color: #14211b; text-decoration: underline; }
+  .main { display: flex; gap: 48px; }
+  .left-col { flex: 3; display: flex; flex-direction: column; gap: 24px; }
+  .left-col img { width: 100%; border-radius: 12px; border: 1px solid #e5e7eb; }
+  .right-col { flex: 2; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-content: start; }
+  .step-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .step-card .step-num { font-size: 0.75rem; font-weight: 700; color: #1f6f50; text-transform: uppercase; letter-spacing: 0.08em; }
+  .step-card h3 { font-size: 1rem; font-weight: 700; color: #14211b; }
+  .step-card p { font-size: 0.8125rem; color: #63746a; line-height: 1.5; }
+  .step-card img { width: 36px; height: 36px; opacity: 0.7; }
+  .footer { margin-top: 40px; text-align: center; }
+  .footer a { color: #1f6f50; text-decoration: underline; font-size: 0.875rem; font-weight: 600; }
+  .footer a:hover { color: #185940; }
+  @media (max-width: 900px) {
+    .main { flex-direction: column; }
+    .right-col { grid-template-columns: 1fr 1fr; }
+    .card { padding: 24px; }
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="header">
+    <div class="header-left">
+      <img src="app/assets/trailroam-logo-48.png" alt="TrailRoam logo">
+      <div>
+        <h1>Welcome to TrailRoam for Strava</h1>
+        <p class="subtitle">View all your activities and trails on one map — analyze, explore, and plan your next adventure.</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <a href="https://github.com/kostyrko/trailroam-for-strava/releases" target="_blank">Release notes</a>
+      <a href="https://github.com/kostyrko/trailroam-for-strava" target="_blank">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      </a>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="left-col">
+      <img src="app/assets/trail-roam-for-strava-step1.png" alt="TrailRoam interface overview">
+      <img src="app/assets/trail-roam-for-strava-step-2.png" alt="TrailRoam map view with routes">
+    </div>
+
+    <div class="right-col">
+      <div class="step-card">
+        <img src="app/assets/trailroam-logo-32.png" alt="">
+        <p class="step-num">Step 1</p>
+        <h3>Install &amp; Pin</h3>
+        <p>Click the Extensions icon in Chrome, then pin TrailRoam to your toolbar.</p>
+      </div>
+
+      <div class="step-card">
+        <img src="app/assets/trailroam-logo-32.png" alt="">
+        <p class="step-num">Step 2</p>
+        <h3>Open the App</h3>
+        <p>Click the TrailRoam extension icon to open the full app page.</p>
+      </div>
+
+      <div class="step-card">
+        <img src="app/assets/trailroam-logo-32.png" alt="">
+        <p class="step-num">Step 3</p>
+        <h3>Sync Activities</h3>
+        <p>Sync your activities from Strava. View routes, terrain, and stats.</p>
+      </div>
+
+      <div class="step-card">
+        <img src="app/assets/trailroam-logo-32.png" alt="">
+        <p class="step-num">Step 4</p>
+        <h3>Explore &amp; Plan</h3>
+        <p>Export routes, explore trails, and plan your next adventure.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <a href="https://kostyrko.github.io/trailroam-docs/docs/strava/intro" target="_blank">View documentation →</a>
+  </div>
+</div>
+</body>
+</html>

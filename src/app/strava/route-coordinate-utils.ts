@@ -38,6 +38,22 @@ export function calculateBounds(coordinates: NormalizedCoordinate[]): RouteBound
   return { west, south, east, north };
 }
 
+const SIMPLIFIED_MIN_POINTS = 300;
+
+export function simplifyCoordinates(coordinates: NormalizedCoordinate[]): NormalizedCoordinate[] {
+  const target = Math.max(SIMPLIFIED_MIN_POINTS, Math.floor(coordinates.length / 2));
+  if (coordinates.length <= target) { return coordinates; }
+  const step = Math.max(1, Math.floor(coordinates.length / target));
+  const result: NormalizedCoordinate[] = [];
+  for (let i = 0; i < coordinates.length; i += step) {
+    result.push(coordinates[i]);
+  }
+  if (result.length > 0 && result[result.length - 1] !== coordinates[coordinates.length - 1]) {
+    result.push(coordinates[coordinates.length - 1]);
+  }
+  return result;
+}
+
 export function normalizeRouteCoordinates(
   rawCoordinates: [number, number][],
 ): NormalizeRouteResult {

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "TrailRoam for Strava",
   "description": "Import Strava activities locally and view routes in a full-page extension app.",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "icons": {
     "16": "app/assets/trailroam-logo-16.png",
     "32": "app/assets/trailroam-logo-32.png",
@@ -39,5 +39,11 @@
     "https://www.strava.com/*",
     "https://strava.com/*",
     "https://tiles.openfreemap.org/*"
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["app/*", "welcome.html"],
+      "matches": ["<all_urls>"]
+    }
   ]
 }

@@ -209,9 +209,18 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
           }
         </div>
 
-        @if (routesLoading() || (allRoutes().length > 0 && !routesRendered())) {
+        @if (routesLoading() || filterLoading() || (allRoutes().length > 0 && !routesRendered())) {
           <div class="map-loading-overlay">
             <app-loading-spinner />
+          </div>
+        } @else if (allRoutes().length > 0 && filteredRoutes().length === 0) {
+          <div class="map-empty-overlay">
+            <article class="empty-state map-empty-modal" aria-labelledby="no-filtered-title">
+              <p class="empty-state-kicker">No routes match</p>
+              <h2 id="no-filtered-title">No routes match the current filters.</h2>
+              <p>Try changing your activity type or date range.</p>
+              <button class="primary-action" type="button" (click)="clearAllFilters()">Clear all filters</button>
+            </article>
           </div>
         } @else if (!noRouteActivity() && !selectedRoute() && !selectedActivityId() && allRoutes().length === 0 && !mapEmptyDismissed()) {
           <div class="map-empty-overlay" (click)="dismissMapEmpty()">
@@ -233,6 +242,7 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
           (routeSelected)="selectRoute($event)"
           (fullscreenChanged)="mapFullscreen.set($event)"
           (routesRendered)="onRoutesRendered()"
+          (mapIdle)="onMapIdle()"
           (viewportChanged)="onViewportChanged($event)"
         />
         @if (selectedRoute(); as route) {
@@ -292,16 +302,18 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
                 </dd>
               </div>
             </dl>
-            @if (route.route.elevations && route.route.elevations.length > 0) {
-              <div class="elevation-profile-wrap">
-                <app-elevation-profile
-                  [elevations]="route.route.elevations"
-                  [cumulativeDistances]="route.route.cumulativeDistances"
-                  [coordinates]="route.route.coordinates"
-                  [totalDistanceMeters]="route.activity.distanceMeters"
-                  (hoveredPosition)="onElevationHover($event)"
-                />
-              </div>
+            @if (selectedRouteGeometry(); as geom) {
+              @if (geom.elevations && geom.elevations.length > 0) {
+                <div class="elevation-profile-wrap">
+                  <app-elevation-profile
+                    [elevations]="geom.elevations"
+                    [cumulativeDistances]="geom.cumulativeDistances"
+                    [coordinates]="geom.coordinates"
+                    [totalDistanceMeters]="route.activity.distanceMeters"
+                    (hoveredPosition)="onElevationHover($event)"
+                  />
+                </div>
+              }
             }
           </article>
         }
@@ -886,7 +898,7 @@ export class MapPage implements AfterViewInit {
   private readonly router = inject(Router);
   private readonly repositories = inject(TRAILROAM_REPOSITORIES);
   protected readonly filtersService = inject(FiltersService);
-  private readonly routeRendererService = inject(RouteRendererService);
+  protected readonly routeRendererService = inject(RouteRendererService);
   private readonly toastService = inject(ToastService);
   private readonly gpxExportService = inject(GpxExportService);
   private readonly confirmService = inject(ConfirmService);
@@ -921,6 +933,7 @@ export class MapPage implements AfterViewInit {
   private readonly MAX_RENDER_RETRIES = 20;
 
   protected readonly routesLoading = signal(true);
+  protected readonly filterLoading = signal(false);
   protected readonly routesRendered = signal(false);
   protected readonly mapEmptyDismissed = signal(false);
   protected dismissMapEmpty(): void {
@@ -1025,33 +1038,42 @@ export class MapPage implements AfterViewInit {
 
   protected readonly visibleRouteCount = computed(() => this.filteredRoutes().length);
 
-  protected readonly statDistance = computed(() => {
+  private readonly routeStats = computed(() => {
     const routes = this.filteredRoutes();
-    const totalDistanceMeters = routes.reduce((s, r) => s + (r.activity.distanceMeters ?? 0), 0);
-    const distanceKm = totalDistanceMeters / 1000;
+    let totalDistanceMeters = 0;
+    let totalMovingSeconds = 0;
+    let totalPoints = 0;
+    let speedSum = 0;
+    let speedCount = 0;
+    for (const r of routes) {
+      totalDistanceMeters += r.activity.distanceMeters ?? 0;
+      totalMovingSeconds += r.activity.movingTimeSeconds ?? 0;
+      totalPoints += r.coordinates.length;
+      const speed = computeSpeed(r.activity.averageSpeedMetersPerSecond, r.activity.distanceMeters, r.activity.movingTimeSeconds);
+      if (speed !== undefined) { speedSum += speed; speedCount++; }
+    }
+    return { totalDistanceMeters, totalMovingSeconds, totalPoints, speedSum, speedCount };
+  });
+
+  protected readonly statDistance = computed(() => {
+    const { totalDistanceMeters } = this.routeStats();
     if (totalDistanceMeters === 0) { return '0 km'; }
-    return distanceKm >= 100 ? `${distanceKm.toFixed(0)} km` : `${distanceKm.toFixed(1)} km`;
+    const d = totalDistanceMeters / 1000;
+    return d >= 100 ? `${d.toFixed(0)} km` : `${d.toFixed(1)} km`;
   });
 
   protected readonly statMovingTime = computed(() => {
-    const routes = this.filteredRoutes();
-    const totalMovingSeconds = routes.reduce((s, r) => s + (r.activity.movingTimeSeconds ?? 0), 0);
-    if (totalMovingSeconds === 0) { return '0h 0m'; }
-    return formatDurationHours(totalMovingSeconds);
+    const { totalMovingSeconds } = this.routeStats();
+    return totalMovingSeconds === 0 ? '0h 0m' : formatDurationHours(totalMovingSeconds);
   });
 
   protected readonly statAvgSpeed = computed(() => {
-    const routes = this.filteredRoutes();
-    const activitiesWithSpeed = routes.filter((r) => computeSpeed(r.activity.averageSpeedMetersPerSecond, r.activity.distanceMeters, r.activity.movingTimeSeconds) !== undefined);
-    if (activitiesWithSpeed.length === 0) { return '—'; }
-    const speedsMs = activitiesWithSpeed.map((r) => computeSpeed(r.activity.averageSpeedMetersPerSecond, r.activity.distanceMeters, r.activity.movingTimeSeconds)!);
-    const avgMs = speedsMs.reduce((s, v) => s + v, 0) / speedsMs.length;
-    return `${(avgMs * 3.6).toFixed(1)} km/h`;
+    const { speedSum, speedCount } = this.routeStats();
+    if (speedCount === 0) { return '—'; }
+    return `${((speedSum / speedCount) * 3.6).toFixed(1)} km/h`;
   });
 
-  protected readonly visiblePointCount = computed(() =>
-    this.filteredRoutes().reduce((sum, r) => sum + r.coordinates.length, 0),
-  );
+  protected readonly visiblePointCount = computed(() => this.routeStats().totalPoints);
 
   protected readonly autoFilterTriggered = signal(false);
 
@@ -1076,6 +1098,8 @@ export class MapPage implements AfterViewInit {
 
   protected readonly selectedActivityId = computed(() => this.activityIdParam() ?? this.selectedMapRoute()?.activityId ?? null);
   protected readonly hasBasemapError = computed(() => this.basemapErrorParam() || this.mapBasemapError());
+
+  protected readonly selectedRouteGeometry = signal<import('../storage/storage.models').RouteGeometryRecord | null>(null);
 
   protected readonly selectedRoute = computed<MapRouteFeature | null>(() => {
     const activityId = this.selectedActivityId();
@@ -1125,9 +1149,11 @@ export class MapPage implements AfterViewInit {
         this.datePresetOpen.set(false);
       }
     });
-    this.dataRefresh.refresh$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+    this.dataRefresh.refresh$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(async () => {
       this.routesLoading.set(true);
-      this.loadRoutes();
+      await this.loadRoutes();
+      this.tryRenderRoutes('refresh');
+      this.scheduleEmphasisUpdate();
     });
     effect(() => {
       this.dataLoaded();
@@ -1173,19 +1199,21 @@ export class MapPage implements AfterViewInit {
         if (!activity || activity.routeSyncStatus !== 'route_synced') {
           continue;
         }
+        const coords = (routeRecord as any).simplifiedCoordinates ?? (routeRecord as any).coordinates ?? [];
         routes.push({
           activityId: routeRecord.activityId,
           activity,
           route: routeRecord,
-          coordinates: routeRecord.coordinates,
+          coordinates: coords,
           name: activity.name,
+          fullGeometryId: routeRecord.activityId,
         });
       }
 
       this.allRoutes.set(routes);
       this.dataLoaded.set(true);
 
-      const totalPoints = routes.reduce((sum, r) => sum + r.coordinates.length, 0);
+      const totalPoints = routes.reduce((sum, r) => sum + (r.route.pointCount ?? 0), 0);
       if (totalPoints > POINTS_WARN_THRESHOLD / 2 && this.filtersService.datePreset() === 'all' && !this.filtersService.userInteracted) {
         this.applyDatePreset('year');
         this.autoFilterHighlight.set(true);
@@ -1213,16 +1241,14 @@ export class MapPage implements AfterViewInit {
     const selectId = this.selectedActivityId();
     if (!mapComp) { console.log(`[TRACE] tryRenderRoutes from ${src}: SKIP (no mapComp)`); return; }
     mapComp.renderRouteFeatures(routes, selectId ?? undefined);
-    if (selectId) {
-      const selected = this.selectedRoute();
-      if (selected) {
-        mapComp.flyToBounds(selected.coordinates);
-      }
-    }
   }
 
   protected onRoutesRendered(): void {
     setTimeout(() => this.routesRendered.set(true), 500);
+  }
+
+  protected onMapIdle(): void {
+    this.filterLoading.set(false);
   }
 
   private scheduleRenderRetry(): void {
@@ -1281,14 +1307,37 @@ export class MapPage implements AfterViewInit {
     if (this.selectedActivityId()) {
       this.router.navigate(['/map'], { queryParams: {}, replaceUrl: true });
     }
+    this.fetchFullGeometryForRoute(route);
     setTimeout(() => {
       document.querySelector('.route-detail')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }, 0);
     this.scheduleEmphasisUpdate();
   }
 
+  private fetchFullGeometryForRoute(route: MapRouteFeature): void {
+    if (route.fullGeometryId) {
+      this.repositories.routeGeometry.get(route.fullGeometryId).then((geom) => {
+        if (geom) {
+          this.selectedRouteGeometry.set(geom);
+        } else {
+          const oldCoords = (route.route as any).coordinates;
+          const oldElevations = (route.route as any).elevations;
+          const oldDistances = (route.route as any).cumulativeDistances;
+          if (oldCoords && oldCoords.length > 0) {
+            this.selectedRouteGeometry.set({ activityId: route.fullGeometryId!, providerActivityId: '', coordinates: oldCoords, elevations: oldElevations, cumulativeDistances: oldDistances, syncedAt: '', updatedAt: '' });
+          } else {
+            this.selectedRouteGeometry.set(null);
+          }
+        }
+      });
+    } else {
+      this.selectedRouteGeometry.set(null);
+    }
+  }
+
   protected clearSelectedRoute(): void {
     this.selectedMapRoute.set(null);
+    this.selectedRouteGeometry.set(null);
     this.routeRendererService.deselectRoute();
     this.routeRendererService.clearHoverPoint();
     if (this.selectedActivityId()) {
@@ -1307,9 +1356,18 @@ export class MapPage implements AfterViewInit {
 
   protected clearSelectedActivity(): void {
     this.selectedMapRoute.set(null);
+    this.selectedRouteGeometry.set(null);
     this.routeRendererService.deselectRoute();
     this.router.navigate(['/map']);
     this.scheduleEmphasisUpdate();
+  }
+
+  protected clearAllFilters(): void {
+    this.filtersService.clearAll();
+    const totalPoints = this.allRoutes().reduce((sum, r) => sum + (r.route.pointCount ?? 0), 0);
+    if (totalPoints > POINTS_WARN_THRESHOLD / 2) {
+      this.applyDatePreset('year');
+    }
   }
 
   protected syncActivities(): void {
@@ -1352,13 +1410,10 @@ export class MapPage implements AfterViewInit {
 
   protected onPanelSelectRoute(route: MapRouteFeature): void {
     this.hoveredActivityId.set(null);
-    const mapComp = this.mapComponent;
-    if (mapComp) {
-      mapComp.flyToBounds(route.coordinates);
-    }
-    this.routeRendererService.selectRoute(route.activityId);
-    this.routeRendererService.fitToRoute(route.coordinates);
     this.selectedMapRoute.set(route);
+    this.fetchFullGeometryForRoute(route);
+    this.routeRendererService.selectRoute(route.activityId);
+    this.routeRendererService.fitToRoute(route.coordinates, route.route.bounds);
     if (this.selectedActivityId()) {
       this.router.navigate(['/map'], { queryParams: {}, replaceUrl: true });
     }
@@ -1426,43 +1481,16 @@ export class MapPage implements AfterViewInit {
 
   private updateEmphasis(): void {
     if (!this.dataLoaded()) { return; }
-    const search = this.filtersService.nameSearch().toLowerCase().trim();
-    const sportFilter = this.filtersService.sportTypeFilter();
-    const fromDate = this.filtersService.dateFrom();
-    const toDate = this.filtersService.dateTo();
-    const hasActiveFilter = !!(search || sportFilter || fromDate || toDate);
+    const filtered = this.filteredRoutes();
     const selectedId = this.selectedRoute()?.activityId ?? null;
 
-    if (!hasActiveFilter) {
-      if (selectedId) {
-        this.routeRendererService.setEmphasis(null, selectedId);
-      } else {
-        this.routeRendererService.clearEmphasis();
-      }
+    if (filtered.length === this.allRoutes().length && !selectedId) {
+      this.routeRendererService.clearEmphasis();
       return;
     }
 
-    const allRoutes = this.allRoutes();
-    if (allRoutes.length === 0) { return; }
-
-    const matchingIds = new Set<string>();
-    for (const r of allRoutes) {
-      if (search && !r.activity.name.toLowerCase().includes(search) && !r.activity.sportType.toLowerCase().includes(search)) {
-        continue;
-      }
-      if (sportFilter) {
-        if (sportFilter.startsWith('__cat__')) {
-          const cat = sportFilter.slice(7);
-          if (r.activity.activityCategory !== cat) { continue; }
-        } else {
-          if (r.activity.sportType !== sportFilter) { continue; }
-        }
-      }
-      if (fromDate && r.activity.startDate && !isAfterOrEqual(r.activity.startDate, fromDate)) { continue; }
-      if (toDate && r.activity.startDate && !isBeforeOrEqual(r.activity.startDate, toDate)) { continue; }
-      matchingIds.add(r.activityId);
-    }
-
+    this.filterLoading.set(filtered.length > 0);
+    const matchingIds = new Set(filtered.map((r) => r.activityId));
     this.routeRendererService.setEmphasis(matchingIds, selectedId);
   }
 }

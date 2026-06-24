@@ -250,6 +250,12 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
       this.pendingReadyTasks.push(() => this.renderRouteFeatures(routes, selectedId));
       return;
     }
+    const sourceExists = map.getSource('trailroam-routes') !== undefined;
+    if (sourceExists) {
+      this.routeRendererService.updateRoutes(routes);
+      this.routesRendered.emit();
+      return;
+    }
     if (!map.isStyleLoaded()) {
       this.queueOrRender(routes, selectedId);
       return;

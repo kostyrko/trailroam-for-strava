@@ -1149,9 +1149,11 @@ export class MapPage implements AfterViewInit {
         this.datePresetOpen.set(false);
       }
     });
-    this.dataRefresh.refresh$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+    this.dataRefresh.refresh$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(async () => {
       this.routesLoading.set(true);
-      this.loadRoutes();
+      await this.loadRoutes();
+      this.tryRenderRoutes('refresh');
+      this.scheduleEmphasisUpdate();
     });
     effect(() => {
       this.dataLoaded();

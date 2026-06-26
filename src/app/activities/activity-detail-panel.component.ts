@@ -66,26 +66,29 @@ const SPEED_COLORS = [
   selector: 'app-activity-detail-panel',
   imports: [ElevationProfileComponent, IconComponent],
   template: `
-    <div class="panel-backdrop" [class.backdrop-visible]="panelVisible()" (click)="closePanel()"></div>
-    <aside class="detail-panel" [class.panel-expanded]="panelExpanded()" [class.panel-visible]="panelVisible()" role="complementary" aria-label="Selected activity details">
+    @if (!pushMode()) {
+      <div class="panel-backdrop" [class.backdrop-visible]="panelVisible()" (click)="closePanel()"></div>
+    }
+    <aside class="detail-panel" [class.panel-expanded]="panelExpanded()" [class.panel-visible]="panelVisible()" [class.panel-push]="pushMode()" role="complementary" aria-label="Selected activity details">
       @if (!activity()) {
         <div class="panel-empty">
           <p>Select an activity to view its route and details.</p>
           <p class="panel-empty-sub">The interactive map will show the selected route with speed-based coloring.</p>
         </div>
       } @else {
-        <div class="panel-scroll">
-          <div class="panel-map-wrap" [class.panel-map-expanded]="panelExpanded()">
-            @if (routeLoading()) {
-              <div class="panel-map-loading" aria-label="Loading route data">
-                <div class="map-loading-spinner"></div>
-              </div>
-            }
-            <div #mapContainer class="panel-map" aria-label="Interactive map showing selected activity route"></div>
+        <div class="panel-map-wrap" [class.panel-map-expanded]="panelExpanded()">
+          @if (routeLoading()) {
+            <div class="panel-map-loading" aria-label="Loading route data">
+              <div class="map-loading-spinner"></div>
+            </div>
+          }
+          <div #mapContainer class="panel-map" aria-label="Interactive map showing selected activity route"></div>
+          <div class="panel-map-controls">
             <button
               class="panel-map-btn panel-map-btn--maximize"
               type="button"
               [attr.aria-label]="panelExpanded() ? 'Collapse map' : 'Expand map'"
+              data-tooltip="Expand map"
               (click)="togglePanelExpand()"
             >{{ panelExpanded() ? '⤡' : '⤢' }}</button>
             <button
@@ -93,6 +96,7 @@ const SPEED_COLORS = [
               type="button"
               (click)="toggleLayerMenu($event)"
               aria-label="Switch map layer"
+              data-tooltip="Switch basemap"
             >
               <app-icon name="layers" [size]="16" strokeWidth="2"></app-icon>
             </button>
@@ -109,6 +113,8 @@ const SPEED_COLORS = [
               </div>
             }
           </div>
+        </div>
+        <div class="panel-scroll">
 
           @if (speedLegend()) {
             <div class="speed-legend" aria-label="Route speed legend">
@@ -195,10 +201,17 @@ const SPEED_COLORS = [
               <app-icon name="download" [size]="16" strokeWidth="2"></app-icon>
               Download GPX
             </button>
-            <button class="action-btn action-btn--secondary" type="button" (click)="showOnMapExplorer()" [disabled]="!route()">
-              <app-icon name="map" [size]="16" strokeWidth="2"></app-icon>
-              Show on Map Explorer
-            </button>
+            @if (showInActivities()) {
+              <button class="action-btn action-btn--secondary" type="button" (click)="showOnActivitiesTable()" [disabled]="!activity()">
+                <app-icon name="list" [size]="16" strokeWidth="2"></app-icon>
+                Show in Activities
+              </button>
+            } @else {
+              <button class="action-btn action-btn--secondary" type="button" (click)="showOnMapExplorer()" [disabled]="!route()">
+                <app-icon name="map" [size]="16" strokeWidth="2"></app-icon>
+                Show on Map Explorer
+              </button>
+            }
           </div>
 
           <div class="panel-details card">
@@ -268,6 +281,14 @@ const SPEED_COLORS = [
     .detail-panel.panel-expanded {
       width: 842px;
     }
+    .detail-panel.panel-push {
+      height: 100%;
+      position: relative;
+      right: auto;
+      top: auto;
+      transform: none;
+      transition: none;
+    }
     .panel-empty {
       align-items: center;
       color: #63746a;
@@ -293,6 +314,7 @@ const SPEED_COLORS = [
       padding: 0;
     }
     .panel-map-wrap {
+      height: 322px;
       position: relative;
     }
     .panel-map-wrap.panel-map-expanded {
@@ -303,9 +325,15 @@ const SPEED_COLORS = [
       min-height: 60vh;
     }
     .panel-map {
+      border-radius: 0;
       height: 322px;
       min-height: 322px;
+      position: relative;
       width: 100%;
+    }
+
+    :host ::ng-deep .panel-map .maplibregl-canvas {
+      border-radius: 0 !important;
     }
     .panel-map-loading {
       align-items: center;
@@ -333,32 +361,94 @@ const SPEED_COLORS = [
     .panel-map-btn {
       align-items: center;
       background: #ffffff;
-      border: 1px solid #dce6df;
+      border: 2px solid #1f6f50;
       border-radius: 6px;
-      box-shadow: 0 1px 4px rgb(20 33 27 / 10%);
-      color: #314b3f;
+      box-shadow: 0 2px 6px rgb(20 33 27 / 18%);
+      color: #1f6f50;
       cursor: pointer;
       display: inline-flex;
       font-size: 1rem;
-      height: 32px;
+      height: 29px;
       justify-content: center;
       line-height: 1;
       padding: 0;
       position: absolute;
-      width: 32px;
-      z-index: 10;
+      width: 29px;
+      z-index: 30;
     }
     .panel-map-btn:hover {
-      background: #eef5f0;
+      background: #e6f7ef;
     }
-    .panel-map-btn--maximize {
+    :host ::ng-deep .panel-map .maplibregl-ctrl-top-left {
+      top: auto !important;
+    }
+
+    :host ::ng-deep .panel-map .maplibregl-ctrl-top-left .maplibregl-ctrl-group {
+      background: #ffffff;
+      border: 2px solid #1f6f50;
+      border-radius: 6px;
+      box-shadow: 0 2px 6px rgb(20 33 27 / 18%);
+      overflow: hidden;
+    }
+
+    :host ::ng-deep .panel-map .maplibregl-ctrl-top-left .maplibregl-ctrl-group button {
+      background: #ffffff;
+      border-color: transparent;
+      color: #1f6f50;
+      height: 27px !important;
+      width: 27px !important;
+    }
+
+    :host ::ng-deep .panel-map .maplibregl-ctrl-top-left .maplibregl-ctrl-group button:hover {
+      background: #e6f7ef;
+    }
+
+    :host ::ng-deep .panel-map .maplibregl-ctrl-top-left .maplibregl-ctrl-group button:not(:last-child) {
+      border-bottom: 1px solid #dce6df;
+    }
+
+    :host ::ng-deep .panel-map .maplibregl-ctrl-top-left .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+      background-color: transparent;
+      background-size: 18px;
+    }
+
+    .panel-map-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      position: absolute;
       right: 10px;
       top: 10px;
+      z-index: 30;
     }
-    .panel-map-btn--layer {
-      right: 10px;
-      top: 48px;
+    .panel-map-controls .panel-map-btn {
+      position: relative !important;
+      right: auto !important;
+      top: auto !important;
     }
+    .panel-map-btn[data-tooltip]::after {
+      background: #14211b;
+      border-radius: 4px;
+      color: #ffffff;
+      content: attr(data-tooltip);
+      font-size: 0.6875rem;
+      font-weight: 600;
+      opacity: 0;
+      padding: 4px 8px;
+      pointer-events: none;
+      position: absolute;
+      right: calc(100% + 8px);
+      top: 50%;
+      transform: translateY(-50%);
+      transition: opacity 0s 0.5s;
+      white-space: nowrap;
+      z-index: 100;
+    }
+
+    .panel-map-btn[data-tooltip]:hover::after {
+      opacity: 1;
+    }
+
     .panel-map-btn svg {
       display: block;
     }
@@ -369,8 +459,8 @@ const SPEED_COLORS = [
       box-shadow: 0 4px 16px rgb(20 33 27 / 15%);
       position: absolute;
       right: 10px;
-      top: 86px;
-      z-index: 10;
+      top: 81px;
+      z-index: 30;
       min-width: 160px;
       padding: 4px;
     }
@@ -401,6 +491,8 @@ const SPEED_COLORS = [
       display: flex;
       gap: 12px;
       padding: 6px 16px 0;
+      position: relative;
+      z-index: 0;
     }
     .legend-gradient {
       border-radius: 4px;
@@ -654,6 +746,8 @@ export class ActivityDetailPanelComponent {
 
   readonly activity = input<ActivityRecord | null>(null);
   readonly route = input<ActivityRouteRecord & { coordinates: [number, number][]; elevations?: number[]; cumulativeDistances?: number[] } | null>(null);
+  readonly pushMode = input(false);
+  readonly showInActivities = input(false);
   readonly close = output<void>();
 
   protected readonly routeLoading = signal(false);
@@ -697,11 +791,17 @@ export class ActivityDetailPanelComponent {
 
   private readonly mapContainer = viewChild<ElementRef<HTMLDivElement>>('mapContainer');
   private mapInstance: MapLibreMap | null = null;
-  private mapInitialized = false;
+  private readonly mapInitialized = signal(false);
+  private mapRerenderPending = false;
+  private rerenderLoadHandler: (() => void) | null = null;
 
   constructor() {
     afterNextRender(() => {
-      setTimeout(() => this.panelVisible.set(true), 10);
+      if (!this.pushMode()) {
+        setTimeout(() => this.panelVisible.set(true), 10);
+      } else {
+        this.panelVisible.set(true);
+      }
       this.initMap();
     });
     globalThis.addEventListener('click', () => {
@@ -711,9 +811,22 @@ export class ActivityDetailPanelComponent {
 
     effect(() => {
       const a = this.activity();
-      if (a) {
+      const r = this.route();
+      if (a && r) {
         this.routeLoading.set(true);
         this.speedLegend.set(false);
+      }
+    });
+
+    effect(() => {
+      const a = this.activity();
+      const r = this.route();
+      const mi = this.mapInitialized();
+      if (mi && this.mapInstance && a && r) {
+        this.renderRouteOnMap();
+        if (!this.mapInstance.isStyleLoaded()) {
+          this.mapInstance.once('load', () => this.renderRouteOnMap());
+        }
       }
     });
   }
@@ -726,8 +839,8 @@ export class ActivityDetailPanelComponent {
   protected readonly formatSportType = formatSportType;
 
   private initMap(): void {
-    if (this.mapInitialized) { return; }
-    this.mapInitialized = true;
+    if (this.mapInitialized()) { return; }
+    this.mapInitialized.set(true);
     this.routeLoading.set(true);
     const container = this.mapContainer()?.nativeElement;
     if (!container) { return; }
@@ -736,8 +849,10 @@ export class ActivityDetailPanelComponent {
       this.mapInstance = map;
       map.jumpTo({ center: [0, 20], zoom: 2 });
       import('maplibre-gl').then((ml) => {
-        map.addControl(new ml.NavigationControl({ showCompass: false }), 'top-right');
-        map.addControl(new ml.ScaleControl({ unit: 'metric' }), 'bottom-left');
+        const NavControl = (ml as any).NavigationControl ?? (ml as any).default?.NavigationControl;
+        const ScaleControl = (ml as any).ScaleControl ?? (ml as any).default?.ScaleControl;
+        if (NavControl) { map.addControl(new NavControl({ showCompass: false }), 'top-left'); }
+        if (ScaleControl) { map.addControl(new ScaleControl({ unit: 'metric' }), 'bottom-left'); }
       });
       map.on('load', () => this.renderRouteOnMap());
     });
@@ -754,6 +869,16 @@ export class ActivityDetailPanelComponent {
       this.doneLoading();
       return;
     }
+
+    const sourceId = 'detail-route-segments';
+    const layerBaseId = 'detail-route-seg';
+
+    const existingLayers = [`${layerBaseId}-casing`, layerBaseId, 'detail-hover-point-layer'];
+    for (const id of existingLayers) {
+      if (map.getLayer(id)) { map.removeLayer(id); }
+    }
+    if (map.getSource(sourceId)) { map.removeSource(sourceId); }
+    if (map.getSource('detail-hover-point')) { map.removeSource('detail-hover-point'); }
 
     const segFeatures = this.buildSpeedSegments(route.coordinates, route.cumulativeDistances);
     this.speedLegend.set(segFeatures.length > 0);
@@ -773,24 +898,24 @@ export class ActivityDetailPanelComponent {
     }
     const interpolateExpr: ExpressionSpecification = ['interpolate', ['linear'], ['get', 'speedRatio'], ...colorStops];
 
-    const sourceId = 'detail-route-segments';
-    const layerBaseId = 'detail-route-seg';
 
-    if (map.getSource(sourceId)) {
-      (map.getSource(sourceId) as GeoJSONSource).setData({ type: 'FeatureCollection', features: segFeatures });
-      this.doneLoading();
+    const routeData = { type: 'FeatureCollection' as const, features: segFeatures };
+
+    try {
+      map.addSource(sourceId, { type: 'geojson', data: routeData });
+    } catch {
+      this.mapRerenderPending = true;
+      if (!this.rerenderLoadHandler) {
+        this.rerenderLoadHandler = () => {
+          if (this.mapRerenderPending) {
+            this.mapRerenderPending = false;
+            this.renderRouteOnMap();
+          }
+        };
+        map.once('load', this.rerenderLoadHandler);
+      }
       return;
     }
-
-    if (segFeatures.length === 0) {
-      this.doneLoading();
-      return;
-    }
-
-    map.addSource(sourceId, {
-      type: 'geojson',
-      data: { type: 'FeatureCollection', features: segFeatures },
-    });
 
     map.addLayer({
       id: `${layerBaseId}-casing`,
@@ -917,7 +1042,7 @@ export class ActivityDetailPanelComponent {
       map.once('style.load', () => {
         this.renderRouteOnMap();
         import('maplibre-gl').then((ml) => {
-          map.addControl(new ml.NavigationControl({ showCompass: false }), 'top-right');
+          map.addControl(new ml.NavigationControl({ showCompass: false }), 'top-left');
           map.addControl(new ml.ScaleControl({ unit: 'metric' }), 'bottom-left');
         });
       });
@@ -953,6 +1078,13 @@ export class ActivityDetailPanelComponent {
     const a = this.activity();
     if (!a) { return; }
     this.router.navigate(['/map'], { queryParams: { activityId: a.id } });
+  }
+
+  protected showOnActivitiesTable(): void {
+    const a = this.activity();
+    if (!a) { return; }
+    this.closePanel();
+    this.router.navigate(['/activities'], { queryParams: { focusActivityId: a.id } });
   }
 
   protected toggleMenu(event: MouseEvent): void {
@@ -996,7 +1128,7 @@ export class ActivityDetailPanelComponent {
     setTimeout(() => {
       this.mapInstance?.remove();
       this.mapInstance = null;
-      this.mapInitialized = false;
+      this.mapInitialized.set(false);
       this.close.emit();
     }, 250);
   }

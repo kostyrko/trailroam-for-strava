@@ -39,6 +39,10 @@ export class ActivitiesRepository {
     await this.db.activities.update(id, { hasRoute, routeSyncStatus, updatedAt: new Date().toISOString() });
   }
 
+  async updateName(id: string, name: string): Promise<void> {
+    await this.db.activities.update(id, { name, updatedAt: new Date().toISOString() });
+  }
+
   async delete(id: string): Promise<void> {
     await this.db.activities.delete(id);
   }

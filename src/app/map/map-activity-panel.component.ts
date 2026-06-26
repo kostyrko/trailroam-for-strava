@@ -546,6 +546,7 @@ export type PanelSort = 'newest' | 'longest' | 'az';
       cursor: default;
       opacity: 0.5;
     }
+
   `],
 })
 export class MapActivityPanelComponent {

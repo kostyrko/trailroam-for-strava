@@ -23,6 +23,8 @@ import { FiltersService, CATEGORY_COLORS, isAfterOrEqual, isBeforeOrEqual, type 
 import { ToastService } from '../shared/toast.service';
 import { DataRefreshService } from '../shared/data-refresh.service';
 import { ConfirmService } from '../shared/confirm.service';
+import { MatDialog } from '@angular/material/dialog';
+import { RenameActivityDialog } from '../shared/rename-activity-dialog.component';
 import { IconComponent } from '../shared/icon.component';
 import { GpxExportService } from '../shared/gpx-export.service';
 import { StravaSessionService } from '../strava/strava-session.service';
@@ -386,6 +388,12 @@ function routeStatusLabel(status: string): string {
                             <button class="act-dropdown-item" [class.act-dropdown-item-disabled]="!activity.hasRoute" [disabled]="!activity.hasRoute" role="menuitem" (click)="downloadGpx($event, activity)">
                               <app-icon name="download" [size]="16" strokeWidth="2" [class]="'act-dropdown-icon'"></app-icon>
                               Download GPX
+                            </button>
+                          </li>
+                          <li role="none">
+                            <button class="act-dropdown-item" role="menuitem" (click)="renameActivity($event, activity)">
+                              <app-icon name="pencil" [size]="16" strokeWidth="2" [class]="'act-dropdown-icon'"></app-icon>
+                              Rename
                             </button>
                           </li>
                           <li role="none">
@@ -1416,6 +1424,7 @@ export class ActivitiesPageComponent {
   private readonly routeNormalizer = inject(StravaRouteNormalizer);
   private readonly gpxExportService = inject(GpxExportService);
   private readonly confirmService = inject(ConfirmService);
+  private readonly dialog = inject(MatDialog);
   private readonly activatedRoute = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -1897,6 +1906,19 @@ export class ActivitiesPageComponent {
     if (!result.success) {
       this.toastService.show(result.reason);
     }
+  }
+
+  protected async renameActivity(event: MouseEvent, activity: ActivityRecord): Promise<void> {
+    event.stopPropagation();
+    this.openMenuId.set(null);
+    const ref = this.dialog.open(RenameActivityDialog, {
+      data: { currentName: activity.name },
+      disableClose: true,
+    });
+    const newName: string | undefined = await ref.afterClosed().toPromise();
+    if (!newName || newName === activity.name) { return; }
+    await this.repositories.activities.updateName(activity.id, newName);
+    this.dataRefresh.emitRefresh();
   }
 
   protected async deleteActivity(event: MouseEvent, activity: ActivityRecord): Promise<void> {

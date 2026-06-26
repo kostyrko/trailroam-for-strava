@@ -17,6 +17,8 @@ import { DateRangePickerComponent } from '../shared/date-range-picker.component'
 import { type MapRouteFeature } from './mock-routes';
 import { FiltersService, CATEGORY_COLORS, isAfterOrEqual, isBeforeOrEqual, type DatePreset } from '../shared/filters.service';
 import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
+import { MatDialog } from '@angular/material/dialog';
+import { RenameActivityDialog } from '../shared/rename-activity-dialog.component';
 import { RouteRendererService } from './route-renderer.service';
 import { type ActivityCategory } from '../storage/storage.models';
 import { formatSportType, formatCategory, mapSportTypeToCategory } from '../shared/activity-category';
@@ -230,6 +232,7 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
                   (viewDetails)="navigateToMapDetail($event)"
                   (downloadGpx)="downloadDetailGpx($event)"
                   (openStrava)="openOnStravaFromCard($event)"
+                  (rename)="onRenameActivity($event)"
                   (elevationHover)="onElevationHover($event)"
                 />
               }
@@ -654,6 +657,7 @@ export class MapPage implements AfterViewInit {
   private readonly toastService = inject(ToastService);
   private readonly gpxExportService = inject(GpxExportService);
   private readonly confirmService = inject(ConfirmService);
+  private readonly dialog = inject(MatDialog);
   private readonly dataRefresh = inject(DataRefreshService);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -1194,6 +1198,18 @@ export class MapPage implements AfterViewInit {
 
   protected closeDetailPanel(): void {
     this.detailPanelOpen.set(false);
+  }
+
+  protected async onRenameActivity(route: MapRouteFeature): Promise<void> {
+    const a = route.activity;
+    const ref = this.dialog.open(RenameActivityDialog, {
+      data: { currentName: a.name },
+      disableClose: true,
+    });
+    const newName: string | undefined = await ref.afterClosed().toPromise();
+    if (!newName || newName === a.name) { return; }
+    await this.repositories.activities.updateName(a.id, newName);
+    this.dataRefresh.emitRefresh();
   }
 
   protected openOnStravaFromCard(route: MapRouteFeature): void {

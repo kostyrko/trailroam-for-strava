@@ -30,7 +30,7 @@ function sportTypeEmoji(sportType: string): string {
           <h2 class="card-title" [title]="route().name">{{ route().name }}</h2>
         </div>
         <div class="card-header-right">
-          <button class="card-icon-btn" type="button" aria-label="Edit activity name" title="Edit name">
+          <button class="card-icon-btn" type="button" (click)="onRename()" aria-label="Edit activity name" title="Edit name">
             <app-icon name="pencil" [size]="16" strokeWidth="2"></app-icon>
           </button>
           <button class="card-icon-btn" type="button" (click)="close.emit()" aria-label="Close route details">
@@ -350,6 +350,7 @@ export class ActivityCardComponent {
   readonly viewDetails = output<MapRouteFeature>();
   readonly downloadGpx = output<MapRouteFeature>();
   readonly openStrava = output<MapRouteFeature>();
+  readonly rename = output<MapRouteFeature>();
   readonly elevationHover = output<{ lng: number; lat: number } | null>();
 
   protected readonly menuOpen = signal(false);
@@ -409,5 +410,9 @@ export class ActivityCardComponent {
     event.stopPropagation();
     this.menuOpen.set(false);
     this.openStrava.emit(this.route());
+  }
+
+  protected onRename(): void {
+    this.rename.emit(this.route());
   }
 }

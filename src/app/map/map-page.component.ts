@@ -235,15 +235,17 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
               }
             }
           </div>
-          @if (detailPanelOpen()) {
-            <app-activity-detail-panel
-              [activity]="selectedRoute()?.activity ?? null"
-              [route]="detailPanelRoute()"
-              [pushMode]="true"
-              [showInActivities]="true"
-              (close)="closeDetailPanel()"
-            />
-          }
+          <div class="detail-panel-wrapper" [class.detail-panel-wrapper--open]="detailPanelOpen()">
+            @if (detailPanelOpen()) {
+              <app-activity-detail-panel
+                [activity]="selectedRoute()?.activity ?? null"
+                [route]="detailPanelRoute()"
+                [pushMode]="true"
+                [showInActivities]="true"
+                (close)="closeDetailPanel()"
+              />
+            }
+          </div>
         </div>
       }
 
@@ -527,6 +529,18 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
 
     .map-content-area--with-panel {
       flex-direction: row;
+    }
+
+    .detail-panel-wrapper {
+      flex-shrink: 0;
+      min-width: 0;
+      overflow: hidden;
+      transition: width 0.25s ease;
+      width: 0;
+    }
+    .detail-panel-wrapper--open {
+      width: 520px;
+      max-width: 100%;
     }
 
     .map-content-main {

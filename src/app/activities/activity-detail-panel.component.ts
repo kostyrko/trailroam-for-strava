@@ -261,7 +261,7 @@ const SPEED_COLORS = [
     }
     .detail-panel {
       background: #ffffff;
-      border-left: 1px solid #dce6df;
+      border-left: 3px solid #cbd8d0;
       box-shadow: -4px 0 24px rgb(20 33 27 / 12%);
       display: flex;
       flex-direction: column;
@@ -1019,6 +1019,10 @@ export class ActivityDetailPanelComponent {
     return features;
   }
 
+  resizeMap(): void {
+    setTimeout(() => this.mapInstance?.resize(), 50);
+  }
+
   protected togglePanelExpand(): void {
     this.panelExpanded.update((v) => !v);
     setTimeout(() => {
@@ -1038,9 +1042,14 @@ export class ActivityDetailPanelComponent {
     this.basemapProviderService.setProvider(config);
     const map = this.mapInstance;
     if (map) {
+      const center = map.getCenter();
+      const zoom = map.getZoom();
+      const pitch = map.getPitch();
+      const bearing = map.getBearing();
       map.setStyle(config.styleUrl!);
       map.once('style.load', () => {
         this.renderRouteOnMap();
+        map.jumpTo({ center, zoom, pitch, bearing });
         import('maplibre-gl').then((ml) => {
           map.addControl(new ml.NavigationControl({ showCompass: false }), 'top-left');
           map.addControl(new ml.ScaleControl({ unit: 'metric' }), 'bottom-left');

@@ -749,6 +749,7 @@ export class ActivityDetailPanelComponent {
   readonly pushMode = input(false);
   readonly showInActivities = input(false);
   readonly close = output<void>();
+  readonly panelExpand = output<boolean>();
 
   protected readonly routeLoading = signal(false);
   protected readonly speedLegend = signal(false);
@@ -1024,7 +1025,9 @@ export class ActivityDetailPanelComponent {
   }
 
   protected togglePanelExpand(): void {
-    this.panelExpanded.update((v) => !v);
+    const expanded = !this.panelExpanded();
+    this.panelExpanded.set(expanded);
+    this.panelExpand.emit(expanded);
     setTimeout(() => {
       this.mapInstance?.resize();
     }, 100);

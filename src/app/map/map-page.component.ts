@@ -235,13 +235,14 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
               }
             }
           </div>
-          <div class="detail-panel-wrapper" [class.detail-panel-wrapper--open]="detailPanelOpen()">
+          <div class="detail-panel-wrapper" [class.detail-panel-wrapper--open]="detailPanelOpen()" [class.detail-panel-wrapper--expanded]="detailPanelOpen() && detailPanelExpanded()">
             @if (detailPanelOpen()) {
               <app-activity-detail-panel
                 [activity]="selectedRoute()?.activity ?? null"
                 [route]="detailPanelRoute()"
                 [pushMode]="true"
                 [showInActivities]="true"
+                (panelExpand)="detailPanelExpanded.set($event)"
                 (close)="closeDetailPanel()"
               />
             }
@@ -542,6 +543,10 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
       width: 520px;
       max-width: 100%;
     }
+    .detail-panel-wrapper--expanded {
+      width: 842px;
+      max-width: 100%;
+    }
 
     .map-content-main {
       display: flex;
@@ -662,6 +667,7 @@ export class MapPage implements AfterViewInit {
   protected readonly allRoutes = signal<MapRouteFeature[]>([]);
   private readonly selectedMapRoute = signal<MapRouteFeature | null>(null);
   protected readonly detailPanelOpen = signal(false);
+  protected readonly detailPanelExpanded = signal(false);
   protected readonly filterMenuOpen = signal(false);
   protected readonly mapFullscreen = signal(false);
   private readonly perfWarningDismissed = signal(false);

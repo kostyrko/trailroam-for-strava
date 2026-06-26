@@ -28,6 +28,7 @@ import { GpxExportService } from '../shared/gpx-export.service';
 import { StravaSessionService } from '../strava/strava-session.service';
 import { StravaRouteNormalizer } from '../strava/strava-route-normalizer';
 import { LoadingSpinnerComponent } from '../shared/loading-spinner.component';
+import { DateRangePickerComponent } from '../shared/date-range-picker.component';
 import { RouteSparklineComponent } from './route-sparkline.component';
 import { ActivityDetailPanelComponent } from './activity-detail-panel.component';
 import { type ActivityCategory, type ActivityRecord, type ActivityRouteRecord } from '../storage/storage.models';
@@ -76,6 +77,10 @@ function formatDurationHours(seconds: number | undefined): string {
   const m = Math.floor((seconds % 3600) / 60);
   if (h > 0) { return `${h}h ${m}m`; }
   return `${m}m`;
+}
+
+function fmtDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 function formatDuration(seconds: number | undefined): string {
@@ -128,7 +133,7 @@ function routeStatusLabel(status: string): string {
 
 @Component({
   selector: 'app-activities-page',
-  imports: [LoadingSpinnerComponent, RouteSparklineComponent, ActivityDetailPanelComponent, IconComponent],
+  imports: [LoadingSpinnerComponent, RouteSparklineComponent, ActivityDetailPanelComponent, IconComponent, DateRangePickerComponent],
   template: `
     <section class="route-page" aria-labelledby="activities-title" [class.route-page--empty]="status() === 'empty'">
 
@@ -207,43 +212,23 @@ function routeStatusLabel(status: string): string {
             }
           </div>
 
-          <div class="toolbar-select" tabindex="0" (click)="datePresetOpen.set(!datePresetOpen())" (keydown.enter)="datePresetOpen.set(!datePresetOpen())" (blur)="datePresetOpen.set(false)" aria-label="Filter by date range">
+          <div class="toolbar-select" tabindex="0" (click)="datePresetOpen.set(!datePresetOpen())" (keydown.enter)="datePresetOpen.set(!datePresetOpen())" (keydown.escape)="datePresetOpen.set(false)" aria-label="Filter by date range">
             <span class="toolbar-select__trigger">
               <app-icon name="calendar" [size]="14" strokeWidth="2"></app-icon>
               {{ datePresetLabel() }}
               <app-icon name="chevron-down" [size]="12" strokeWidth="2" [class]="'toolbar-select__arrow'"></app-icon>
             </span>
-            @if (datePresetOpen()) {
-              <ul class="toolbar-select__options" (mousedown)="$event.preventDefault()" (click)="$event.stopPropagation()">
-                <li role="option" (click)="applyDatePreset('all')" [class.active]="datePreset() === 'all'">All dates</li>
-                <li role="option" (click)="applyDatePreset('7d')" [class.active]="datePreset() === '7d'">Last 7 days</li>
-                <li role="option" (click)="applyDatePreset('30d')" [class.active]="datePreset() === '30d'">Last 30 days</li>
-                <li role="option" (click)="applyDatePreset('year')" [class.active]="datePreset() === 'year'">This year</li>
-                <li role="option" (click)="applyDatePreset('custom')" [class.active]="datePreset() === 'custom'">Custom range</li>
-              </ul>
-            }
           </div>
 
-          @if (datePreset() === 'custom') {
-            <div class="custom-date-fields">
-              <label class="custom-date-field">
-                <span class="custom-date-label">From</span>
-                <input
-                  class="custom-date-input"
-                  type="date"
-                  [value]="formatDateInput(dateFrom())"
-                  (change)="onDateFromChange($any($event.target).value)"
-                />
-              </label>
-              <label class="custom-date-field">
-                <span class="custom-date-label">To</span>
-                <input
-                  class="custom-date-input"
-                  type="date"
-                  [value]="formatDateInput(dateTo())"
-                  (change)="onDateToChange($any($event.target).value)"
-                />
-              </label>
+          @if (datePresetOpen()) {
+            <div class="drp-backdrop" (mousedown)="datePresetOpen.set(false)"></div>
+            <div class="drp-floating">
+              <app-date-range-picker
+                [appliedDateFrom]="dateFrom()"
+                [appliedDateTo]="dateTo()"
+                (applied)="onRangeApplied($event)"
+                (closed)="datePresetOpen.set(false)"
+              />
             </div>
           }
         </div>
@@ -694,33 +679,28 @@ function routeStatusLabel(status: string): string {
       margin-left: 24px;
     }
 
-    .custom-date-fields {
-      align-items: center;
-      display: inline-flex;
-      gap: 10px;
+    .drp-backdrop {
+      background: transparent;
+      left: 0;
+      min-height: 100vh;
+      position: fixed;
+      top: 0;
+      width: 100vw;
+      z-index: 1000;
     }
-
-    .custom-date-field {
-      align-items: center;
+    .drp-floating {
       display: flex;
-      gap: 6px;
+      justify-content: center;
+      left: 0;
+      padding-top: 80px;
+      pointer-events: none;
+      position: fixed;
+      top: 0;
+      width: 100vw;
+      z-index: 1001;
     }
-
-    .custom-date-label {
-      color: #63746a;
-      font-size: 0.8125rem;
-      font-weight: 700;
-    }
-
-    .custom-date-input {
-      background: #ffffff;
-      border: 1px solid #dce6df;
-      border-radius: 8px;
-      color: #14211b;
-      font: inherit;
-      font-size: 0.875rem;
-      min-height: 44px;
-      padding: 0 12px;
+    .drp-floating > * {
+      pointer-events: auto;
     }
 
     .stats-grid {
@@ -1693,7 +1673,8 @@ export class ActivitiesPageComponent {
     this.loadPage(1);
     this.initLocalNotice();
     globalThis.addEventListener('click', (e) => {
-      if (!(e.target as HTMLElement)?.closest('.toolbar-select')) {
+      const target = e.target as HTMLElement;
+      if (!target?.closest('.toolbar-select') && !target?.closest('.drp-overlay')) {
         this.closeAllMenus();
       }
     });
@@ -1995,6 +1976,37 @@ export class ActivitiesPageComponent {
   };
   protected onDateFromChange = (v: string) => { this.filtersService.setDateFrom(v); this.clearSelection(); };
   protected onDateToChange = (v: string) => { this.filtersService.setDateTo(v); this.clearSelection(); };
+  protected onRangeApplied(range: { dateFrom: string; dateTo: string }): void {
+    if (range.dateFrom && range.dateTo) {
+      const preset = this.matchPreset(range.dateFrom, range.dateTo);
+      this.filtersService.setDatePreset(preset);
+      this.filtersService.setDateFrom(range.dateFrom);
+      this.filtersService.setDateTo(range.dateTo);
+    } else {
+      this.filtersService.setDatePreset('all');
+      this.filtersService.setDateFrom('');
+      this.filtersService.setDateTo('');
+    }
+    this.datePresetOpen.set(false);
+    this.clearSelection();
+  }
+  private matchPreset(dateFrom: string, dateTo: string): DatePreset {
+    if (!dateFrom && !dateTo) return 'all';
+    const now = new Date();
+    const today = fmtDate(now);
+    const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
+    const sevenAgo = new Date(now); sevenAgo.setDate(sevenAgo.getDate() - 7);
+    const thirtyAgo = new Date(now); thirtyAgo.setDate(thirtyAgo.getDate() - 30);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const yearStart = new Date(now.getFullYear(), 0, 1);
+    if (dateFrom === today && dateTo === today) return 'today';
+    if (dateFrom === fmtDate(yesterday) && dateTo === today) return 'yesterday';
+    if (dateFrom === fmtDate(sevenAgo) && dateTo === today) return '7d';
+    if (dateFrom === fmtDate(thirtyAgo) && dateTo === today) return '30d';
+    if (dateFrom === fmtDate(monthStart) && dateTo === today) return 'month';
+    if (dateFrom === fmtDate(yearStart) && dateTo === today) return 'year';
+    return 'custom';
+  }
   protected onNameSearchChange = (v: string) => { this.filtersService.setNameSearch(v); this.clearSelection(); };
 
   private async loadPage(page: number): Promise<void> {

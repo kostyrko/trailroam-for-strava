@@ -30,7 +30,7 @@ function parseDateParam(value: string | undefined | null): string | null {
   return d.toISOString();
 }
 
-export type DatePreset = 'all' | '7d' | '30d' | 'year' | 'custom';
+export type DatePreset = 'all' | 'today' | 'yesterday' | '7d' | '30d' | 'month' | 'year' | 'custom';
 
 export function isAfterOrEqual(isoDate: string, isoBound: string): boolean {
   return isoDate.slice(0, 10) >= isoBound.slice(0, 10);
@@ -55,12 +55,15 @@ export class FiltersService {
   readonly datePresetLabel = computed(() => {
     const p = this.datePreset();
     switch (p) {
-      case 'all': return 'All dates';
+      case 'all': return 'All time';
+      case 'today': return 'Today';
+      case 'yesterday': return 'Yesterday';
       case '7d': return 'Last 7 days';
       case '30d': return 'Last 30 days';
+      case 'month': return 'This month';
       case 'year': return 'This year';
       case 'custom': return 'Custom range';
-      default: return 'All dates';
+      default: return 'All time';
     }
   });
 

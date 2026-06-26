@@ -14,6 +14,7 @@ import { map } from 'rxjs';
 import { MapLibreMapComponent } from './maplibre-map.component';
 import { ElevationProfileComponent } from './elevation-profile.component';
 import { LoadingSpinnerComponent } from '../shared/loading-spinner.component';
+import { DateRangePickerComponent } from '../shared/date-range-picker.component';
 import { type MapRouteFeature } from './mock-routes';
 import { FiltersService, CATEGORY_COLORS, isAfterOrEqual, isBeforeOrEqual, type DatePreset } from '../shared/filters.service';
 import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
@@ -74,6 +75,10 @@ function formatDate(iso: string): string {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+function fmtDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function formatDateInput(iso: string | null): string {
   if (!iso) { return ''; }
   const d = new Date(iso);
@@ -86,7 +91,7 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
 
 @Component({
   selector: 'app-map-page',
-  imports: [MapLibreMapComponent, ElevationProfileComponent, LoadingSpinnerComponent, IconComponent, MapActivityPanelComponent],
+  imports: [MapLibreMapComponent, ElevationProfileComponent, LoadingSpinnerComponent, IconComponent, MapActivityPanelComponent, DateRangePickerComponent],
   template: `
       @if (performanceWarning(); as warning) {
         <article class="notice-bar warning-state" role="alert">
@@ -167,44 +172,24 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
               }
             </div>
 
-            <div class="toolbar-select" [class.auto-filter-highlight]="autoFilterHighlight()" tabindex="0" (click)="autoFilterHighlight.set(false); datePresetOpen.set(!datePresetOpen())" (keydown.enter)="datePresetOpen.set(!datePresetOpen())" (blur)="datePresetOpen.set(false)" aria-label="Filter by date range">
+            <div class="toolbar-select drp-trigger" [class.auto-filter-highlight]="autoFilterHighlight()" tabindex="0" (click)="autoFilterHighlight.set(false); datePresetOpen.set(!datePresetOpen())" (keydown.enter)="datePresetOpen.set(!datePresetOpen())" (keydown.escape)="datePresetOpen.set(false)" aria-label="Filter by date range">
               <span class="toolbar-select__trigger">
                 <app-icon name="calendar" [size]="14" strokeWidth="2"></app-icon>
                 {{ datePresetLabel() }}
                 <app-icon name="chevron-down" [size]="12" strokeWidth="2" [class]="'toolbar-select__arrow'"></app-icon>
               </span>
-              @if (datePresetOpen()) {
-                <ul class="toolbar-select__options" (mousedown)="$event.preventDefault()" (click)="$event.stopPropagation()">
-                  <li role="option" (click)="applyDatePreset('all')" [class.active]="datePreset() === 'all'">All dates</li>
-                  <li role="option" (click)="applyDatePreset('7d')" [class.active]="datePreset() === '7d'">Last 7 days</li>
-                  <li role="option" (click)="applyDatePreset('30d')" [class.active]="datePreset() === '30d'">Last 30 days</li>
-                  <li role="option" (click)="applyDatePreset('year')" [class.active]="datePreset() === 'year'">This year</li>
-                  <li role="option" (click)="applyDatePreset('custom')" [class.active]="datePreset() === 'custom'">Custom range</li>
-                </ul>
-              }
             </div>
           </div>
 
-          @if (datePreset() === 'custom') {
-            <div class="custom-date-fields">
-              <label class="custom-date-field">
-                <span class="custom-date-label">From</span>
-                <input
-                  class="custom-date-input"
-                  type="date"
-                  [value]="formatDateInput(filtersService.dateFrom())"
-                  (change)="onDateFromChange($any($event.target).value)"
-                />
-              </label>
-              <label class="custom-date-field">
-                <span class="custom-date-label">To</span>
-                <input
-                  class="custom-date-input"
-                  type="date"
-                  [value]="formatDateInput(filtersService.dateTo())"
-                  (change)="onDateToChange($any($event.target).value)"
-                />
-              </label>
+          @if (datePresetOpen()) {
+            <div class="drp-backdrop" (mousedown)="datePresetOpen.set(false)"></div>
+            <div class="drp-floating">
+              <app-date-range-picker
+                [appliedDateFrom]="filtersService.dateFrom()"
+                [appliedDateTo]="filtersService.dateTo()"
+                (applied)="onRangeApplied($event)"
+                (closed)="datePresetOpen.set(false)"
+              />
             </div>
           }
         </div>
@@ -702,15 +687,29 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
       text-transform: uppercase;
     }
 
-    .custom-date-input {
-      background: #ffffff;
-      border: 1px solid #dce6df;
-      border-radius: 8px;
-      color: #14211b;
-      font: inherit;
-      font-size: 0.875rem;
-      min-height: 44px;
-      padding: 0 12px;
+    .drp-trigger { position: relative; }
+    .drp-backdrop {
+      background: transparent;
+      left: 0;
+      min-height: 100vh;
+      position: fixed;
+      top: 0;
+      width: 100vw;
+      z-index: 1000;
+    }
+    .drp-floating {
+      display: flex;
+      justify-content: center;
+      left: 0;
+      padding-top: 80px;
+      pointer-events: none;
+      position: fixed;
+      top: 0;
+      width: 100vw;
+      z-index: 1001;
+    }
+    .drp-floating > * {
+      pointer-events: auto;
     }
 
     .notice-bar {
@@ -993,6 +992,39 @@ export class MapPage implements AfterViewInit {
     this.filtersService.setDateTo(toStr);
   }
 
+  protected onRangeApplied(range: { dateFrom: string; dateTo: string }): void {
+    if (range.dateFrom && range.dateTo) {
+      const preset = this.matchPreset(range.dateFrom, range.dateTo);
+      this.filtersService.setDatePreset(preset);
+      this.filtersService.setDateFrom(range.dateFrom);
+      this.filtersService.setDateTo(range.dateTo);
+    } else {
+      this.filtersService.setDatePreset('all');
+      this.filtersService.setDateFrom('');
+      this.filtersService.setDateTo('');
+    }
+    this.datePresetOpen.set(false);
+  }
+
+  private matchPreset(dateFrom: string, dateTo: string): DatePreset {
+    if (!dateFrom && !dateTo) return 'all';
+    const now = new Date();
+    const today = fmtDate(now);
+    const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
+    const sevenAgo = new Date(now); sevenAgo.setDate(sevenAgo.getDate() - 7);
+    const thirtyAgo = new Date(now); thirtyAgo.setDate(thirtyAgo.getDate() - 30);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const yearStart = new Date(now.getFullYear(), 0, 1);
+
+    if (dateFrom === today && dateTo === today) return 'today';
+    if (dateFrom === fmtDate(yesterday) && dateTo === today) return 'yesterday';
+    if (dateFrom === fmtDate(sevenAgo) && dateTo === today) return '7d';
+    if (dateFrom === fmtDate(thirtyAgo) && dateTo === today) return '30d';
+    if (dateFrom === fmtDate(monthStart) && dateTo === today) return 'month';
+    if (dateFrom === fmtDate(yearStart) && dateTo === today) return 'year';
+    return 'custom';
+  }
+
   protected onNameSearchChange(value: string): void {
     this.filtersService.setNameSearch(value);
   }
@@ -1144,7 +1176,8 @@ export class MapPage implements AfterViewInit {
     this.loadRoutes().then(() => this.restorePanelState());
     globalThis.addEventListener('click', (e) => {
       this.detailMenuOpen.set(false);
-      if (!(e.target as HTMLElement)?.closest('.toolbar-select')) {
+      const target = e.target as HTMLElement;
+      if (!target?.closest('.toolbar-select') && !target?.closest('app-date-range-picker')) {
         this.filterMenuOpen.set(false);
         this.datePresetOpen.set(false);
       }

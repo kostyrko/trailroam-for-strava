@@ -522,6 +522,13 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
       z-index: 150 !important;
     }
 
+    .map-page-layout ::ng-deep .maplibregl-ctrl-bottom-right {
+      z-index: 150;
+    }
+    .map-page-layout ::ng-deep .maplibregl-ctrl-bottom-right .maplibregl-ctrl-scale {
+      margin-bottom: 6px;
+    }
+
     .map-content-area {
       display: flex;
       flex: 1;

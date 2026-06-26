@@ -418,7 +418,7 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
       try {
         const { default: maplibregl } = await import('maplibre-gl');
         map.addControl(new maplibregl.NavigationControl({}), 'top-left');
-        map.addControl(new maplibregl.ScaleControl({ unit: 'metric', maxWidth: 200 }), 'bottom-left');
+        map.addControl(new maplibregl.ScaleControl({ unit: 'metric', maxWidth: 200 }), 'bottom-right');
         this.controlsAdded = true;
       } catch {
       }

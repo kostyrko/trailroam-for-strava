@@ -1,5 +1,8 @@
-import { Component, computed, effect, inject, signal, DestroyRef } from '@angular/core';
+import { Component, computed, effect, inject, signal, DestroyRef, ElementRef, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivityParserService } from '../shared/activity-parser.service';
+import { ImportActivityDialog } from '../shared/import-activity-dialog.component';
+import { generateId } from '../shared/uuid';
 
 const SPORT_TYPE_EMOJI: Record<string, string> = {
   Ride: '🚴', GravelRide: '🚴', MountainBikeRide: '🚵', EBikeRide: '🚴', EMountainBikeRide: '🚵', VirtualRide: '🚴',
@@ -33,7 +36,7 @@ import { LoadingSpinnerComponent } from '../shared/loading-spinner.component';
 import { DateRangePickerComponent } from '../shared/date-range-picker.component';
 import { RouteSparklineComponent } from './route-sparkline.component';
 import { ActivityDetailPanelComponent } from './activity-detail-panel.component';
-import { type ActivityCategory, type ActivityRecord, type ActivityRouteRecord } from '../storage/storage.models';
+import { type ActivityCategory, type ActivityRecord, type ActivityRouteRecord, type RouteGeometryRecord } from '../storage/storage.models';
 import { formatSportType, formatCategory, mapSportTypeToCategory } from '../shared/activity-category';
 
 const PAGE_SIZE_OPTIONS = [5, 10, 25, 50, 100];
@@ -233,6 +236,17 @@ function routeStatusLabel(status: string): string {
               />
             </div>
           }
+          <button class="import-btn" type="button" (click)="openFilePicker()">
+            <app-icon name="upload" [size]="14" strokeWidth="2"></app-icon>
+            Import Activity
+          </button>
+          <input
+            #fileInput
+            type="file"
+            accept=".gpx,.fit,.tcx"
+            style="display:none"
+            (change)="onFileSelected($event)"
+          />
         </div>
 
         <div class="stats-grid">
@@ -304,7 +318,18 @@ function routeStatusLabel(status: string): string {
           }
         </p>
         }
-        <div class="activities-table-wrap">
+
+        @if (dragOver()) {
+          <div class="import-drop-overlay" (dragleave)="onDragLeave($event)" (drop)="onDrop($event)" (dragover)="onDragOver($event)">
+            <div class="import-drop-card">
+              <p class="import-drop-title">Drop activity file here</p>
+              <p class="import-drop-sub">or click to browse</p>
+              <p class="import-drop-formats">Supports: GPX • FIT • TCX</p>
+            </div>
+          </div>
+        }
+
+        <div class="activities-table-wrap" (dragover)="onDragOver($event)" (dragleave)="onDragLeave($event)" (drop)="onDrop($event)">
           <table class="activities-table" aria-label="Imported activities">
             <thead>
               <tr>
@@ -550,6 +575,74 @@ function routeStatusLabel(status: string): string {
       flex-wrap: wrap;
       gap: 10px;
       margin-bottom: 16px;
+    }
+
+    .import-btn {
+      align-items: center;
+      background: transparent;
+      border: 1px solid #cbd8d0;
+      border-radius: 8px;
+      color: #314b3f;
+      cursor: pointer;
+      display: inline-flex;
+      font: inherit;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      gap: 6px;
+      height: 36px;
+      margin-left: auto;
+      padding: 0 14px;
+      transition: background 120ms ease, border-color 120ms ease;
+      white-space: nowrap;
+    }
+
+    .import-btn:hover {
+      background: #d6e8dc;
+      border-color: #b6cdbe;
+    }
+
+    .import-drop-overlay {
+      align-items: center;
+      background: rgb(20 33 27 / 40%);
+      display: flex;
+      inset: 0;
+      justify-content: center;
+      position: fixed;
+      z-index: 2000;
+    }
+
+    .import-drop-card {
+      align-items: center;
+      background: #ffffff;
+      border: 2px dashed #15803d;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      height: 260px;
+      justify-content: center;
+      max-width: 460px;
+      padding: 32px;
+      width: 100%;
+    }
+
+    .import-drop-title {
+      color: #14211b;
+      font-size: 1.125rem;
+      font-weight: 700;
+      margin: 0;
+    }
+
+    .import-drop-sub {
+      color: #63746a;
+      font-size: 0.875rem;
+      margin: 0;
+    }
+
+    .import-drop-formats {
+      color: #859b8e;
+      font-size: 0.75rem;
+      margin: 4px 0 0;
     }
 
     .search-field {
@@ -1425,6 +1518,7 @@ export class ActivitiesPageComponent {
   private readonly gpxExportService = inject(GpxExportService);
   private readonly confirmService = inject(ConfirmService);
   private readonly dialog = inject(MatDialog);
+  private readonly parserService = inject(ActivityParserService);
   private readonly activatedRoute = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -1442,6 +1536,9 @@ export class ActivitiesPageComponent {
   protected readonly pageSize = signal(50);
   protected readonly CATEGORY_COLORS = CATEGORY_COLORS;
   protected readonly SPORT_TYPE_EMOJI = SPORT_TYPE_EMOJI;
+  protected readonly dragOver = signal(false);
+
+  protected readonly fileInput = viewChild<ElementRef<HTMLInputElement>>('fileInput');
   protected readonly sortColumn = signal<SortColumn>('date');
   protected readonly sortDirection = signal<-1 | 1>(-1);
   protected readonly filterMenuOpen = signal(false);
@@ -1931,6 +2028,128 @@ export class ActivitiesPageComponent {
     this.activities.update((items) => items?.filter((a) => a.id !== activity.id) ?? null);
     this.totalCount.update((c) => Math.max(0, c - 1));
     this.toastService.show(`"${activity.name}" was deleted from local database.`);
+  }
+
+  protected openFilePicker(): void {
+    this.fileInput()?.nativeElement?.click();
+  }
+
+  protected onDragOver(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.dataTransfer?.types.includes('Files')) {
+      this.dragOver.set(true);
+    }
+  }
+
+  protected onDragLeave(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    const target = event.relatedTarget as HTMLElement | null;
+    if (!target || !target.closest('.import-drop-overlay')) {
+      this.dragOver.set(false);
+    }
+  }
+
+  protected onDrop(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.dragOver.set(false);
+    const file = event.dataTransfer?.files?.[0];
+    if (file) {
+      this.processImportFile(file);
+    }
+  }
+
+  protected onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (file) {
+      this.processImportFile(file);
+    }
+    input.value = '';
+  }
+
+  private async processImportFile(file: File): Promise<void> {
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    if (!ext || !['gpx', 'fit', 'tcx'].includes(ext)) {
+      this.toastService.show('Unsupported file type. Please use GPX, FIT or TCX files.');
+      return;
+    }
+
+    let parsed;
+    try {
+      parsed = await this.parserService.parseFile(file);
+    } catch (err: any) {
+      this.toastService.show(err.message || 'Unable to parse the selected activity file.');
+      return;
+    }
+
+    if (!parsed || parsed.coordinates.length < 2) {
+      this.toastService.show('This file contains no usable GPS track.');
+      return;
+    }
+
+    const allActivities = await this.repositories.activities.list();
+    const isDuplicate = this.parserService.computeDuplicates(parsed, allActivities);
+
+    const ref = this.dialog.open(ImportActivityDialog, {
+      data: { parsed, fileName: file.name, isDuplicate },
+      disableClose: true,
+    });
+
+    const result: { name: string; sportType: string } | undefined = await ref.afterClosed().toPromise();
+    if (!result) return;
+
+    const id = generateId();
+    const now = new Date().toISOString();
+    const category = mapSportTypeToCategory(result.sportType);
+
+    const activityRecord: ActivityRecord = {
+      id,
+      provider: 'local',
+      providerActivityId: id,
+      name: result.name,
+      sportType: result.sportType,
+      activityCategory: category,
+      startDate: parsed.startTime,
+      distanceMeters: parsed.totalDistanceMeters,
+      movingTimeSeconds: parsed.movingTimeSeconds,
+      elapsedTimeSeconds: parsed.elapsedTimeSeconds,
+      totalElevationGainMeters: parsed.totalElevationGainMeters,
+      averageSpeedMetersPerSecond: parsed.averageSpeedMetersPerSecond,
+      hasRoute: true,
+      routeSyncStatus: 'route_synced',
+      importedAt: now,
+      updatedAt: now,
+    };
+
+    await this.repositories.activities.put(activityRecord);
+
+    const routeRecord: ActivityRouteRecord = {
+      activityId: id,
+      providerActivityId: id,
+      simplifiedCoordinates: parsed.coordinates,
+      simplifiedPointCount: parsed.coordinates.length,
+      pointCount: parsed.coordinates.length,
+      syncedAt: now,
+      updatedAt: now,
+    };
+    await this.repositories.activityRoutes.put(routeRecord);
+
+    const geometryRecord: RouteGeometryRecord = {
+      activityId: id,
+      providerActivityId: id,
+      coordinates: parsed.coordinates,
+      elevations: parsed.elevations.length > 0 ? parsed.elevations : undefined,
+      cumulativeDistances: parsed.cumulativeDistances,
+      syncedAt: now,
+      updatedAt: now,
+    };
+    await this.repositories.routeGeometry.put(geometryRecord);
+
+    this.toastService.show(`"${result.name}" was imported successfully.`);
+    this.dataRefresh.emitRefresh();
   }
 
   protected async retrySyncRoute(event: MouseEvent, activity: ActivityRecord): Promise<void> {

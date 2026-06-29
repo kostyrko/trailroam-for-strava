@@ -101,10 +101,11 @@ export type PanelSort = 'newest' | 'longest' | 'az';
           </div>
           @if (filtersExpanded()) {
           <div class="panel-source-filter">
-            <button class="panel-source-chip" [class.active]="sourceFilter() === 'all'" (click)="sourceFilter.set('all')">All</button>
-            <button class="panel-source-chip" [class.active]="sourceFilter() === 'strava'" (click)="sourceFilter.set('strava')">⚡ Strava</button>
-            <button class="panel-source-chip" [class.active]="sourceFilter() === 'imported'" (click)="sourceFilter.set('imported')">⬆ Imported</button>
-            <button class="panel-source-chip" [class.active]="sourceFilter() === 'planned'" (click)="sourceFilter.set('planned')">◌ Planned</button>
+            @let sf = sourceFilter();
+            <button class="panel-source-chip" [class.active]="sf.size === 0" (click)="resetSourceFilter()">All</button>
+            <button class="panel-source-chip" [class.active]="sf.has('strava')" (click)="toggleSourceFilter('strava')">⚡ Strava</button>
+            <button class="panel-source-chip" [class.active]="sf.has('imported')" (click)="toggleSourceFilter('imported')">⬆ Imported</button>
+            <button class="panel-source-chip" [class.active]="sf.has('planned')" (click)="toggleSourceFilter('planned')">◌ Planned</button>
           </div>
           }
 
@@ -680,11 +681,12 @@ export class MapActivityPanelComponent {
   @Output() visibleOnMapChange = new EventEmitter<boolean>();
   @Output() panelExpandedChange = new EventEmitter<boolean>();
   @Output() downloadPanelGpx = new EventEmitter<MapRouteFeature[]>();
+  @Output() sourceFilterChange = new EventEmitter<Set<'strava' | 'imported' | 'planned'>>();
 
   protected readonly searchQuery = signal('');
   protected readonly visibleOnMap = signal(false);
   protected readonly sortBy = signal<PanelSort>('newest');
-  protected readonly sourceFilter = signal<'all' | 'strava' | 'imported' | 'planned'>('all');
+  protected readonly sourceFilter = signal<Set<'strava' | 'imported' | 'planned'>>(new Set());
   protected readonly filtersExpanded = signal(localStorage.getItem('trailroam_map_filters_expanded') !== 'false');
   private searchInputTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -696,12 +698,13 @@ export class MapActivityPanelComponent {
   protected readonly filteredActivities = computed(() => {
     let list = this.routes();
     const srcFilter = this.sourceFilter();
-    if (srcFilter !== 'all') {
+    if (srcFilter.size > 0) {
       list = list.filter((r) => {
-        if (srcFilter === 'strava') return r.activity.provider === 'strava';
-        if (srcFilter === 'imported') return r.activity.provider !== 'strava';
-        if (srcFilter === 'planned') return r.activity.activityStatus === 'planned';
-        return true;
+        const isStrava = r.activity.provider === 'strava';
+        const isPlanned = r.activity.activityStatus === 'planned';
+        return (srcFilter.has('strava') && isStrava)
+          || (srcFilter.has('imported') && !isStrava && !isPlanned)
+          || (srcFilter.has('planned') && isPlanned);
       });
     }
     const bounds = this.viewBounds();
@@ -754,6 +757,20 @@ export class MapActivityPanelComponent {
 
   protected setSort(sort: PanelSort): void {
     this.sortBy.set(sort);
+  }
+
+  protected resetSourceFilter(): void {
+    this.sourceFilter.set(new Set());
+    this.sourceFilterChange.emit(new Set());
+  }
+
+  protected toggleSourceFilter(value: 'strava' | 'imported' | 'planned'): void {
+    const s = this.sourceFilter();
+    const next = new Set(s);
+    if (next.has(value)) next.delete(value);
+    else next.add(value);
+    this.sourceFilter.set(next);
+    this.sourceFilterChange.emit(next);
   }
 
   protected toggleFiltersExpanded(): void {

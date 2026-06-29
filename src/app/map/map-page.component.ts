@@ -129,6 +129,7 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
             (hoverRoute)="onPanelHoverRoute($event)"
             (visibleOnMapChange)="onPanelVisibleOnMapChange($event)"
             (downloadPanelGpx)="onDownloadPanelGpx($event)"
+            (sourceFilterChange)="onSourceFilterChange($event)"
           />
         }
         <div class="map-filters-overlay">
@@ -810,7 +811,16 @@ export class MapPage implements AfterViewInit {
     const fromDate = this.filtersService.dateFrom();
     const toDate = this.filtersService.dateTo();
     const search = this.filtersService.nameSearch().toLowerCase().trim();
+    const srcFilter = this.mapSourceFilter();
     return routes.filter((r) => {
+      if (srcFilter.size > 0) {
+        const isStrava = r.activity.provider === 'strava';
+        const isPlanned = r.activity.activityStatus === 'planned';
+        const matchesSource = (srcFilter.has('strava') && isStrava)
+          || (srcFilter.has('imported') && !isStrava && !isPlanned)
+          || (srcFilter.has('planned') && isPlanned);
+        if (!matchesSource) return false;
+      }
       if (sportFilter) {
         if (sportFilter.startsWith('__cat__')) {
           const cat = sportFilter.slice(7) as ActivityCategory;
@@ -917,6 +927,14 @@ export class MapPage implements AfterViewInit {
     }
     return this.selectedMapRoute();
   });
+
+  protected readonly mapSourceFilter = signal<Set<'strava' | 'imported' | 'planned'>>(new Set());
+
+  protected onSourceFilterChange(filter: Set<'strava' | 'imported' | 'planned'>): void {
+    this.mapSourceFilter.set(filter);
+    this.scheduleEmphasisUpdate();
+    this.tryRenderRoutes('source-filter');
+  }
 
   protected onSportTypeChange(value: string): void {
     this.filtersService.setSportTypeFilter(value);
@@ -1051,7 +1069,7 @@ export class MapPage implements AfterViewInit {
     const src = source ?? 'unknown';
     console.log(`[TRACE] tryRenderRoutes from ${src}: dataLoaded=${this.dataLoaded()}, mapReady=${this.mapReady()}, mapComp=${!!this.mapComponent}, filteredRoutes=${this.filteredRoutes().length}`);
     if (!this.dataLoaded() || !this.mapReady()) { console.log(`[TRACE] tryRenderRoutes from ${src}: SKIP (not ready)`); return; }
-    const routes = this.allRoutes();
+    const routes = this.filteredRoutes();
     const mapComp = this.mapComponent;
     const selectId = this.selectedActivityId();
     if (!mapComp) { console.log(`[TRACE] tryRenderRoutes from ${src}: SKIP (no mapComp)`); return; }

@@ -370,11 +370,12 @@ export class ActivityParserService {
 
     for (const rec of records) {
       if (rec.position_lat === undefined || rec.position_long === undefined) continue;
-      const lat = rec.position_lat * (180 / Math.pow(2, 31));
-      const lng = rec.position_long * (180 / Math.pow(2, 31));
+      const lat = rec.position_lat;
+      const lng = rec.position_long;
       coordinates.push([lng, lat]);
 
-      if (rec.altitude !== undefined) elevations.push(rec.altitude);
+      const alt = rec.altitude ?? rec.enhanced_altitude;
+      if (alt !== undefined) elevations.push(alt);
       else elevations.push(0);
 
       if (rec.timestamp) timestamps.push(rec.timestamp);

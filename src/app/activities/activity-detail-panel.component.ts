@@ -1180,10 +1180,11 @@ export class ActivityDetailPanelComponent {
       danger: true,
     });
     if (!confirmed) { return; }
+    this.close.emit();
+    this.panelVisible.set(false);
     await this.repositories.activities.delete(a.id);
     await this.repositories.activityRoutes.delete(a.id);
     this.dataRefresh.emitRefresh();
-    this.closePanel();
   }
 
   protected async editActivity(event: MouseEvent): Promise<void> {

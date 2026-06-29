@@ -247,7 +247,7 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
                 [pushMode]="true"
                 [showInActivities]="true"
                 (panelExpand)="detailPanelExpanded.set($event)"
-                (close)="closeDetailPanel()"
+                (close)="closeDetailPanel(); clearSelectedRoute()"
               />
             }
           </div>
@@ -959,7 +959,8 @@ export class MapPage implements AfterViewInit {
     if (!activityId) {
       return false;
     }
-    return !this.allRoutes().some((r) => r.activityId === activityId);
+    if (!this.dataLoaded()) return false;
+    return this.allRoutes().length > 0 && !this.allRoutes().some((r) => r.activityId === activityId);
   });
 
   protected readonly noRouteActivityName = computed(() => {
@@ -1163,9 +1164,7 @@ export class MapPage implements AfterViewInit {
     this.selectedRouteGeometry.set(null);
     this.routeRendererService.deselectRoute();
     this.routeRendererService.clearHoverPoint();
-    if (this.selectedActivityId()) {
-      this.router.navigate(['/map']);
-    }
+    this.router.navigate(['/map'], { queryParams: {}, replaceUrl: true });
     this.scheduleEmphasisUpdate();
   }
 

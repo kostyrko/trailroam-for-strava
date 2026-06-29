@@ -247,7 +247,7 @@ function routeStatusLabel(status: string): string {
               />
             </div>
           }
-          <button class="import-btn" type="button" (click)="openFilePicker()">
+          <button class="import-btn" type="button" (click)="showImportOverlay()">
             <app-icon name="upload" [size]="14" strokeWidth="2"></app-icon>
             Import Activity
           </button>
@@ -353,11 +353,15 @@ function routeStatusLabel(status: string): string {
         }
 
         @if (dragOver()) {
-          <div class="import-drop-overlay" (dragleave)="onDragLeave($event)" (drop)="onDrop($event)" (dragover)="onDragOver($event)">
-            <div class="import-drop-card">
-              <p class="import-drop-title">Drop activity file here</p>
+          <div class="import-drop-overlay" (click)="dismissImportOverlay()" (dragleave)="onDragLeave($event)" (drop)="onDrop($event)" (dragover)="onDragOver($event)">
+            <div class="import-drop-card" (click)="openFilePicker(); $event.stopPropagation()" role="button" tabindex="0" (keydown.enter)="openFilePicker()" aria-label="Open file picker">
+              <button class="import-drop-close" type="button" (click)="dismissImportOverlay()" aria-label="Close import panel">
+                <app-icon name="x" [size]="14" strokeWidth="2"></app-icon>
+              </button>
+              <span class="import-drop-icon">&#11014;</span>
+              <p class="import-drop-title">Drop GPX, FIT or TCX file here</p>
               <p class="import-drop-sub">or click to browse</p>
-              <p class="import-drop-formats">Supports: GPX • FIT • TCX</p>
+              <p class="import-drop-formats">Supports: GPX &#8226; FIT &#8226; TCX</p>
             </div>
           </div>
         }
@@ -663,6 +667,12 @@ function routeStatusLabel(status: string): string {
       justify-content: center;
       position: fixed;
       z-index: 2000;
+      animation: import-drop-fadein 120ms ease-out;
+    }
+
+    @keyframes import-drop-fadein {
+      from { opacity: 0; }
+      to { opacity: 1; }
     }
 
     .import-drop-card {
@@ -670,6 +680,8 @@ function routeStatusLabel(status: string): string {
       background: #ffffff;
       border: 2px dashed #15803d;
       border-radius: 12px;
+      box-shadow: 0 8px 32px rgb(20 33 27 / 14%);
+      cursor: pointer;
       display: flex;
       flex-direction: column;
       gap: 8px;
@@ -677,7 +689,47 @@ function routeStatusLabel(status: string): string {
       justify-content: center;
       max-width: 460px;
       padding: 32px;
+      transition: background 120ms ease;
       width: 100%;
+    }
+
+    .import-drop-card {
+      position: relative;
+    }
+
+    .import-drop-card:hover {
+      background: #f4f9f6;
+    }
+
+    .import-drop-close {
+      align-items: center;
+      background: transparent;
+      border: 0;
+      border-radius: 6px;
+      color: #859b8e;
+      cursor: pointer;
+      display: inline-flex;
+      height: 28px;
+      justify-content: center;
+      padding: 0;
+      position: absolute;
+      right: 8px;
+      top: 8px;
+      transition: background 120ms ease, color 120ms ease;
+      width: 28px;
+      z-index: 10;
+    }
+
+    .import-drop-close:hover {
+      background: #eef5f0;
+      color: #14211b;
+    }
+
+    .import-drop-icon {
+      color: #15803d;
+      font-size: 2rem;
+      line-height: 1;
+      margin-bottom: 4px;
     }
 
     .import-drop-title {
@@ -2233,6 +2285,14 @@ export class ActivitiesPageComponent {
     this.toastService.show(`"${activity.name}" was deleted from local database.`);
   }
 
+  protected showImportOverlay(): void {
+    this.dragOver.set(true);
+  }
+
+  protected dismissImportOverlay(): void {
+    this.dragOver.set(false);
+  }
+
   protected openFilePicker(): void {
     this.fileInput()?.nativeElement?.click();
   }
@@ -2354,6 +2414,21 @@ export class ActivitiesPageComponent {
 
     this.toastService.show(`"${result.name}" was imported successfully.`);
     this.dataRefresh.emitRefresh();
+    this.focusRowAndHighlight(id);
+  }
+
+  private focusRowAndHighlight(rowId: string): void {
+    const all = this.allFiltered();
+    const idx = all.findIndex((a) => a.id === rowId);
+    if (idx < 0) { return; }
+    const page = Math.floor(idx / this.pageSize()) + 1;
+    this.currentPage.set(page);
+    this.highlightActivityId.set(rowId);
+    setTimeout(() => {
+      const row = document.querySelector(`[data-activity-id="${rowId}"]`);
+      row?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+    setTimeout(() => this.highlightActivityId.set(null), 3000);
   }
 
   protected async retrySyncRoute(event: MouseEvent, activity: ActivityRecord): Promise<void> {

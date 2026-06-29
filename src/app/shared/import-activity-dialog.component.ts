@@ -492,12 +492,18 @@ export class ImportActivityDialog {
   protected sportHint = computed(() => {
     const st = this.sportType();
     const parsed = this.data.parsed;
+    const suggestedSt = parsed.suggestedSportType;
+    const suggestedCat = parsed.suggestedCategory;
+    const suggestedEmoji = SPORT_TYPE_EMOJI[suggestedSt] ?? CATEGORY_EMOJI[suggestedCat] ?? '';
+    if (st !== suggestedSt) {
+      return '';
+    }
     const speedKmh = parsed.averageSpeedMetersPerSecond * 3.6;
     const isHeuristic = AVG_SPEED_FALLBACK.includes(st) || st === 'Ride';
     if (isHeuristic) {
-      return `Suggested based on average speed (${speedKmh.toFixed(1)} km/h) and distance.`;
+      return `Suggested: ${suggestedEmoji} ${formatSportType(st)}. Based on average speed (${speedKmh.toFixed(1)} km/h) and distance.`;
     }
-    return '';
+    return `Suggested: ${suggestedEmoji} ${formatSportType(st)}. From embedded activity metadata.`;
   });
 
   protected canImport = (): boolean => {

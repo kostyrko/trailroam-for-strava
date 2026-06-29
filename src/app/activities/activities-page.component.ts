@@ -2098,7 +2098,7 @@ export class ActivitiesPageComponent {
       disableClose: true,
     });
 
-    const result: { name: string; sportType: string } | undefined = await ref.afterClosed().toPromise();
+    const result: { name: string; sportType: string; activityStatus: 'completed' | 'planned' } | undefined = await ref.afterClosed().toPromise();
     if (!result) return;
 
     const id = generateId();
@@ -2118,6 +2118,7 @@ export class ActivitiesPageComponent {
       elapsedTimeSeconds: parsed.elapsedTimeSeconds,
       totalElevationGainMeters: parsed.totalElevationGainMeters,
       averageSpeedMetersPerSecond: parsed.averageSpeedMetersPerSecond,
+      activityStatus: result.activityStatus,
       hasRoute: true,
       routeSyncStatus: 'route_synced',
       importedAt: now,

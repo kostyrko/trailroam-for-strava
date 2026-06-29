@@ -4,7 +4,7 @@ import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/materia
 import { IconComponent } from './icon.component';
 import { formatSportType } from './activity-category';
 import type { ParsedActivity } from './activity-parser.service';
-import type { ActivityCategory } from '../storage/storage.models';
+import type { ActivityCategory, ActivityStatus } from '../storage/storage.models';
 
 const AVG_SPEED_FALLBACK = ['Walk', 'Hike', 'TrailRun', 'Run'];
 
@@ -34,6 +34,12 @@ function formatDuration(seconds: number): string {
   const m = Math.floor((seconds % 3600) / 60);
   if (h > 0) return `${h}h ${m}m`;
   return `${m}m`;
+}
+
+export interface ImportDialogResult {
+  name: string;
+  sportType: string;
+  activityStatus: ActivityStatus;
 }
 
 export interface ImportActivityData {
@@ -105,6 +111,22 @@ const SPORT_TYPES = [
                 <app-icon name="chevron-down" [size]="14" strokeWidth="2" [class]="'import-select-arrow'"></app-icon>
               </div>
               <p class="import-sport-hint">{{ sportHint() }}</p>
+            </div>
+
+            <div class="import-field">
+              <label class="import-label">Activity status</label>
+              <div class="import-status-group">
+                <label class="import-status-option">
+                  <input type="radio" name="activityStatus" [value]="'completed'" [(ngModel)]="activityStatus" />
+                  <span class="import-status-dot"></span>
+                  Completed
+                </label>
+                <label class="import-status-option">
+                  <input type="radio" name="activityStatus" [value]="'planned'" [(ngModel)]="activityStatus" />
+                  <span class="import-status-dot"></span>
+                  Planned
+                </label>
+              </div>
             </div>
 
             <div class="import-stats">
@@ -400,10 +422,52 @@ const SPORT_TYPES = [
       border-color: #b6cdbe;
       cursor: default;
     }
+
+    .import-status-group {
+      display: flex;
+      gap: 16px;
+    }
+
+    .import-status-option {
+      align-items: center;
+      cursor: pointer;
+      display: inline-flex;
+      font-size: 0.875rem;
+      gap: 6px;
+      color: #314b3f;
+    }
+
+    .import-status-option input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .import-status-dot {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 2px solid #b6cdbe;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: border-color 120ms ease, background 120ms ease;
+    }
+
+    .import-status-option input:checked + .import-status-dot {
+      border-color: #15803d;
+      background: #15803d;
+      box-shadow: inset 0 0 0 3px #fff;
+    }
+
+    .import-status-option input:focus-visible + .import-status-dot {
+      box-shadow: 0 0 0 3px rgb(31 111 80 / 20%);
+    }
   `],
 })
 export class ImportActivityDialog {
-  protected readonly dialogRef = inject(MatDialogRef<ImportActivityDialog, { name: string; sportType: string } | undefined>);
+  protected readonly dialogRef = inject(MatDialogRef<ImportActivityDialog, ImportDialogResult | undefined>);
   protected readonly data = inject<ImportActivityData>(MAT_DIALOG_DATA);
 
   protected readonly SPORT_TYPES = SPORT_TYPES;
@@ -413,6 +477,7 @@ export class ImportActivityDialog {
 
   protected name = this.data.parsed.suggestedName;
   protected readonly sportType = signal(this.data.parsed.suggestedSportType);
+  protected activityStatus: ActivityStatus = 'completed';
 
   protected readonly nameInput = viewChild<ElementRef<HTMLInputElement>>('nameInput');
   protected readonly mapContainer = viewChild<ElementRef<HTMLDivElement>>('mapContainer');
@@ -441,7 +506,7 @@ export class ImportActivityDialog {
 
   protected onImport(): void {
     if (!this.canImport()) return;
-    this.dialogRef.close({ name: this.name.trim(), sportType: this.sportType() });
+    this.dialogRef.close({ name: this.name.trim(), sportType: this.sportType(), activityStatus: this.activityStatus });
   }
 
   private initMap(): void {

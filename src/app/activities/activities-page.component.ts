@@ -2,6 +2,7 @@ import { Component, computed, effect, inject, signal, DestroyRef, ElementRef, vi
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivityParserService } from '../shared/activity-parser.service';
 import { ImportActivityDialog } from '../shared/import-activity-dialog.component';
+import { EditActivityDialog } from '../shared/edit-activity-dialog.component';
 import { generateId } from '../shared/uuid';
 
 const SPORT_TYPE_EMOJI: Record<string, string> = {
@@ -27,7 +28,6 @@ import { ToastService } from '../shared/toast.service';
 import { DataRefreshService } from '../shared/data-refresh.service';
 import { ConfirmService } from '../shared/confirm.service';
 import { MatDialog } from '@angular/material/dialog';
-import { RenameActivityDialog } from '../shared/rename-activity-dialog.component';
 import { IconComponent } from '../shared/icon.component';
 import { GpxExportService } from '../shared/gpx-export.service';
 import { StravaSessionService } from '../strava/strava-session.service';
@@ -416,9 +416,9 @@ function routeStatusLabel(status: string): string {
                             </button>
                           </li>
                           <li role="none">
-                            <button class="act-dropdown-item" role="menuitem" (click)="renameActivity($event, activity)">
+                            <button class="act-dropdown-item" role="menuitem" (click)="editActivity($event, activity)">
                               <app-icon name="pencil" [size]="16" strokeWidth="2" [class]="'act-dropdown-icon'"></app-icon>
-                              Rename
+                              Edit
                             </button>
                           </li>
                           <li role="none">
@@ -2005,16 +2005,25 @@ export class ActivitiesPageComponent {
     }
   }
 
-  protected async renameActivity(event: MouseEvent, activity: ActivityRecord): Promise<void> {
+  protected async editActivity(event: MouseEvent, activity: ActivityRecord): Promise<void> {
     event.stopPropagation();
     this.openMenuId.set(null);
-    const ref = this.dialog.open(RenameActivityDialog, {
-      data: { currentName: activity.name },
+    const ref = this.dialog.open(EditActivityDialog, {
+      data: {
+        currentName: activity.name,
+        currentSportType: activity.sportType,
+        currentActivityStatus: activity.activityStatus ?? 'completed',
+      },
       disableClose: true,
     });
-    const newName: string | undefined = await ref.afterClosed().toPromise();
-    if (!newName || newName === activity.name) { return; }
-    await this.repositories.activities.updateName(activity.id, newName);
+    const result = await ref.afterClosed().toPromise();
+    if (!result) return;
+    if (result.name === activity.name && result.sportType === activity.sportType && result.activityStatus === (activity.activityStatus ?? 'completed')) return;
+    await this.repositories.activities.updateMetadata(activity.id, {
+      name: result.name,
+      sportType: result.sportType,
+      activityStatus: result.activityStatus,
+    });
     this.dataRefresh.emitRefresh();
   }
 

@@ -18,7 +18,7 @@ import { type MapRouteFeature } from './mock-routes';
 import { FiltersService, CATEGORY_COLORS, isAfterOrEqual, isBeforeOrEqual, type DatePreset } from '../shared/filters.service';
 import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
 import { MatDialog } from '@angular/material/dialog';
-import { RenameActivityDialog } from '../shared/rename-activity-dialog.component';
+import { EditActivityDialog } from '../shared/edit-activity-dialog.component';
 import { RouteRendererService } from './route-renderer.service';
 import { type ActivityCategory } from '../storage/storage.models';
 import { formatSportType, formatCategory, mapSportTypeToCategory } from '../shared/activity-category';
@@ -1202,13 +1202,22 @@ export class MapPage implements AfterViewInit {
 
   protected async onRenameActivity(route: MapRouteFeature): Promise<void> {
     const a = route.activity;
-    const ref = this.dialog.open(RenameActivityDialog, {
-      data: { currentName: a.name },
+    const ref = this.dialog.open(EditActivityDialog, {
+      data: {
+        currentName: a.name,
+        currentSportType: a.sportType,
+        currentActivityStatus: a.activityStatus ?? 'completed',
+      },
       disableClose: true,
     });
-    const newName: string | undefined = await ref.afterClosed().toPromise();
-    if (!newName || newName === a.name) { return; }
-    await this.repositories.activities.updateName(a.id, newName);
+    const result = await ref.afterClosed().toPromise();
+    if (!result) return;
+    if (result.name === a.name && result.sportType === a.sportType && result.activityStatus === (a.activityStatus ?? 'completed')) return;
+    await this.repositories.activities.updateMetadata(a.id, {
+      name: result.name,
+      sportType: result.sportType,
+      activityStatus: result.activityStatus,
+    });
     this.dataRefresh.emitRefresh();
   }
 

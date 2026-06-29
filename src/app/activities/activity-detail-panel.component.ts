@@ -9,9 +9,11 @@ import { GpxExportService } from '../shared/gpx-export.service';
 import { ToastService } from '../shared/toast.service';
 import { ConfirmService } from '../shared/confirm.service';
 import { DataRefreshService } from '../shared/data-refresh.service';
+import { MatDialog } from '@angular/material/dialog';
 import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
 import { type ActivityRecord, type ActivityRouteRecord } from '../storage/storage.models';
 import { IconComponent } from '../shared/icon.component';
+import { EditActivityDialog } from '../shared/edit-activity-dialog.component';
 import { formatSportType } from '../shared/activity-category';
 
 function formatDistance(meters: number | undefined): string {
@@ -147,6 +149,12 @@ const SPEED_COLORS = [
                         <button class="panel-menu-item" role="menuitem" (click)="openInStrava($event)">
                           <app-icon name="external-link" [size]="16" strokeWidth="2"></app-icon>
                           Strava
+                        </button>
+                      </li>
+                      <li role="none">
+                        <button class="panel-menu-item" role="menuitem" (click)="editActivity($event)">
+                          <app-icon name="pencil" [size]="16" strokeWidth="2"></app-icon>
+                          Edit
                         </button>
                       </li>
                       <li role="none">
@@ -741,6 +749,7 @@ export class ActivityDetailPanelComponent {
   private readonly gpxExportService = inject(GpxExportService);
   private readonly toastService = inject(ToastService);
   private readonly confirmService = inject(ConfirmService);
+  private readonly dialog = inject(MatDialog);
   private readonly repositories = inject(TRAILROAM_REPOSITORIES);
   private readonly dataRefresh = inject(DataRefreshService);
 
@@ -1133,6 +1142,30 @@ export class ActivityDetailPanelComponent {
     await this.repositories.activityRoutes.delete(a.id);
     this.dataRefresh.emitRefresh();
     this.closePanel();
+  }
+
+  protected async editActivity(event: MouseEvent): Promise<void> {
+    event.stopPropagation();
+    this.menuOpen.set(false);
+    const a = this.activity();
+    if (!a) return;
+    const ref = this.dialog.open(EditActivityDialog, {
+      data: {
+        currentName: a.name,
+        currentSportType: a.sportType,
+        currentActivityStatus: a.activityStatus ?? 'completed',
+      },
+      disableClose: true,
+    });
+    const result = await ref.afterClosed().toPromise();
+    if (!result) return;
+    if (result.name === a.name && result.sportType === a.sportType && result.activityStatus === (a.activityStatus ?? 'completed')) return;
+    await this.repositories.activities.updateMetadata(a.id, {
+      name: result.name,
+      sportType: result.sportType,
+      activityStatus: result.activityStatus,
+    });
+    this.dataRefresh.emitRefresh();
   }
 
   protected closePanel(): void {

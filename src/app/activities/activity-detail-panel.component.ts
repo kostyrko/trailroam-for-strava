@@ -167,7 +167,21 @@ const SPEED_COLORS = [
                   }
                 </div>
               </div>
-              <p class="panel-date">{{ formatDate(activity()!.startDate) }}</p>
+              <div class="panel-source-status-row">
+                @let a = activity()!;
+                @let st = a.activityStatus ?? 'completed';
+                @if (st === 'completed') {
+                  <span class="panel-detail-status-badge panel-detail-status-badge--completed">&#10003; Completed</span>
+                } @else {
+                  <span class="panel-detail-status-badge panel-detail-status-badge--planned">&#9711; Planned</span>
+                }
+                @if (a.provider === 'strava') {
+                  <span class="panel-detail-source">⚡ Strava (Synced)</span>
+                } @else {
+                  <span class="panel-detail-source panel-detail-source--imported">⬆ Imported</span>
+                }
+              </div>
+              <p class="panel-date">{{ formatDate(a.startDate) }}</p>
             </div>
             <button class="panel-close" type="button" (click)="closePanel()" aria-label="Close activity details">&times;</button>
           </div>
@@ -532,6 +546,34 @@ const SPEED_COLORS = [
       color: #63746a;
       font-size: 0.8125rem;
       margin: 2px 0 0;
+    }
+    .panel-source-status-row {
+      align-items: center;
+      display: flex;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .panel-detail-status-badge {
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 2px 6px;
+    }
+    .panel-detail-status-badge--completed {
+      background: #e6f7ef;
+      color: #15803d;
+    }
+    .panel-detail-status-badge--planned {
+      background: #f3e8ff;
+      color: #7c3aed;
+    }
+    .panel-detail-source {
+      color: #b87a2d;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .panel-detail-source--imported {
+      color: #2d7fb8;
     }
     .panel-close {
       align-items: center;

@@ -108,7 +108,18 @@ function formatDateInput(iso: string | null): string {
   return d.toISOString().slice(0, 10);
 }
 
-export type SortColumn = 'date' | 'name' | 'type' | 'distance' | 'speed' | 'time' | 'route';
+export type SortColumn = 'date' | 'name' | 'source' | 'status' | 'type' | 'distance' | 'speed' | 'time' | 'route';
+
+function activitySourceSortValue(a: ActivityRecord): number {
+  if (a.provider === 'strava') return 0;
+  return 1;
+}
+
+function activityStatusSortValue(a: ActivityRecord): number {
+  const s = a.activityStatus ?? 'completed';
+  if (s === 'completed') return 0;
+  return 1;
+}
 
 function routeSortValue(status: string): number {
   switch (status) {
@@ -288,6 +299,28 @@ function routeStatusLabel(status: string): string {
           </div>
         </div>
 
+        <div class="source-filter-bar">
+          <span class="source-filter-label">Filter by source:</span>
+          @let sc = sourceFilterCounts();
+          @let sf = sourceFilter();
+          <button class="source-filter-chip" [class.source-filter-chip--active]="sf.size === 0" (click)="resetSourceFilter()">
+            All Activities
+            <span class="source-filter-count">{{ sc.all }}</span>
+          </button>
+          <button class="source-filter-chip" [class.source-filter-chip--active]="sf.has('strava')" (click)="toggleSourceFilter('strava')">
+            ⚡ Strava (Synced)
+            <span class="source-filter-count">{{ sc.strava }}</span>
+          </button>
+          <button class="source-filter-chip" [class.source-filter-chip--active]="sf.has('imported-completed')" (click)="toggleSourceFilter('imported-completed')">
+            ⬆ Imported (Done)
+            <span class="source-filter-count">{{ sc.importedCompleted }}</span>
+          </button>
+          <button class="source-filter-chip" [class.source-filter-chip--active]="sf.has('imported-planned')" (click)="toggleSourceFilter('imported-planned')">
+            ◌ Imported (Planned)
+            <span class="source-filter-count">{{ sc.importedPlanned }}</span>
+          </button>
+        </div>
+
         <div class="selected-actions-bar" [class.selected-actions-bar--active]="selectionCount() > 0">
             <div class="selected-actions-bar__summary">
               <app-icon name="check-circle" [size]="18" strokeWidth="2" [class]="'selected-actions-bar__check'"></app-icon>
@@ -345,6 +378,8 @@ function routeStatusLabel(status: string): string {
                 <th scope="col" class="sortable" (click)="onSort('date')">Date{{ sortIndicator('date') }}</th>
                 <th scope="col" class="col-sparkline"></th>
                 <th scope="col" class="sortable" (click)="onSort('name')">Name{{ sortIndicator('name') }}</th>
+                <th scope="col" class="sortable" (click)="onSort('source')">Source{{ sortIndicator('source') }}</th>
+                <th scope="col" class="sortable" (click)="onSort('status')">Status{{ sortIndicator('status') }}</th>
                 <th scope="col" class="sortable" (click)="onSort('type')">Type{{ sortIndicator('type') }}</th>
                 <th scope="col" class="sortable" (click)="onSort('distance')">Distance{{ sortIndicator('distance') }}</th>
                 <th scope="col" class="sortable" (click)="onSort('speed')">Speed{{ sortIndicator('speed') }}</th>
@@ -372,6 +407,21 @@ function routeStatusLabel(status: string): string {
                     <app-route-sparkline [coordinates]="getRouteCoords(activity.id)" />
                   </td>
                   <td class="cell-name cell-name-bold">{{ activity.name }}</td>
+                  <td class="cell-source">
+                    @if (activity.provider === 'strava') {
+                      <span class="source-badge source-badge--strava">⚡ Strava</span>
+                    } @else {
+                      <span class="source-badge source-badge--imported">⬆ Imported</span>
+                    }
+                  </td>
+                  <td class="cell-status">
+                    @let st = activity.activityStatus ?? 'completed';
+                    @if (st === 'completed') {
+                      <span class="status-badge status-badge--completed">✓ Completed</span>
+                    } @else {
+                      <span class="status-badge status-badge--planned">◌ Planned</span>
+                    }
+                  </td>
                   <td><span class="category-tag" [style.background]="categoryTagBg(activity.activityCategory)" [style.color]="categoryTagFg(activity.activityCategory)"><span class="cat-emoji">{{ sportTypeEmoji(activity) }}</span>{{ formatSportType(activity.sportType) }}</span></td>
                   <td class="cell-num cell-distance-bold">{{ formatDistance(activity.distanceMeters) }}</td>
                   <td class="cell-num">{{ formatSpeed(computeSpeed(activity.averageSpeedMetersPerSecond, activity.distanceMeters, activity.movingTimeSeconds)) }}</td>
@@ -498,12 +548,16 @@ function routeStatusLabel(status: string): string {
             <div class="empty-state-match-wrapper">
               <article class="empty-state empty-state--no-match" aria-labelledby="activities-empty-match-title">
                 <p class="empty-state-kicker">No matching activities</p>
-                <h2 id="activities-empty-match-title">No activities match your filters.</h2>
+                <h2 id="activities-empty-match-title">
+                  @if (sourceFilter().size > 0) {No activities match the selected source filters.}
+                  @else {No activities match your filters.}
+                </h2>
                 <p>Try adjusting your search or filter criteria to find what you're looking for.</p>
               </article>
             </div>
           }
         }
+
 
       }
       @if (selectedActivity(); as selActivity) {
@@ -1506,6 +1560,108 @@ function routeStatusLabel(status: string): string {
       }
     }
 
+    .source-filter-bar {
+      align-items: center;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 14px;
+      margin-bottom: 10px;
+    }
+
+    .source-filter-label {
+      color: #63746a;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-right: 4px;
+    }
+
+    .source-filter-chip {
+      align-items: center;
+      background: #f4f9f6;
+      border: 1px solid transparent;
+      border-radius: 20px;
+      cursor: pointer;
+      display: inline-flex;
+      font: inherit;
+      font-size: 0.8125rem;
+      gap: 4px;
+      height: 30px;
+      padding: 0 12px;
+      transition: background 120ms ease, border-color 120ms ease;
+    }
+
+    .source-filter-chip:hover {
+      background: #dce6df;
+    }
+
+    .source-filter-chip--active {
+      background: #1f6f50;
+      border-color: #1f6f50;
+      color: #ffffff;
+    }
+
+    .source-filter-chip--active:hover {
+      background: #185940;
+    }
+
+    .source-filter-count {
+      background: rgb(0 0 0 / 10%);
+      border-radius: 10px;
+      font-size: 0.6875rem;
+      font-variant-numeric: tabular-nums;
+      padding: 0 6px;
+    }
+
+    .source-filter-chip--active .source-filter-count {
+      background: rgb(255 255 255 / 20%);
+    }
+
+    .cell-source {
+      font-size: 0.8125rem;
+      padding: 0 8px;
+      white-space: nowrap;
+    }
+
+    .cell-status {
+      font-size: 0.8125rem;
+      padding: 0 8px;
+      white-space: nowrap;
+    }
+
+    .source-badge {
+      font-weight: 600;
+    }
+
+    .source-badge--strava {
+      color: #b87a2d;
+    }
+
+    .source-badge--imported {
+      color: #2d7fb8;
+    }
+
+    .status-badge {
+      align-items: center;
+      border-radius: 4px;
+      display: inline-flex;
+      font-size: 0.75rem;
+      font-weight: 600;
+      gap: 3px;
+      padding: 2px 6px;
+    }
+
+    .status-badge--completed {
+      background: #e6f7ef;
+      color: #15803d;
+    }
+
+    .status-badge--planned {
+      background: #f3e8ff;
+      color: #7c3aed;
+    }
+
+
 `],
 })
 export class ActivitiesPageComponent {
@@ -1536,6 +1692,7 @@ export class ActivitiesPageComponent {
   protected readonly pageSize = signal(50);
   protected readonly CATEGORY_COLORS = CATEGORY_COLORS;
   protected readonly SPORT_TYPE_EMOJI = SPORT_TYPE_EMOJI;
+  protected readonly legendCategories: ActivityCategory[] = ['ride', 'run', 'walk', 'hike', 'water', 'paddling', 'winter', 'other'];
   protected readonly dragOver = signal(false);
 
   protected readonly fileInput = viewChild<ElementRef<HTMLInputElement>>('fileInput');
@@ -1615,6 +1772,19 @@ export class ActivitiesPageComponent {
   protected readonly dateTo = this.filtersService.dateTo;
   protected readonly nameSearch = this.filtersService.nameSearch;
   protected readonly datePresetLabel = this.filtersService.datePresetLabel;
+  protected readonly sourceFilter = signal<Set<'strava' | 'imported-completed' | 'imported-planned'>>(new Set());
+
+  protected resetSourceFilter(): void {
+    this.sourceFilter.set(new Set());
+  }
+
+  protected toggleSourceFilter(value: 'strava' | 'imported-completed' | 'imported-planned'): void {
+    const s = this.sourceFilter();
+    const next = new Set(s);
+    if (next.has(value)) next.delete(value);
+    else next.add(value);
+    this.sourceFilter.set(next);
+  }
 
   protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.totalFilteredCount() / this.pageSize())));
 
@@ -1660,7 +1830,16 @@ export class ActivitiesPageComponent {
     const fromDate = this.dateFrom();
     const toDate = this.dateTo();
     const search = this.nameSearch().toLowerCase().trim();
+    const srcFilter = this.sourceFilter();
     const filtered = items.filter((a) => {
+      if (srcFilter.size > 0) {
+        const isStrava = a.provider === 'strava';
+        const isPlanned = a.activityStatus === 'planned';
+        const matchesAny = (srcFilter.has('strava') && isStrava)
+          || (srcFilter.has('imported-completed') && !isStrava && !isPlanned)
+          || (srcFilter.has('imported-planned') && isPlanned);
+        if (!matchesAny) return false;
+      }
       if (sportFilter) {
         if (sportFilter.startsWith('__cat__')) {
           const cat = sportFilter.slice(7) as ActivityCategory;
@@ -1691,6 +1870,21 @@ export class ActivitiesPageComponent {
   });
 
   protected readonly totalFilteredCount = computed(() => this.allFiltered().length);
+
+  protected readonly sourceFilterCounts = computed(() => {
+    const items = this.activities();
+    if (!items) return { all: 0, strava: 0, importedCompleted: 0, importedPlanned: 0 };
+    const all = items.length;
+    let strava = 0;
+    let importedCompleted = 0;
+    let importedPlanned = 0;
+    for (const a of items) {
+      if (a.provider === 'strava') strava++;
+      else if (a.activityStatus === 'planned') importedPlanned++;
+      else importedCompleted++;
+    }
+    return { all, strava, importedCompleted, importedPlanned };
+  });
 
   protected readonly selectionCount = computed(() => this.selectedIds().size);
 
@@ -2317,6 +2511,10 @@ function compareActivities(a: ActivityRecord, b: ActivityRecord, column: SortCol
       return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
     case 'name':
       return a.name.localeCompare(b.name);
+    case 'source':
+      return activitySourceSortValue(a) - activitySourceSortValue(b);
+    case 'status':
+      return activityStatusSortValue(a) - activityStatusSortValue(b);
     case 'type':
       return a.sportType.localeCompare(b.sportType);
     case 'distance':

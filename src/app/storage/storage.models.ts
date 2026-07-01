@@ -24,9 +24,12 @@ export type RouteSyncStatus =
   | 'skipped'
   | 'rate_limited';
 
+export type ActivityProvider = 'strava' | 'local';
+export type ActivityStatus = 'completed' | 'planned';
+
 export interface ActivityRecord {
   id: string;
-  provider: 'strava';
+  provider: ActivityProvider;
   providerActivityId: string;
   name: string;
   sportType: string;
@@ -38,6 +41,7 @@ export interface ActivityRecord {
   elapsedTimeSeconds?: number;
   totalElevationGainMeters?: number;
   averageSpeedMetersPerSecond?: number;
+  activityStatus?: ActivityStatus;
   averageHeartrateBpm?: number;
   hasRoute: boolean;
   routeSyncStatus: RouteSyncStatus;

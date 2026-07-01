@@ -95,6 +95,20 @@ export type PanelSort = 'newest' | 'longest' | 'az';
             }
           </div>
 
+          <div class="panel-filters-header" (click)="toggleFiltersExpanded()" role="button" tabindex="0" (keydown.enter)="toggleFiltersExpanded()" aria-label="Toggle filters">
+            <span class="panel-filters-toggle">{{ filtersExpanded() ? '&#9660;' : '&#9654;' }}</span>
+            <span class="panel-filters-title">Source filter</span>
+          </div>
+          @if (filtersExpanded()) {
+          <div class="panel-source-filter">
+            @let sf = sourceFilter();
+            <button class="panel-source-chip" [class.active]="sf.size === 0" (click)="resetSourceFilter()">All</button>
+            <button class="panel-source-chip" [class.active]="sf.has('strava')" (click)="toggleSourceFilter('strava')">⚡ Strava</button>
+            <button class="panel-source-chip" [class.active]="sf.has('imported')" (click)="toggleSourceFilter('imported')">⬆ Imported</button>
+            <button class="panel-source-chip" [class.active]="sf.has('planned')" (click)="toggleSourceFilter('planned')">◌ Planned</button>
+          </div>
+          }
+
           <label class="panel-visibility-toggle">
             <input type="checkbox" [checked]="visibleOnMap()" (change)="toggleVisibleOnMap()" />
             <span class="panel-toggle-label">Visible on map</span>
@@ -141,7 +155,15 @@ export type PanelSort = 'newest' | 'longest' | 'az';
             >
               <span class="panel-item-emoji">{{ sportTypeEmoji(route.activity.sportType) }}</span>
               <div class="panel-item-body">
-                <div class="panel-item-name">{{ route.activity.name }}</div>
+                <div class="panel-item-name-row">
+                  <span class="panel-item-name">{{ route.activity.name }}</span>
+                  @let st = route.activity.activityStatus ?? 'completed';
+                  @if (st === 'completed') {
+                    <span class="panel-status-badge panel-status-badge--completed">&#10003;</span>
+                  } @else {
+                    <span class="panel-status-badge panel-status-badge--planned">&#9711;</span>
+                  }
+                </div>
                 <div class="panel-item-meta">
                   {{ formatDistanceKm(route.activity.distanceMeters) }} &middot; {{ formatDuration(route.activity.movingTimeSeconds) }}
                 </div>
@@ -546,6 +568,102 @@ export type PanelSort = 'newest' | 'longest' | 'az';
       cursor: default;
       opacity: 0.5;
     }
+
+    .panel-source-filter {
+      display: grid;
+      gap: 4px;
+      grid-template-columns: 1fr 1fr;
+      margin-top: 4px;
+    }
+
+    .panel-filters-header {
+      align-items: center;
+      cursor: pointer;
+      display: flex;
+      gap: 4px;
+      user-select: none;
+    }
+
+    .panel-filters-header:focus-visible {
+      outline: 2px solid #1f6f50;
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+
+    .panel-filters-toggle {
+      color: #63746a;
+      font-size: 0.65rem;
+      flex-shrink: 0;
+    }
+
+    .panel-filters-title {
+      color: #63746a;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .panel-source-chip {
+      background: #f4f9f6;
+      border: 1px solid #dce6df;
+      border-radius: 6px;
+      color: #314b3f;
+      cursor: pointer;
+      font: inherit;
+      font-size: 0.75rem;
+      font-weight: 600;
+      min-height: 30px;
+      padding: 0 8px;
+      text-align: center;
+      transition: all 120ms ease;
+      white-space: nowrap;
+    }
+
+    .panel-source-chip:hover {
+      background: #eef5f0;
+      border-color: #cbd8d0;
+      color: #14211b;
+    }
+
+    .panel-source-chip.active {
+      background: #e6f7ef;
+      border-color: #1f6f50;
+      color: #1f6f50;
+    }
+
+    .panel-item-name-row {
+      align-items: center;
+      display: flex;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .panel-item-name {
+      flex-shrink: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .panel-status-badge {
+      border-radius: 3px;
+      flex-shrink: 0;
+      font-size: 0.625rem;
+      font-weight: 700;
+      line-height: 1;
+      padding: 1px 4px;
+    }
+
+    .panel-status-badge--completed {
+      background: #e6f7ef;
+      color: #15803d;
+    }
+
+    .panel-status-badge--planned {
+      background: #f3e8ff;
+      color: #7c3aed;
+    }
+
   `],
 })
 export class MapActivityPanelComponent {
@@ -563,10 +681,13 @@ export class MapActivityPanelComponent {
   @Output() visibleOnMapChange = new EventEmitter<boolean>();
   @Output() panelExpandedChange = new EventEmitter<boolean>();
   @Output() downloadPanelGpx = new EventEmitter<MapRouteFeature[]>();
+  @Output() sourceFilterChange = new EventEmitter<Set<'strava' | 'imported' | 'planned'>>();
 
   protected readonly searchQuery = signal('');
   protected readonly visibleOnMap = signal(false);
   protected readonly sortBy = signal<PanelSort>('newest');
+  protected readonly sourceFilter = signal<Set<'strava' | 'imported' | 'planned'>>(new Set());
+  protected readonly filtersExpanded = signal(localStorage.getItem('trailroam_map_filters_expanded') !== 'false');
   private searchInputTimeout: ReturnType<typeof setTimeout> | null = null;
 
   private routeIntersectsBounds(route: MapRouteFeature, bounds: [[number, number], [number, number]]): boolean {
@@ -576,6 +697,16 @@ export class MapActivityPanelComponent {
 
   protected readonly filteredActivities = computed(() => {
     let list = this.routes();
+    const srcFilter = this.sourceFilter();
+    if (srcFilter.size > 0) {
+      list = list.filter((r) => {
+        const isStrava = r.activity.provider === 'strava';
+        const isPlanned = r.activity.activityStatus === 'planned';
+        return (srcFilter.has('strava') && isStrava)
+          || (srcFilter.has('imported') && !isStrava && !isPlanned)
+          || (srcFilter.has('planned') && isPlanned);
+      });
+    }
     const bounds = this.viewBounds();
     if (this.visibleOnMap() && bounds) {
       list = list.filter((r) => this.routeIntersectsBounds(r, bounds));
@@ -626,6 +757,26 @@ export class MapActivityPanelComponent {
 
   protected setSort(sort: PanelSort): void {
     this.sortBy.set(sort);
+  }
+
+  public resetSourceFilter(): void {
+    this.sourceFilter.set(new Set());
+    this.sourceFilterChange.emit(new Set());
+  }
+
+  protected toggleSourceFilter(value: 'strava' | 'imported' | 'planned'): void {
+    const s = this.sourceFilter();
+    const next = new Set(s);
+    if (next.has(value)) next.delete(value);
+    else next.add(value);
+    this.sourceFilter.set(next);
+    this.sourceFilterChange.emit(next);
+  }
+
+  protected toggleFiltersExpanded(): void {
+    const next = !this.filtersExpanded();
+    this.filtersExpanded.set(next);
+    localStorage.setItem('trailroam_map_filters_expanded', String(next));
   }
 
   protected selectActivity(route: MapRouteFeature): void {

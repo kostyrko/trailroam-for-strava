@@ -87,6 +87,8 @@ export class App {
         data: {
           version: this.extVersion,
           appName: environment.appName,
+          dbVersion: currentSchema,
+          latestDbVersion: DATABASE_SCHEMA_VERSION,
           schemaOutdated: currentSchema < DATABASE_SCHEMA_VERSION,
         },
         panelClass: 'trailroam-confirm-dialog',
@@ -715,6 +717,8 @@ export class AboutDialog {
     .schema-section { background: #fbf5e1; border-radius: 8px; margin-top: 16px; padding: 14px; }
     .schema-section p { font-size: 0.8125rem; line-height: 1.5; margin: 0 0 10px; }
     .schema-note { color: #63746a; font-size: 0.75rem; margin: 6px 0 0; }
+    .schema-ok { background: #eef5f0; border-radius: 8px; margin-top: 16px; padding: 14px; }
+    .schema-ok p { font-size: 0.8125rem; line-height: 1.5; margin: 0; }
   `],
   template: `
     <h2>{{ data.appName }}</h2>
@@ -722,16 +726,19 @@ export class AboutDialog {
     <div class="btn-row">
       <button class="btn btn-link" type="button" (click)="openReleaseNotes()">View release notes on GitHub</button>
     </div>
-    @if (data.schemaOutdated) {
-      <div class="schema-section">
-        <p><strong>Database schema updated</strong></p>
-        <p>Your local database is using an older schema. Clearing and re-syncing will improve map performance.</p>
+    <div class="schema-section" [style.background]="data.schemaOutdated ? '#fbf5e1' : '#eef5f0'">
+      <p><strong>Database schema</strong></p>
+      <p>Current: v{{ data.dbVersion }} / Latest: v{{ data.latestDbVersion }}</p>
+      @if (data.schemaOutdated) {
+        <p>Your local database is using an older schema. Clearing and re-syncing will update it.</p>
         <p class="schema-note">(also available in Settings → Clear and re-sync)</p>
         <div class="btn-row" style="margin-top: 10px;">
           <button class="btn btn-primary" type="button" (click)="clearAndResync()">Clear and re-sync now</button>
         </div>
-      </div>
-    }
+      } @else {
+        <p>Database schema is up to date. No action needed.</p>
+      }
+    </div>
     <div class="btn-row" style="margin-top: 16px;">
       <button class="btn btn-secondary" type="button" (click)="dismiss()" style="flex:1">Dismiss</button>
     </div>
@@ -741,7 +748,7 @@ export class ReleaseDialog {
   readonly repositories = inject(TRAILROAM_REPOSITORIES);
   private readonly dialogRef = inject<MatDialogRef<ReleaseDialog>>(MatDialogRef);
 
-  constructor(@Inject(MAT_DIALOG_DATA) protected readonly data: { version: string; appName: string; schemaOutdated: boolean }) {}
+  constructor(@Inject(MAT_DIALOG_DATA) protected readonly data: { version: string; appName: string; dbVersion: number; latestDbVersion: number; schemaOutdated: boolean }) {}
 
   protected openReleaseNotes(): void {
     const c = (globalThis as any).chrome;

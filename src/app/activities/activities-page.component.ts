@@ -1,5 +1,9 @@
-import { Component, computed, effect, inject, signal, DestroyRef } from '@angular/core';
+import { Component, computed, effect, inject, signal, DestroyRef, ElementRef, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivityParserService } from '../shared/activity-parser.service';
+import { ImportActivityDialog } from '../shared/import-activity-dialog.component';
+import { EditActivityDialog } from '../shared/edit-activity-dialog.component';
+import { generateId } from '../shared/uuid';
 
 const SPORT_TYPE_EMOJI: Record<string, string> = {
   Ride: '🚴', GravelRide: '🚴', MountainBikeRide: '🚵', EBikeRide: '🚴', EMountainBikeRide: '🚵', VirtualRide: '🚴',
@@ -23,6 +27,7 @@ import { FiltersService, CATEGORY_COLORS, isAfterOrEqual, isBeforeOrEqual, type 
 import { ToastService } from '../shared/toast.service';
 import { DataRefreshService } from '../shared/data-refresh.service';
 import { ConfirmService } from '../shared/confirm.service';
+import { MatDialog } from '@angular/material/dialog';
 import { IconComponent } from '../shared/icon.component';
 import { GpxExportService } from '../shared/gpx-export.service';
 import { StravaSessionService } from '../strava/strava-session.service';
@@ -31,7 +36,7 @@ import { LoadingSpinnerComponent } from '../shared/loading-spinner.component';
 import { DateRangePickerComponent } from '../shared/date-range-picker.component';
 import { RouteSparklineComponent } from './route-sparkline.component';
 import { ActivityDetailPanelComponent } from './activity-detail-panel.component';
-import { type ActivityCategory, type ActivityRecord, type ActivityRouteRecord } from '../storage/storage.models';
+import { type ActivityCategory, type ActivityRecord, type ActivityRouteRecord, type RouteGeometryRecord } from '../storage/storage.models';
 import { formatSportType, formatCategory, mapSportTypeToCategory } from '../shared/activity-category';
 
 const PAGE_SIZE_OPTIONS = [5, 10, 25, 50, 100];
@@ -103,7 +108,18 @@ function formatDateInput(iso: string | null): string {
   return d.toISOString().slice(0, 10);
 }
 
-export type SortColumn = 'date' | 'name' | 'type' | 'distance' | 'speed' | 'time' | 'route';
+export type SortColumn = 'date' | 'name' | 'source' | 'status' | 'type' | 'distance' | 'speed' | 'time' | 'route';
+
+function activitySourceSortValue(a: ActivityRecord): number {
+  if (a.provider === 'strava') return 0;
+  return 1;
+}
+
+function activityStatusSortValue(a: ActivityRecord): number {
+  const s = a.activityStatus ?? 'completed';
+  if (s === 'completed') return 0;
+  return 1;
+}
 
 function routeSortValue(status: string): number {
   switch (status) {
@@ -231,6 +247,17 @@ function routeStatusLabel(status: string): string {
               />
             </div>
           }
+          <button class="import-btn" type="button" (click)="showImportOverlay()">
+            <app-icon name="upload" [size]="14" strokeWidth="2"></app-icon>
+            Import Activity
+          </button>
+          <input
+            #fileInput
+            type="file"
+            accept=".gpx,.fit,.tcx"
+            style="display:none"
+            (change)="onFileSelected($event)"
+          />
         </div>
 
         <div class="stats-grid">
@@ -272,6 +299,33 @@ function routeStatusLabel(status: string): string {
           </div>
         </div>
 
+        <div class="source-filter-collapsible-header" (click)="toggleSourceFilterExpanded()" role="button" tabindex="0" (keydown.enter)="toggleSourceFilterExpanded()" aria-label="Toggle source filter">
+          <span class="source-filter-toggle">{{ sourceFilterExpanded() ? '&#9660;' : '&#9654;' }}</span>
+          <span class="source-filter-label">Source filter</span>
+        </div>
+        <div class="source-filter-collapsible-body" [class.source-filter-collapsible-body--open]="sourceFilterExpanded()">
+          <div class="source-filter-bar">
+            @let sc = sourceFilterCounts();
+            @let sf = sourceFilter();
+            <button class="source-filter-chip" [class.source-filter-chip--active]="sf.size === 0" (click)="resetSourceFilter()">
+              All Activities
+              <span class="source-filter-count">{{ sc.all }}</span>
+            </button>
+            <button class="source-filter-chip" [class.source-filter-chip--active]="sf.has('strava')" (click)="toggleSourceFilter('strava')">
+              ⚡ Strava (Synced)
+              <span class="source-filter-count">{{ sc.strava }}</span>
+            </button>
+            <button class="source-filter-chip" [class.source-filter-chip--active]="sf.has('imported-completed')" (click)="toggleSourceFilter('imported-completed')">
+              ⬆ Imported (Done)
+              <span class="source-filter-count">{{ sc.importedCompleted }}</span>
+            </button>
+            <button class="source-filter-chip" [class.source-filter-chip--active]="sf.has('imported-planned')" (click)="toggleSourceFilter('imported-planned')">
+              ◌ Imported (Planned)
+              <span class="source-filter-count">{{ sc.importedPlanned }}</span>
+            </button>
+          </div>
+        </div>
+
         <div class="selected-actions-bar" [class.selected-actions-bar--active]="selectionCount() > 0">
             <div class="selected-actions-bar__summary">
               <app-icon name="check-circle" [size]="18" strokeWidth="2" [class]="'selected-actions-bar__check'"></app-icon>
@@ -302,7 +356,22 @@ function routeStatusLabel(status: string): string {
           }
         </p>
         }
-        <div class="activities-table-wrap">
+
+        @if (dragOver()) {
+          <div class="import-drop-overlay" (click)="dismissImportOverlay()" (dragleave)="onDragLeave($event)" (drop)="onDrop($event)" (dragover)="onDragOver($event)">
+            <div class="import-drop-card" (click)="openFilePicker(); $event.stopPropagation()" role="button" tabindex="0" (keydown.enter)="openFilePicker()" aria-label="Open file picker">
+              <button class="import-drop-close" type="button" (click)="dismissImportOverlay()" aria-label="Close import panel">
+                <app-icon name="x" [size]="14" strokeWidth="2"></app-icon>
+              </button>
+              <span class="import-drop-icon">&#11014;</span>
+              <p class="import-drop-title">Drop GPX, FIT or TCX file here</p>
+              <p class="import-drop-sub">or click to browse</p>
+              <p class="import-drop-formats">Supports: GPX &#8226; FIT &#8226; TCX</p>
+            </div>
+          </div>
+        }
+
+        <div class="activities-table-wrap" (dragover)="onDragOver($event)" (dragleave)="onDragLeave($event)" (drop)="onDrop($event)">
           <table class="activities-table" aria-label="Imported activities">
             <thead>
               <tr>
@@ -318,6 +387,8 @@ function routeStatusLabel(status: string): string {
                 <th scope="col" class="sortable" (click)="onSort('date')">Date{{ sortIndicator('date') }}</th>
                 <th scope="col" class="col-sparkline"></th>
                 <th scope="col" class="sortable" (click)="onSort('name')">Name{{ sortIndicator('name') }}</th>
+                <th scope="col" class="sortable" (click)="onSort('source')">Source{{ sortIndicator('source') }}</th>
+                <th scope="col" class="sortable" (click)="onSort('status')">Status{{ sortIndicator('status') }}</th>
                 <th scope="col" class="sortable" (click)="onSort('type')">Type{{ sortIndicator('type') }}</th>
                 <th scope="col" class="sortable" (click)="onSort('distance')">Distance{{ sortIndicator('distance') }}</th>
                 <th scope="col" class="sortable" (click)="onSort('speed')">Speed{{ sortIndicator('speed') }}</th>
@@ -345,6 +416,21 @@ function routeStatusLabel(status: string): string {
                     <app-route-sparkline [coordinates]="getRouteCoords(activity.id)" />
                   </td>
                   <td class="cell-name cell-name-bold">{{ activity.name }}</td>
+                  <td class="cell-source">
+                    @if (activity.provider === 'strava') {
+                      <span class="source-badge source-badge--strava">⚡ Strava</span>
+                    } @else {
+                      <span class="source-badge source-badge--imported">⬆ Imported</span>
+                    }
+                  </td>
+                  <td class="cell-status">
+                    @let st = activity.activityStatus ?? 'completed';
+                    @if (st === 'completed') {
+                      <span class="status-badge status-badge--completed">✓ Completed</span>
+                    } @else {
+                      <span class="status-badge status-badge--planned">◌ Planned</span>
+                    }
+                  </td>
                   <td><span class="category-tag" [style.background]="categoryTagBg(activity.activityCategory)" [style.color]="categoryTagFg(activity.activityCategory)"><span class="cat-emoji">{{ sportTypeEmoji(activity) }}</span>{{ formatSportType(activity.sportType) }}</span></td>
                   <td class="cell-num cell-distance-bold">{{ formatDistance(activity.distanceMeters) }}</td>
                   <td class="cell-num">{{ formatSpeed(computeSpeed(activity.averageSpeedMetersPerSecond, activity.distanceMeters, activity.movingTimeSeconds)) }}</td>
@@ -386,6 +472,12 @@ function routeStatusLabel(status: string): string {
                             <button class="act-dropdown-item" [class.act-dropdown-item-disabled]="!activity.hasRoute" [disabled]="!activity.hasRoute" role="menuitem" (click)="downloadGpx($event, activity)">
                               <app-icon name="download" [size]="16" strokeWidth="2" [class]="'act-dropdown-icon'"></app-icon>
                               Download GPX
+                            </button>
+                          </li>
+                          <li role="none">
+                            <button class="act-dropdown-item" role="menuitem" (click)="editActivity($event, activity)">
+                              <app-icon name="pencil" [size]="16" strokeWidth="2" [class]="'act-dropdown-icon'"></app-icon>
+                              Edit
                             </button>
                           </li>
                           <li role="none">
@@ -465,12 +557,16 @@ function routeStatusLabel(status: string): string {
             <div class="empty-state-match-wrapper">
               <article class="empty-state empty-state--no-match" aria-labelledby="activities-empty-match-title">
                 <p class="empty-state-kicker">No matching activities</p>
-                <h2 id="activities-empty-match-title">No activities match your filters.</h2>
+                <h2 id="activities-empty-match-title">
+                  @if (sourceFilter().size > 0) {No activities match the selected source filters.}
+                  @else {No activities match your filters.}
+                </h2>
                 <p>Try adjusting your search or filter criteria to find what you're looking for.</p>
               </article>
             </div>
           }
         }
+
 
       }
       @if (selectedActivity(); as selActivity) {
@@ -542,6 +638,122 @@ function routeStatusLabel(status: string): string {
       flex-wrap: wrap;
       gap: 10px;
       margin-bottom: 16px;
+    }
+
+    .import-btn {
+      align-items: center;
+      background: #1f6f50;
+      border: 1px solid #1f6f50;
+      border-radius: 8px;
+      color: #ffffff;
+      cursor: pointer;
+      display: inline-flex;
+      font: inherit;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      gap: 6px;
+      height: 36px;
+      margin-left: auto;
+      padding: 0 14px;
+      transition: background 120ms ease, border-color 120ms ease;
+      white-space: nowrap;
+    }
+
+    .import-btn:hover {
+      background: #185940;
+      border-color: #185940;
+    }
+
+    .import-drop-overlay {
+      align-items: center;
+      background: rgb(20 33 27 / 40%);
+      display: flex;
+      inset: 0;
+      justify-content: center;
+      position: fixed;
+      z-index: 2000;
+      animation: import-drop-fadein 120ms ease-out;
+    }
+
+    @keyframes import-drop-fadein {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .import-drop-card {
+      align-items: center;
+      background: #ffffff;
+      border: 2px dashed #15803d;
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgb(20 33 27 / 14%);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      height: 260px;
+      justify-content: center;
+      max-width: 460px;
+      padding: 32px;
+      transition: background 120ms ease;
+      width: 100%;
+    }
+
+    .import-drop-card {
+      position: relative;
+    }
+
+    .import-drop-card:hover {
+      background: #f4f9f6;
+    }
+
+    .import-drop-close {
+      align-items: center;
+      background: transparent;
+      border: 0;
+      border-radius: 6px;
+      color: #859b8e;
+      cursor: pointer;
+      display: inline-flex;
+      height: 28px;
+      justify-content: center;
+      padding: 0;
+      position: absolute;
+      right: 8px;
+      top: 8px;
+      transition: background 120ms ease, color 120ms ease;
+      width: 28px;
+      z-index: 10;
+    }
+
+    .import-drop-close:hover {
+      background: #eef5f0;
+      color: #14211b;
+    }
+
+    .import-drop-icon {
+      color: #15803d;
+      font-size: 2rem;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .import-drop-title {
+      color: #14211b;
+      font-size: 1.125rem;
+      font-weight: 700;
+      margin: 0;
+    }
+
+    .import-drop-sub {
+      color: #63746a;
+      font-size: 0.875rem;
+      margin: 0;
+    }
+
+    .import-drop-formats {
+      color: #859b8e;
+      font-size: 0.75rem;
+      margin: 4px 0 0;
     }
 
     .search-field {
@@ -1405,6 +1617,142 @@ function routeStatusLabel(status: string): string {
       }
     }
 
+    .source-filter-collapsible-header {
+      align-items: center;
+      cursor: pointer;
+      display: flex;
+      gap: 4px;
+      margin-top: 10px;
+      margin-bottom: 10px;
+      user-select: none;
+    }
+
+    .source-filter-collapsible-header:focus-visible {
+      outline: 2px solid #1f6f50;
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+
+    .source-filter-toggle {
+      color: #63746a;
+      font-size: 0.65rem;
+      flex-shrink: 0;
+    }
+
+    .source-filter-collapsible-body {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 200ms ease, opacity 200ms ease;
+      opacity: 0;
+    }
+
+    .source-filter-collapsible-body--open {
+      max-height: 80px;
+      opacity: 1;
+    }
+
+    .source-filter-bar {
+      align-items: center;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .source-filter-label {
+      color: #63746a;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-right: 4px;
+    }
+
+    .source-filter-chip {
+      align-items: center;
+      background: #f4f9f6;
+      border: 1px solid #cbd8d0;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      font: inherit;
+      font-size: 0.8125rem;
+      gap: 4px;
+      height: 30px;
+      padding: 0 12px;
+      transition: background 120ms ease, border-color 120ms ease;
+    }
+
+    .source-filter-chip:hover {
+      background: #dce6df;
+      border-color: #b6cdbe;
+    }
+
+    .source-filter-chip--active {
+      background: #1f6f50;
+      border-color: #1f6f50;
+      color: #ffffff;
+    }
+
+    .source-filter-chip--active:hover {
+      background: #185940;
+    }
+
+    .source-filter-count {
+      background: rgb(0 0 0 / 10%);
+      border-radius: 10px;
+      font-size: 0.6875rem;
+      font-variant-numeric: tabular-nums;
+      padding: 0 6px;
+    }
+
+    .source-filter-chip--active .source-filter-count {
+      background: rgb(255 255 255 / 20%);
+    }
+
+    .cell-source {
+      font-size: 0.8125rem;
+      padding: 0 8px;
+      white-space: nowrap;
+    }
+
+    .cell-status {
+      font-size: 0.8125rem;
+      padding: 0 8px;
+      white-space: nowrap;
+    }
+
+    .source-badge {
+      font-weight: 600;
+    }
+
+    .source-badge--strava {
+      color: #b87a2d;
+    }
+
+    .source-badge--imported {
+      color: #2d7fb8;
+    }
+
+    .status-badge {
+      align-items: center;
+      border-radius: 4px;
+      display: inline-flex;
+      font-size: 0.75rem;
+      font-weight: 600;
+      gap: 3px;
+      padding: 2px 6px;
+    }
+
+    .status-badge--completed {
+      background: #e6f7ef;
+      color: #15803d;
+    }
+
+    .status-badge--planned {
+      background: #f3e8ff;
+      color: #7c3aed;
+    }
+
+
 `],
 })
 export class ActivitiesPageComponent {
@@ -1416,6 +1764,8 @@ export class ActivitiesPageComponent {
   private readonly routeNormalizer = inject(StravaRouteNormalizer);
   private readonly gpxExportService = inject(GpxExportService);
   private readonly confirmService = inject(ConfirmService);
+  private readonly dialog = inject(MatDialog);
+  private readonly parserService = inject(ActivityParserService);
   private readonly activatedRoute = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -1433,6 +1783,10 @@ export class ActivitiesPageComponent {
   protected readonly pageSize = signal(50);
   protected readonly CATEGORY_COLORS = CATEGORY_COLORS;
   protected readonly SPORT_TYPE_EMOJI = SPORT_TYPE_EMOJI;
+  protected readonly legendCategories: ActivityCategory[] = ['ride', 'run', 'walk', 'hike', 'water', 'paddling', 'winter', 'other'];
+  protected readonly dragOver = signal(false);
+
+  protected readonly fileInput = viewChild<ElementRef<HTMLInputElement>>('fileInput');
   protected readonly sortColumn = signal<SortColumn>('date');
   protected readonly sortDirection = signal<-1 | 1>(-1);
   protected readonly filterMenuOpen = signal(false);
@@ -1509,6 +1863,25 @@ export class ActivitiesPageComponent {
   protected readonly dateTo = this.filtersService.dateTo;
   protected readonly nameSearch = this.filtersService.nameSearch;
   protected readonly datePresetLabel = this.filtersService.datePresetLabel;
+  protected readonly sourceFilter = signal<Set<'strava' | 'imported-completed' | 'imported-planned'>>(new Set());
+  protected readonly sourceFilterExpanded = signal(localStorage.getItem('trailroam_activities_source_filter_expanded') !== 'false');
+
+  protected resetSourceFilter(): void {
+    this.sourceFilter.set(new Set());
+  }
+
+  protected toggleSourceFilterExpanded(): void {
+    this.sourceFilterExpanded.update((v) => !v);
+    localStorage.setItem('trailroam_activities_source_filter_expanded', String(this.sourceFilterExpanded()));
+  }
+
+  protected toggleSourceFilter(value: 'strava' | 'imported-completed' | 'imported-planned'): void {
+    const s = this.sourceFilter();
+    const next = new Set(s);
+    if (next.has(value)) next.delete(value);
+    else next.add(value);
+    this.sourceFilter.set(next);
+  }
 
   protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.totalFilteredCount() / this.pageSize())));
 
@@ -1554,7 +1927,16 @@ export class ActivitiesPageComponent {
     const fromDate = this.dateFrom();
     const toDate = this.dateTo();
     const search = this.nameSearch().toLowerCase().trim();
+    const srcFilter = this.sourceFilter();
     const filtered = items.filter((a) => {
+      if (srcFilter.size > 0) {
+        const isStrava = a.provider === 'strava';
+        const isPlanned = a.activityStatus === 'planned';
+        const matchesAny = (srcFilter.has('strava') && isStrava)
+          || (srcFilter.has('imported-completed') && !isStrava && !isPlanned)
+          || (srcFilter.has('imported-planned') && isPlanned);
+        if (!matchesAny) return false;
+      }
       if (sportFilter) {
         if (sportFilter.startsWith('__cat__')) {
           const cat = sportFilter.slice(7) as ActivityCategory;
@@ -1585,6 +1967,21 @@ export class ActivitiesPageComponent {
   });
 
   protected readonly totalFilteredCount = computed(() => this.allFiltered().length);
+
+  protected readonly sourceFilterCounts = computed(() => {
+    const items = this.activities();
+    if (!items) return { all: 0, strava: 0, importedCompleted: 0, importedPlanned: 0 };
+    const all = items.length;
+    let strava = 0;
+    let importedCompleted = 0;
+    let importedPlanned = 0;
+    for (const a of items) {
+      if (a.provider === 'strava') strava++;
+      else if (a.activityStatus === 'planned') importedPlanned++;
+      else importedCompleted++;
+    }
+    return { all, strava, importedCompleted, importedPlanned };
+  });
 
   protected readonly selectionCount = computed(() => this.selectedIds().size);
 
@@ -1899,6 +2296,28 @@ export class ActivitiesPageComponent {
     }
   }
 
+  protected async editActivity(event: MouseEvent, activity: ActivityRecord): Promise<void> {
+    event.stopPropagation();
+    this.openMenuId.set(null);
+    const ref = this.dialog.open(EditActivityDialog, {
+      data: {
+        currentName: activity.name,
+        currentSportType: activity.sportType,
+        currentActivityStatus: activity.activityStatus ?? 'completed',
+      },
+      disableClose: true,
+    });
+    const result = await ref.afterClosed().toPromise();
+    if (!result) return;
+    if (result.name === activity.name && result.sportType === activity.sportType && result.activityStatus === (activity.activityStatus ?? 'completed')) return;
+    await this.repositories.activities.updateMetadata(activity.id, {
+      name: result.name,
+      sportType: result.sportType,
+      activityStatus: result.activityStatus,
+    });
+    this.dataRefresh.emitRefresh();
+  }
+
   protected async deleteActivity(event: MouseEvent, activity: ActivityRecord): Promise<void> {
     event.stopPropagation();
     this.openMenuId.set(null);
@@ -1909,6 +2328,152 @@ export class ActivitiesPageComponent {
     this.activities.update((items) => items?.filter((a) => a.id !== activity.id) ?? null);
     this.totalCount.update((c) => Math.max(0, c - 1));
     this.toastService.show(`"${activity.name}" was deleted from local database.`);
+  }
+
+  protected showImportOverlay(): void {
+    this.dragOver.set(true);
+  }
+
+  protected dismissImportOverlay(): void {
+    this.dragOver.set(false);
+  }
+
+  protected openFilePicker(): void {
+    this.fileInput()?.nativeElement?.click();
+  }
+
+  protected onDragOver(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.dataTransfer?.types.includes('Files')) {
+      this.dragOver.set(true);
+    }
+  }
+
+  protected onDragLeave(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    const target = event.relatedTarget as HTMLElement | null;
+    if (!target || !target.closest('.import-drop-overlay')) {
+      this.dragOver.set(false);
+    }
+  }
+
+  protected onDrop(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.dragOver.set(false);
+    const file = event.dataTransfer?.files?.[0];
+    if (file) {
+      this.processImportFile(file);
+    }
+  }
+
+  protected onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (file) {
+      this.processImportFile(file);
+    }
+    input.value = '';
+  }
+
+  private async processImportFile(file: File): Promise<void> {
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    if (!ext || !['gpx', 'fit', 'tcx'].includes(ext)) {
+      this.toastService.show('Unsupported file type. Please use GPX, FIT or TCX files.');
+      return;
+    }
+
+    let parsed;
+    try {
+      parsed = await this.parserService.parseFile(file);
+    } catch (err: any) {
+      this.toastService.show(err.message || 'Unable to parse the selected activity file.');
+      return;
+    }
+
+    if (!parsed || parsed.coordinates.length < 2) {
+      this.toastService.show('This file contains no usable GPS track.');
+      return;
+    }
+
+    const allActivities = await this.repositories.activities.list();
+    const isDuplicate = this.parserService.computeDuplicates(parsed, allActivities);
+
+    const ref = this.dialog.open(ImportActivityDialog, {
+      data: { parsed, fileName: file.name, isDuplicate },
+      disableClose: true,
+    });
+
+    const result: { name: string; sportType: string; activityStatus: 'completed' | 'planned' } | undefined = await ref.afterClosed().toPromise();
+    if (!result) return;
+
+    const id = generateId();
+    const now = new Date().toISOString();
+    const category = mapSportTypeToCategory(result.sportType);
+
+    const activityRecord: ActivityRecord = {
+      id,
+      provider: 'local',
+      providerActivityId: id,
+      name: result.name,
+      sportType: result.sportType,
+      activityCategory: category,
+      startDate: parsed.startTime,
+      distanceMeters: parsed.totalDistanceMeters,
+      movingTimeSeconds: parsed.movingTimeSeconds,
+      elapsedTimeSeconds: parsed.elapsedTimeSeconds,
+      totalElevationGainMeters: parsed.totalElevationGainMeters,
+      averageSpeedMetersPerSecond: parsed.averageSpeedMetersPerSecond,
+      activityStatus: result.activityStatus,
+      hasRoute: true,
+      routeSyncStatus: 'route_synced',
+      importedAt: now,
+      updatedAt: now,
+    };
+
+    await this.repositories.activities.put(activityRecord);
+
+    const routeRecord: ActivityRouteRecord = {
+      activityId: id,
+      providerActivityId: id,
+      simplifiedCoordinates: parsed.coordinates,
+      simplifiedPointCount: parsed.coordinates.length,
+      pointCount: parsed.coordinates.length,
+      syncedAt: now,
+      updatedAt: now,
+    };
+    await this.repositories.activityRoutes.put(routeRecord);
+
+    const geometryRecord: RouteGeometryRecord = {
+      activityId: id,
+      providerActivityId: id,
+      coordinates: parsed.coordinates,
+      elevations: parsed.elevations.length > 0 ? parsed.elevations : undefined,
+      cumulativeDistances: parsed.cumulativeDistances,
+      syncedAt: now,
+      updatedAt: now,
+    };
+    await this.repositories.routeGeometry.put(geometryRecord);
+
+    this.toastService.show(`"${result.name}" was imported successfully.`);
+    this.dataRefresh.emitRefresh();
+    this.focusRowAndHighlight(id);
+  }
+
+  private focusRowAndHighlight(rowId: string): void {
+    const all = this.allFiltered();
+    const idx = all.findIndex((a) => a.id === rowId);
+    if (idx < 0) { return; }
+    const page = Math.floor(idx / this.pageSize()) + 1;
+    this.currentPage.set(page);
+    this.highlightActivityId.set(rowId);
+    setTimeout(() => {
+      const row = document.querySelector(`[data-activity-id="${rowId}"]`);
+      row?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+    setTimeout(() => this.highlightActivityId.set(null), 3000);
   }
 
   protected async retrySyncRoute(event: MouseEvent, activity: ActivityRecord): Promise<void> {
@@ -2066,6 +2631,10 @@ function compareActivities(a: ActivityRecord, b: ActivityRecord, column: SortCol
       return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
     case 'name':
       return a.name.localeCompare(b.name);
+    case 'source':
+      return activitySourceSortValue(a) - activitySourceSortValue(b);
+    case 'status':
+      return activityStatusSortValue(a) - activityStatusSortValue(b);
     case 'type':
       return a.sportType.localeCompare(b.sportType);
     case 'distance':

@@ -1,5 +1,5 @@
 import { TrailroamDatabase } from '../db';
-import { ActivityRecord, type RouteSyncStatus } from '../storage.models';
+import { ActivityRecord, type ActivityStatus, type RouteSyncStatus } from '../storage.models';
 
 export interface UpsertActivityResult {
   inserted: boolean;
@@ -37,6 +37,22 @@ export class ActivitiesRepository {
 
   async updateRouteSyncStatus(id: string, hasRoute: boolean, routeSyncStatus: RouteSyncStatus): Promise<void> {
     await this.db.activities.update(id, { hasRoute, routeSyncStatus, updatedAt: new Date().toISOString() });
+  }
+
+  async updateName(id: string, name: string): Promise<void> {
+    await this.db.activities.update(id, { name, updatedAt: new Date().toISOString() });
+  }
+
+  async updateMetadata(
+    id: string,
+    data: { name: string; sportType: string; activityStatus?: ActivityStatus },
+  ): Promise<void> {
+    await this.db.activities.update(id, {
+      name: data.name,
+      sportType: data.sportType,
+      activityStatus: data.activityStatus,
+      updatedAt: new Date().toISOString(),
+    });
   }
 
   async delete(id: string): Promise<void> {

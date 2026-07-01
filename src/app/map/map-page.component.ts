@@ -12,12 +12,13 @@ import { toSignal, takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { map } from 'rxjs';
 import { MapLibreMapComponent } from './maplibre-map.component';
-import { ElevationProfileComponent } from './elevation-profile.component';
 import { LoadingSpinnerComponent } from '../shared/loading-spinner.component';
 import { DateRangePickerComponent } from '../shared/date-range-picker.component';
 import { type MapRouteFeature } from './mock-routes';
 import { FiltersService, CATEGORY_COLORS, isAfterOrEqual, isBeforeOrEqual, type DatePreset } from '../shared/filters.service';
 import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
+import { MatDialog } from '@angular/material/dialog';
+import { EditActivityDialog } from '../shared/edit-activity-dialog.component';
 import { RouteRendererService } from './route-renderer.service';
 import { type ActivityCategory } from '../storage/storage.models';
 import { formatSportType, formatCategory, mapSportTypeToCategory } from '../shared/activity-category';
@@ -26,6 +27,8 @@ import { DataRefreshService } from '../shared/data-refresh.service';
 import { GpxExportService } from '../shared/gpx-export.service';
 import { ConfirmService } from '../shared/confirm.service';
 import { IconComponent } from '../shared/icon.component';
+import { ActivityCardComponent } from './activity-card.component';
+import { ActivityDetailPanelComponent } from '../activities/activity-detail-panel.component';
 import { MapActivityPanelComponent } from './map-activity-panel.component';
 
 function formatDurationHours(seconds: number | undefined): string {
@@ -57,11 +60,6 @@ function formatSpeed(metersPerSecond: number | undefined): string {
   return `${(metersPerSecond * 3.6).toFixed(1)} km/h`;
 }
 
-function formatHeartrate(bpm: number | undefined): string {
-  if (bpm === undefined || bpm === 0) { return '—'; }
-  return `${bpm.toFixed(0)} bpm`;
-}
-
 function formatDuration(seconds: number | undefined): string {
   if (seconds === undefined || seconds === 0) { return '—'; }
   const h = Math.floor(seconds / 3600);
@@ -79,19 +77,12 @@ function fmtDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function formatDateInput(iso: string | null): string {
-  if (!iso) { return ''; }
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) { return ''; }
-  return d.toISOString().slice(0, 10);
-}
-
 const ROUTES_WARN_THRESHOLD = 1_000;
 const POINTS_WARN_THRESHOLD = 1_000_000;
 
 @Component({
   selector: 'app-map-page',
-  imports: [MapLibreMapComponent, ElevationProfileComponent, LoadingSpinnerComponent, IconComponent, MapActivityPanelComponent, DateRangePickerComponent],
+  imports: [MapLibreMapComponent, LoadingSpinnerComponent, IconComponent, ActivityCardComponent, ActivityDetailPanelComponent, MapActivityPanelComponent, DateRangePickerComponent],
   template: `
       @if (performanceWarning(); as warning) {
         <article class="notice-bar warning-state" role="alert">
@@ -125,6 +116,7 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
       @if (!hasBasemapError()) {
         @if (panelReady()) {
           <app-map-activity-panel
+            #activityPanel
             [routes]="filteredRoutes()"
             [totalRoutes]="allRoutes().length"
             [selectedActivityId]="selectedActivityId()"
@@ -138,6 +130,7 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
             (hoverRoute)="onPanelHoverRoute($event)"
             (visibleOnMapChange)="onPanelVisibleOnMapChange($event)"
             (downloadPanelGpx)="onDownloadPanelGpx($event)"
+            (sourceFilterChange)="onSourceFilterChange($event)"
           />
         }
         <div class="map-filters-overlay">
@@ -221,87 +214,45 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
             </article>
           </div>
         }
-        <app-maplibre-map
-          [fullscreenOverride]="mapFullscreen()"
-          (basemapLoadFailed)="showBasemapError()"
-          (routeSelected)="selectRoute($event)"
-          (fullscreenChanged)="mapFullscreen.set($event)"
-          (routesRendered)="onRoutesRendered()"
-          (mapIdle)="onMapIdle()"
-          (viewportChanged)="onViewportChanged($event)"
-        />
-        @if (selectedRoute(); as route) {
-          <article class="route-detail route-detail-overlay" aria-label="Selected route details">
-            <div class="route-detail-header">
-              <h2 class="route-detail-title">
-                <button class="route-title-link" type="button" (click)="navigateToActivity(route.activity)">
-                  <span class="route-title-text" [title]="route.name">{{ route.name }}</span>
-                  <app-icon name="external-link" [size]="14" strokeWidth="2" [class]="'route-title-icon'"></app-icon>
-                </button>
-              </h2>
-              <div class="detail-menu-wrapper">
-                <button class="detail-menu-trigger" type="button" (click)="toggleDetailMenu($event)" aria-haspopup="menu" [attr.aria-expanded]="detailMenuOpen()">⋮</button>
-                @if (detailMenuOpen()) {
-                  <ul class="detail-dropdown" role="menu" (click)="$event.stopPropagation()">
-                    <li role="none">
-                      <button class="detail-dropdown-item" role="menuitem" (click)="downloadDetailGpx($event, route)">
-                        <app-icon name="download" [size]="16" strokeWidth="2" [class]="'detail-dropdown-icon'"></app-icon>
-                        Download GPX
-                      </button>
-                    </li>
-                  </ul>
-                }
-              </div>
-              <button class="detail-close" type="button" (click)="clearSelectedRoute()" aria-label="Clear selected route">
-                Close
-              </button>
-            </div>
-            <dl class="route-detail-stats">
-              <div class="stat">
-                <dt class="stat-label">Date</dt>
-                <dd class="stat-value">{{ formatDate(route.activity.startDate) }}</dd>
-              </div>
-              <div class="stat">
-                <dt class="stat-label">Type</dt>
-                <dd class="stat-value category-tag">{{ formatSportType(route.activity.sportType) }}</dd>
-              </div>
-              <div class="stat">
-                <dt class="stat-label">Distance</dt>
-                <dd class="stat-value">{{ formatDistance(route.activity.distanceMeters) }}</dd>
-              </div>
-              <div class="stat">
-                <dt class="stat-label">Speed</dt>
-                <dd class="stat-value">{{ formatSpeed(computeSpeed(route.activity.averageSpeedMetersPerSecond, route.activity.distanceMeters, route.activity.movingTimeSeconds)) }}</dd>
-              </div>
-              <div class="stat">
-                <dt class="stat-label">Moving time</dt>
-                <dd class="stat-value">{{ formatDuration(route.activity.movingTimeSeconds) }}</dd>
-              </div>
-              <div class="stat">
-                <dt class="stat-label">Strava</dt>
-                <dd class="stat-value">
-                  <button class="strava-link" type="button" (click)="openOnStrava($event, route.activity)">
-                    <app-icon name="external-link" [size]="14" strokeWidth="2"></app-icon>
-                    Open in Strava
-                  </button>
-                </dd>
-              </div>
-            </dl>
-            @if (selectedRouteGeometry(); as geom) {
-              @if (geom.elevations && geom.elevations.length > 0) {
-                <div class="elevation-profile-wrap">
-                  <app-elevation-profile
-                    [elevations]="geom.elevations"
-                    [cumulativeDistances]="geom.cumulativeDistances"
-                    [coordinates]="geom.coordinates"
-                    [totalDistanceMeters]="route.activity.distanceMeters"
-                    (hoveredPosition)="onElevationHover($event)"
-                  />
-                </div>
+        <div class="map-content-area" [class.map-content-area--with-panel]="detailPanelOpen()">
+          <div class="map-content-main">
+            <app-maplibre-map
+              [fullscreenOverride]="mapFullscreen()"
+              (basemapLoadFailed)="showBasemapError()"
+              (routeSelected)="selectRoute($event)"
+              (fullscreenChanged)="mapFullscreen.set($event)"
+              (routesRendered)="onRoutesRendered()"
+              (mapIdle)="onMapIdle()"
+              (viewportChanged)="onViewportChanged($event)"
+            />
+            @if (selectedRoute(); as route) {
+              @if (!detailPanelOpen()) {
+                <app-activity-card
+                  [route]="route"
+                  [geometry]="selectedRouteGeometry()"
+                  (close)="clearSelectedRoute()"
+                  (viewDetails)="navigateToMapDetail($event)"
+                  (downloadGpx)="downloadDetailGpx($event)"
+                  (openStrava)="openOnStravaFromCard($event)"
+                  (rename)="onRenameActivity($event)"
+                  (elevationHover)="onElevationHover($event)"
+                />
               }
             }
-          </article>
-        }
+          </div>
+          <div class="detail-panel-wrapper" [class.detail-panel-wrapper--open]="detailPanelOpen()" [class.detail-panel-wrapper--expanded]="detailPanelOpen() && detailPanelExpanded()">
+            @if (detailPanelOpen()) {
+              <app-activity-detail-panel
+                [activity]="selectedRoute()?.activity ?? null"
+                [route]="detailPanelRoute()"
+                [pushMode]="true"
+                [showInActivities]="true"
+                (panelExpand)="detailPanelExpanded.set($event)"
+                (close)="closeDetailPanel(); clearSelectedRoute()"
+              />
+            }
+          </div>
+        </div>
       }
 
       @if (noRouteActivity()) {
@@ -320,241 +271,6 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
     </section>
   `,
   styles: [`
-    .route-detail-overlay {
-      background: #ffffff;
-      border: 1px solid #cbd8d0;
-      border-radius: 8px;
-      bottom: 52px;
-      box-shadow: 0 4px 20px rgb(20 33 27 / 25%);
-      box-sizing: border-box;
-      margin: 0;
-      max-width: 380px;
-      padding: 12px 16px;
-      position: fixed;
-      right: 24px;
-      z-index: 1001;
-    }
-
-
-    .route-detail-header {
-      align-items: center;
-      display: flex;
-      gap: 10px;
-      min-width: 0;
-      width: 100%;
-    }
-
-    .route-detail-title {
-      flex: 1;
-      font-size: 0.9375rem;
-      font-weight: 700;
-      margin: 0;
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .route-title-link {
-      align-items: center;
-      background: transparent;
-      border: 0;
-      color: #14211b;
-      cursor: pointer;
-      display: flex;
-      font: inherit;
-      font-size: inherit;
-      gap: 4px;
-      min-width: 0;
-      padding: 0;
-      width: 100%;
-    }
-
-    .route-title-text {
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .route-title-link:hover {
-      color: #1f6f50;
-      text-decoration: underline;
-    }
-
-    .route-title-icon {
-      color: #63746a;
-      flex-shrink: 0;
-    }
-
-    .route-title-link:hover .route-title-icon {
-      color: #1f6f50;
-    }
-
-    .detail-menu-wrapper {
-      flex-shrink: 0;
-      position: relative;
-    }
-
-    .detail-menu-trigger {
-      align-items: center;
-      background: transparent;
-      border: 1px solid transparent;
-      border-radius: 6px;
-      color: #63746a;
-      cursor: pointer;
-      display: inline-flex;
-      font-size: 1.125rem;
-      font-weight: 700;
-      justify-content: center;
-      letter-spacing: 2px;
-      line-height: 1;
-      min-height: 28px;
-      min-width: 28px;
-      padding: 0;
-    }
-
-    .detail-menu-trigger:hover {
-      background: #eef5f0;
-      border-color: #dce6df;
-      color: #14211b;
-    }
-
-    .detail-dropdown {
-      background: #ffffff;
-      border: 1px solid #dce6df;
-      border-radius: 8px;
-      box-shadow: 0 4px 16px rgb(20 33 27 / 18%);
-      list-style: none;
-      min-width: 160px;
-      padding: 4px;
-      position: absolute;
-      right: 0;
-      top: 100%;
-      z-index: 1000;
-    }
-
-    .detail-dropdown-item {
-      align-items: center;
-      background: transparent;
-      border: 0;
-      border-radius: 6px;
-      color: #314b3f;
-      cursor: pointer;
-      display: flex;
-      font: inherit;
-      font-size: 0.8125rem;
-      font-weight: 600;
-      gap: 10px;
-      min-height: 34px;
-      padding: 6px 10px;
-      text-align: left;
-      white-space: nowrap;
-      width: 100%;
-    }
-
-    .detail-dropdown-item:hover {
-      background: #eef5f0;
-    }
-
-    .detail-dropdown-icon {
-      color: #a0b4a6;
-      flex-shrink: 0;
-    }
-
-    .detail-dropdown-item:hover .detail-dropdown-icon {
-      color: #63746a;
-    }
-
-    .elevation-profile-wrap {
-      margin-top: 10px;
-    }
-
-    .detail-close {
-      background: transparent;
-      border: 1px solid #dce6df;
-      border-radius: 6px;
-      color: #314b3f;
-      cursor: pointer;
-      flex-shrink: 0;
-      font: inherit;
-      font-size: 0.75rem;
-      font-weight: 600;
-      min-height: 28px;
-      padding: 3px 9px;
-      white-space: nowrap;
-    }
-
-    .detail-close:hover {
-      background: #eef5f0;
-    }
-
-    .route-detail-stats {
-      display: grid;
-      gap: 6px 16px;
-      grid-template-columns: 1fr 1fr;
-      margin: 10px 0 0;
-      width: 100%;
-    }
-
-    .stat {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .stat-label {
-      color: #63746a;
-      font-size: 0.6875rem;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      padding: 0;
-      text-transform: uppercase;
-    }
-
-    .stat-value {
-      color: #14211b;
-      font-size: 0.875rem;
-      font-weight: 600;
-      margin: 0;
-      padding: 0;
-    }
-
-    .strava-link {
-      align-items: center;
-      background: transparent;
-      border: 0;
-      color: #1f6f50;
-      cursor: pointer;
-      display: inline-flex;
-      font: inherit;
-      font-size: 0.8125rem;
-      font-weight: 600;
-      gap: 4px;
-      padding: 0;
-    }
-
-    .strava-link:hover {
-      color: #185940;
-      text-decoration: underline;
-    }
-
-    .route-detail .category-tag {
-      display: inline;
-      font-size: inherit;
-      font-weight: inherit;
-      padding: 0;
-    }
-
-    .category-tag {
-      background: #eef5f0;
-      border-radius: 4px;
-      display: inline-block;
-      font-size: 0.75rem;
-      font-weight: 700;
-      padding: 3px 7px;
-      text-transform: capitalize;
-    }
-
     .activities-toolbar {
       align-items: center;
       display: flex;
@@ -811,6 +527,48 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
       z-index: 150 !important;
     }
 
+    .map-page-layout ::ng-deep .maplibregl-ctrl-bottom-right {
+      z-index: 150;
+    }
+    .map-page-layout ::ng-deep .maplibregl-ctrl-bottom-right .maplibregl-ctrl-scale {
+      margin-bottom: 6px;
+    }
+
+    .map-content-area {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .map-content-area--with-panel {
+      flex-direction: row;
+    }
+
+    .detail-panel-wrapper {
+      flex-shrink: 0;
+      min-width: 0;
+      overflow: hidden;
+      transition: width 0.25s ease;
+      width: 0;
+    }
+    .detail-panel-wrapper--open {
+      width: 520px;
+      max-width: 100%;
+    }
+    .detail-panel-wrapper--expanded {
+      width: 842px;
+      max-width: 100%;
+    }
+
+    .map-content-main {
+      display: flex;
+      flex: 1;
+      flex-direction: column;
+      min-height: 0;
+      min-width: 0;
+      position: relative;
+    }
+
     .map-filters-overlay {
       align-items: center;
       display: flex;
@@ -901,6 +659,7 @@ export class MapPage implements AfterViewInit {
   private readonly toastService = inject(ToastService);
   private readonly gpxExportService = inject(GpxExportService);
   private readonly confirmService = inject(ConfirmService);
+  private readonly dialog = inject(MatDialog);
   private readonly dataRefresh = inject(DataRefreshService);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -908,6 +667,8 @@ export class MapPage implements AfterViewInit {
 
   @ViewChild(MapLibreMapComponent)
   private readonly mapComponent!: MapLibreMapComponent;
+  @ViewChild('activityPanel')
+  private readonly activityPanel?: MapActivityPanelComponent;
 
   private readonly activityIdParam = toSignal(
     this.route.queryParamMap.pipe(map((params) => params.get('activityId'))),
@@ -920,6 +681,8 @@ export class MapPage implements AfterViewInit {
   private readonly mapBasemapError = signal(false);
   protected readonly allRoutes = signal<MapRouteFeature[]>([]);
   private readonly selectedMapRoute = signal<MapRouteFeature | null>(null);
+  protected readonly detailPanelOpen = signal(false);
+  protected readonly detailPanelExpanded = signal(false);
   protected readonly filterMenuOpen = signal(false);
   protected readonly mapFullscreen = signal(false);
   private readonly perfWarningDismissed = signal(false);
@@ -940,7 +703,6 @@ export class MapPage implements AfterViewInit {
   }
 
   protected readonly sportTypeFilter = this.filtersService.sportTypeFilter;
-  protected readonly detailMenuOpen = signal(false);
   protected readonly hoveredActivityId = signal<string | null>(null);
   protected readonly panelVisibleOnMap = signal(false);
   protected readonly panelViewportBounds = signal<[[number, number], [number, number]] | null>(null);
@@ -1052,7 +814,16 @@ export class MapPage implements AfterViewInit {
     const fromDate = this.filtersService.dateFrom();
     const toDate = this.filtersService.dateTo();
     const search = this.filtersService.nameSearch().toLowerCase().trim();
+    const srcFilter = this.mapSourceFilter();
     return routes.filter((r) => {
+      if (srcFilter.size > 0) {
+        const isStrava = r.activity.provider === 'strava';
+        const isPlanned = r.activity.activityStatus === 'planned';
+        const matchesSource = (srcFilter.has('strava') && isStrava)
+          || (srcFilter.has('imported') && !isStrava && !isPlanned)
+          || (srcFilter.has('planned') && isPlanned);
+        if (!matchesSource) return false;
+      }
       if (sportFilter) {
         if (sportFilter.startsWith('__cat__')) {
           const cat = sportFilter.slice(7) as ActivityCategory;
@@ -1133,6 +904,25 @@ export class MapPage implements AfterViewInit {
 
   protected readonly selectedRouteGeometry = signal<import('../storage/storage.models').RouteGeometryRecord | null>(null);
 
+  protected readonly detailPanelRoute = computed<import('../storage/storage.models').ActivityRouteRecord & { coordinates: [number, number][]; elevations?: number[]; cumulativeDistances?: number[] } | null>(() => {
+    const geom = this.selectedRouteGeometry();
+    const route = this.selectedRoute()?.route;
+    if (!geom || !route) { return null; }
+    return {
+      activityId: route.activityId,
+      providerActivityId: route.providerActivityId,
+      simplifiedCoordinates: route.simplifiedCoordinates,
+      simplifiedPointCount: route.simplifiedPointCount,
+      pointCount: route.pointCount,
+      bounds: route.bounds,
+      syncedAt: route.syncedAt,
+      updatedAt: route.updatedAt,
+      coordinates: geom.coordinates,
+      elevations: geom.elevations,
+      cumulativeDistances: geom.cumulativeDistances,
+    };
+  });
+
   protected readonly selectedRoute = computed<MapRouteFeature | null>(() => {
     const activityId = this.selectedActivityId();
     if (activityId) {
@@ -1140,6 +930,14 @@ export class MapPage implements AfterViewInit {
     }
     return this.selectedMapRoute();
   });
+
+  protected readonly mapSourceFilter = signal<Set<'strava' | 'imported' | 'planned'>>(new Set());
+
+  protected onSourceFilterChange(filter: Set<'strava' | 'imported' | 'planned'>): void {
+    this.mapSourceFilter.set(filter);
+    this.scheduleEmphasisUpdate();
+    this.tryRenderRoutes('source-filter');
+  }
 
   protected onSportTypeChange(value: string): void {
     this.filtersService.setSportTypeFilter(value);
@@ -1164,7 +962,8 @@ export class MapPage implements AfterViewInit {
     if (!activityId) {
       return false;
     }
-    return !this.allRoutes().some((r) => r.activityId === activityId);
+    if (!this.dataLoaded()) return false;
+    return this.allRoutes().length > 0 && !this.allRoutes().some((r) => r.activityId === activityId);
   });
 
   protected readonly noRouteActivityName = computed(() => {
@@ -1175,8 +974,7 @@ export class MapPage implements AfterViewInit {
     this.destroyRef.onDestroy(() => this.retryDestroyed.set(true));
     this.loadRoutes().then(() => this.restorePanelState());
     globalThis.addEventListener('click', (e) => {
-      this.detailMenuOpen.set(false);
-      const target = e.target as HTMLElement;
+        const target = e.target as HTMLElement;
       if (!target?.closest('.toolbar-select') && !target?.closest('app-date-range-picker')) {
         this.filterMenuOpen.set(false);
         this.datePresetOpen.set(false);
@@ -1207,6 +1005,12 @@ export class MapPage implements AfterViewInit {
       this.filtersService.dateTo();
       this.dataLoaded();
       this.scheduleEmphasisUpdate();
+    });
+    effect(() => {
+      const route = this.selectedRoute();
+      if (route && !this.selectedRouteGeometry()) {
+        this.fetchFullGeometryForRoute(route);
+      }
     });
   }
 
@@ -1269,7 +1073,7 @@ export class MapPage implements AfterViewInit {
     const src = source ?? 'unknown';
     console.log(`[TRACE] tryRenderRoutes from ${src}: dataLoaded=${this.dataLoaded()}, mapReady=${this.mapReady()}, mapComp=${!!this.mapComponent}, filteredRoutes=${this.filteredRoutes().length}`);
     if (!this.dataLoaded() || !this.mapReady()) { console.log(`[TRACE] tryRenderRoutes from ${src}: SKIP (not ready)`); return; }
-    const routes = this.allRoutes();
+    const routes = this.filteredRoutes();
     const mapComp = this.mapComponent;
     const selectId = this.selectedActivityId();
     if (!mapComp) { console.log(`[TRACE] tryRenderRoutes from ${src}: SKIP (no mapComp)`); return; }
@@ -1301,17 +1105,9 @@ export class MapPage implements AfterViewInit {
   }
 
 
-  protected computeSpeed = computeSpeed;
-  protected formatDistance = formatDistance;
-  protected formatSpeed = formatSpeed;
-  protected formatDuration = formatDuration;
-  protected formatDate = formatDate;
-  protected formatDateInput = formatDateInput;
   protected formatSportType = formatSportType;
   protected formatCategory = formatCategory;
   protected mapSportTypeToCategory = mapSportTypeToCategory;
-  protected onDateFromChange = this.filtersService.setDateFrom.bind(this.filtersService);
-  protected onDateToChange = this.filtersService.setDateTo.bind(this.filtersService);
 
   protected showBasemapError(): void {
     this.mapBasemapError.set(true);
@@ -1336,14 +1132,12 @@ export class MapPage implements AfterViewInit {
   }
 
   protected selectRoute(route: MapRouteFeature): void {
+    this.selectedRouteGeometry.set(null);
     this.selectedMapRoute.set(route);
     if (this.selectedActivityId()) {
       this.router.navigate(['/map'], { queryParams: {}, replaceUrl: true });
     }
     this.fetchFullGeometryForRoute(route);
-    setTimeout(() => {
-      document.querySelector('.route-detail')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }, 0);
     this.scheduleEmphasisUpdate();
   }
 
@@ -1373,9 +1167,7 @@ export class MapPage implements AfterViewInit {
     this.selectedRouteGeometry.set(null);
     this.routeRendererService.deselectRoute();
     this.routeRendererService.clearHoverPoint();
-    if (this.selectedActivityId()) {
-      this.router.navigate(['/map']);
-    }
+    this.router.navigate(['/map'], { queryParams: {}, replaceUrl: true });
     this.scheduleEmphasisUpdate();
   }
 
@@ -1397,6 +1189,9 @@ export class MapPage implements AfterViewInit {
 
   protected clearAllFilters(): void {
     this.filtersService.clearAll();
+    this.activityPanel?.resetSourceFilter();
+    this.scheduleEmphasisUpdate();
+    this.tryRenderRoutes('clear-filters');
     const totalPoints = this.allRoutes().reduce((sum, r) => sum + (r.route.pointCount ?? 0), 0);
     if (totalPoints > POINTS_WARN_THRESHOLD / 2) {
       this.applyDatePreset('year');
@@ -1411,20 +1206,47 @@ export class MapPage implements AfterViewInit {
     }
   }
 
-  protected toggleDetailMenu(event: MouseEvent): void {
-    event.stopPropagation();
-    this.detailMenuOpen.update((v) => !v);
-  }
 
-  protected async downloadDetailGpx(event: MouseEvent, route: MapRouteFeature): Promise<void> {
-    event.stopPropagation();
-    this.detailMenuOpen.set(false);
+  protected async downloadDetailGpx(route: MapRouteFeature): Promise<void> {
     const result = await this.gpxExportService.exportActivity(route.activity);
     if (!result.success) {
       this.toastService.show(result.reason);
     }
   }
 
+
+  protected navigateToMapDetail(route: MapRouteFeature): void {
+    this.detailPanelOpen.set(true);
+  }
+
+  protected closeDetailPanel(): void {
+    this.detailPanelOpen.set(false);
+  }
+
+  protected async onRenameActivity(route: MapRouteFeature): Promise<void> {
+    const a = route.activity;
+    const ref = this.dialog.open(EditActivityDialog, {
+      data: {
+        currentName: a.name,
+        currentSportType: a.sportType,
+        currentActivityStatus: a.activityStatus ?? 'completed',
+      },
+      disableClose: true,
+    });
+    const result = await ref.afterClosed().toPromise();
+    if (!result) return;
+    if (result.name === a.name && result.sportType === a.sportType && result.activityStatus === (a.activityStatus ?? 'completed')) return;
+    await this.repositories.activities.updateMetadata(a.id, {
+      name: result.name,
+      sportType: result.sportType,
+      activityStatus: result.activityStatus,
+    });
+    this.dataRefresh.emitRefresh();
+  }
+
+  protected openOnStravaFromCard(route: MapRouteFeature): void {
+    this.openOnStrava(new MouseEvent('click'), route.activity);
+  }
 
   protected navigateToActivity(activity: import('../storage/storage.models').ActivityRecord): void {
     this.router.navigate(['/activities'], { queryParams: { focusActivityId: activity.id } });
@@ -1443,6 +1265,7 @@ export class MapPage implements AfterViewInit {
 
   protected onPanelSelectRoute(route: MapRouteFeature): void {
     this.hoveredActivityId.set(null);
+    this.selectedRouteGeometry.set(null);
     this.selectedMapRoute.set(route);
     this.fetchFullGeometryForRoute(route);
     this.routeRendererService.selectRoute(route.activityId);

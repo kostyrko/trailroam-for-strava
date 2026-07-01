@@ -4,8 +4,9 @@ import { ToastService } from './toast.service';
 import { IconComponent } from './icon.component';
 import { LocalDataService } from '../storage/local-data.service';
 import { SyncHistoryService } from '../storage/sync-history.service';
-import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
+import { TRAILROAM_DATABASE, TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
 import { DataRefreshService } from './data-refresh.service';
+import { DATABASE_SCHEMA_VERSION } from '../storage/storage.models';
 
 @Component({
   imports: [IconComponent],
@@ -51,6 +52,7 @@ import { DataRefreshService } from './data-refresh.service';
     .privacy-row:last-of-type { margin-bottom: 0; }
     .privacy-row-icon { width: 18px; height: 18px; color: #9ca3af; flex-shrink: 0; margin-top: 2px; }
     .privacy-row-text { font-size: 13px; color: #6b7280; line-height: 1.5; margin: 0; }
+    .db-version-row { display: flex; gap: 10px; margin-bottom: 14px; margin-top: 14px; }
     .tip-box { background: #fff8e6; border-radius: 8px; padding: 14px; display: flex; gap: 10px; margin-top: 16px; }
     .tip-icon { width: 18px; height: 18px; color: #b8860b; flex-shrink: 0; margin-top: 1px; }
     .tip-title { font-size: 13px; font-weight: 600; color: #92400e; margin: 0 0 2px; }
@@ -249,6 +251,11 @@ import { DataRefreshService } from './data-refresh.service';
               <p class="privacy-row-text">Stored data can be inspected using browser developer tools.</p>
             </div>
 
+            <div class="db-version-row">
+              <app-icon name="database" strokeWidth="2" [class]="'privacy-row-icon'"></app-icon>
+              <p class="privacy-row-text">Database schema: v{{ dbVersion }} / Latest: v{{ latestDbVersion }}{{ dbOutdated ? ' — update available' : '' }}</p>
+            </div>
+
             <div class="tip-box">
               <app-icon name="lightbulb" strokeWidth="2" [class]="'tip-icon'"></app-icon>
               <div>
@@ -269,6 +276,11 @@ export class SettingsPage {
   private readonly confirmService = inject(ConfirmService);
   private readonly toastService = inject(ToastService);
   private readonly syncHistoryService = inject(SyncHistoryService);
+  private readonly database = inject(TRAILROAM_DATABASE);
+
+  protected readonly dbVersion = this.database.verno;
+  protected readonly latestDbVersion = DATABASE_SCHEMA_VERSION;
+  protected readonly dbOutdated = this.dbVersion < DATABASE_SCHEMA_VERSION;
 
   protected readonly isClearingLocalData = signal(false);
   protected readonly clearLocalDataStatus = signal<string | null>(null);

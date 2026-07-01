@@ -759,7 +759,7 @@ export class MapActivityPanelComponent {
     this.sortBy.set(sort);
   }
 
-  protected resetSourceFilter(): void {
+  public resetSourceFilter(): void {
     this.sourceFilter.set(new Set());
     this.sourceFilterChange.emit(new Set());
   }

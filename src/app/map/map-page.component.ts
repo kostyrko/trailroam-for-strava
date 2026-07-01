@@ -116,6 +116,7 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
       @if (!hasBasemapError()) {
         @if (panelReady()) {
           <app-map-activity-panel
+            #activityPanel
             [routes]="filteredRoutes()"
             [totalRoutes]="allRoutes().length"
             [selectedActivityId]="selectedActivityId()"
@@ -666,6 +667,8 @@ export class MapPage implements AfterViewInit {
 
   @ViewChild(MapLibreMapComponent)
   private readonly mapComponent!: MapLibreMapComponent;
+  @ViewChild('activityPanel')
+  private readonly activityPanel?: MapActivityPanelComponent;
 
   private readonly activityIdParam = toSignal(
     this.route.queryParamMap.pipe(map((params) => params.get('activityId'))),
@@ -1186,6 +1189,9 @@ export class MapPage implements AfterViewInit {
 
   protected clearAllFilters(): void {
     this.filtersService.clearAll();
+    this.activityPanel?.resetSourceFilter();
+    this.scheduleEmphasisUpdate();
+    this.tryRenderRoutes('clear-filters');
     const totalPoints = this.allRoutes().reduce((sum, r) => sum + (r.route.pointCount ?? 0), 0);
     if (totalPoints > POINTS_WARN_THRESHOLD / 2) {
       this.applyDatePreset('year');

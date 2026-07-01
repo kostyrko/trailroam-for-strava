@@ -299,26 +299,31 @@ function routeStatusLabel(status: string): string {
           </div>
         </div>
 
-        <div class="source-filter-bar">
-          <span class="source-filter-label">Filter by source:</span>
-          @let sc = sourceFilterCounts();
-          @let sf = sourceFilter();
-          <button class="source-filter-chip" [class.source-filter-chip--active]="sf.size === 0" (click)="resetSourceFilter()">
-            All Activities
-            <span class="source-filter-count">{{ sc.all }}</span>
-          </button>
-          <button class="source-filter-chip" [class.source-filter-chip--active]="sf.has('strava')" (click)="toggleSourceFilter('strava')">
-            ⚡ Strava (Synced)
-            <span class="source-filter-count">{{ sc.strava }}</span>
-          </button>
-          <button class="source-filter-chip" [class.source-filter-chip--active]="sf.has('imported-completed')" (click)="toggleSourceFilter('imported-completed')">
-            ⬆ Imported (Done)
-            <span class="source-filter-count">{{ sc.importedCompleted }}</span>
-          </button>
-          <button class="source-filter-chip" [class.source-filter-chip--active]="sf.has('imported-planned')" (click)="toggleSourceFilter('imported-planned')">
-            ◌ Imported (Planned)
-            <span class="source-filter-count">{{ sc.importedPlanned }}</span>
-          </button>
+        <div class="source-filter-collapsible-header" (click)="toggleSourceFilterExpanded()" role="button" tabindex="0" (keydown.enter)="toggleSourceFilterExpanded()" aria-label="Toggle source filter">
+          <span class="source-filter-toggle">{{ sourceFilterExpanded() ? '&#9660;' : '&#9654;' }}</span>
+          <span class="source-filter-label">Source filter</span>
+        </div>
+        <div class="source-filter-collapsible-body" [class.source-filter-collapsible-body--open]="sourceFilterExpanded()">
+          <div class="source-filter-bar">
+            @let sc = sourceFilterCounts();
+            @let sf = sourceFilter();
+            <button class="source-filter-chip" [class.source-filter-chip--active]="sf.size === 0" (click)="resetSourceFilter()">
+              All Activities
+              <span class="source-filter-count">{{ sc.all }}</span>
+            </button>
+            <button class="source-filter-chip" [class.source-filter-chip--active]="sf.has('strava')" (click)="toggleSourceFilter('strava')">
+              ⚡ Strava (Synced)
+              <span class="source-filter-count">{{ sc.strava }}</span>
+            </button>
+            <button class="source-filter-chip" [class.source-filter-chip--active]="sf.has('imported-completed')" (click)="toggleSourceFilter('imported-completed')">
+              ⬆ Imported (Done)
+              <span class="source-filter-count">{{ sc.importedCompleted }}</span>
+            </button>
+            <button class="source-filter-chip" [class.source-filter-chip--active]="sf.has('imported-planned')" (click)="toggleSourceFilter('imported-planned')">
+              ◌ Imported (Planned)
+              <span class="source-filter-count">{{ sc.importedPlanned }}</span>
+            </button>
+          </div>
         </div>
 
         <div class="selected-actions-bar" [class.selected-actions-bar--active]="selectionCount() > 0">
@@ -637,10 +642,10 @@ function routeStatusLabel(status: string): string {
 
     .import-btn {
       align-items: center;
-      background: transparent;
-      border: 1px solid #cbd8d0;
+      background: #1f6f50;
+      border: 1px solid #1f6f50;
       border-radius: 8px;
-      color: #314b3f;
+      color: #ffffff;
       cursor: pointer;
       display: inline-flex;
       font: inherit;
@@ -655,8 +660,8 @@ function routeStatusLabel(status: string): string {
     }
 
     .import-btn:hover {
-      background: #d6e8dc;
-      border-color: #b6cdbe;
+      background: #185940;
+      border-color: #185940;
     }
 
     .import-drop-overlay {
@@ -1612,12 +1617,45 @@ function routeStatusLabel(status: string): string {
       }
     }
 
+    .source-filter-collapsible-header {
+      align-items: center;
+      cursor: pointer;
+      display: flex;
+      gap: 4px;
+      margin-top: 10px;
+      margin-bottom: 10px;
+      user-select: none;
+    }
+
+    .source-filter-collapsible-header:focus-visible {
+      outline: 2px solid #1f6f50;
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+
+    .source-filter-toggle {
+      color: #63746a;
+      font-size: 0.65rem;
+      flex-shrink: 0;
+    }
+
+    .source-filter-collapsible-body {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 200ms ease, opacity 200ms ease;
+      opacity: 0;
+    }
+
+    .source-filter-collapsible-body--open {
+      max-height: 80px;
+      opacity: 1;
+    }
+
     .source-filter-bar {
       align-items: center;
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
-      margin-top: 14px;
       margin-bottom: 10px;
     }
 
@@ -1631,8 +1669,8 @@ function routeStatusLabel(status: string): string {
     .source-filter-chip {
       align-items: center;
       background: #f4f9f6;
-      border: 1px solid transparent;
-      border-radius: 20px;
+      border: 1px solid #cbd8d0;
+      border-radius: 8px;
       cursor: pointer;
       display: inline-flex;
       font: inherit;
@@ -1645,6 +1683,7 @@ function routeStatusLabel(status: string): string {
 
     .source-filter-chip:hover {
       background: #dce6df;
+      border-color: #b6cdbe;
     }
 
     .source-filter-chip--active {
@@ -1825,9 +1864,15 @@ export class ActivitiesPageComponent {
   protected readonly nameSearch = this.filtersService.nameSearch;
   protected readonly datePresetLabel = this.filtersService.datePresetLabel;
   protected readonly sourceFilter = signal<Set<'strava' | 'imported-completed' | 'imported-planned'>>(new Set());
+  protected readonly sourceFilterExpanded = signal(localStorage.getItem('trailroam_activities_source_filter_expanded') !== 'false');
 
   protected resetSourceFilter(): void {
     this.sourceFilter.set(new Set());
+  }
+
+  protected toggleSourceFilterExpanded(): void {
+    this.sourceFilterExpanded.update((v) => !v);
+    localStorage.setItem('trailroam_activities_source_filter_expanded', String(this.sourceFilterExpanded()));
   }
 
   protected toggleSourceFilter(value: 'strava' | 'imported-completed' | 'imported-planned'): void {

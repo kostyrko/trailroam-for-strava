@@ -5,7 +5,7 @@ import { StravaSessionService } from '../strava/strava-session.service';
 import { StravaActivityNormalizer } from '../strava/strava-activity-normalizer';
 import { RouteSyncService } from '../storage/route-sync.service';
 import type { RouteSyncBatchItem } from '../storage/route-sync.service';
-import { createSyncProgressSignal, setProgress, type SyncProgress } from './sync-progress';
+import { createSyncProgressSignal, setProgress, type SyncProgress } from './progress';
 
 export interface SyncNewResult {
   importedCount: number;

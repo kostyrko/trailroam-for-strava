@@ -1,5 +1,5 @@
 import { signal } from '@angular/core';
-import type { SyncStatus } from '../storage/storage.models';
+import type { SyncStatus } from '../../storage/storage.models';
 
 export interface SyncProgress {
   status: SyncStatus;

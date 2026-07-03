@@ -60,16 +60,14 @@
 
         <app-activities-source-filter
           [sourceFilterExpanded]="sourceFilterExpanded()"
-          [activeSource]="activeSource()"
+          [activeSourceSet]="sourceFilter()"
           [allCount]="sourceFilterCounts().all"
           [stravaCount]="sourceFilterCounts().strava"
           [importedCompletedCount]="sourceFilterCounts().importedCompleted"
           [importedPlannedCount]="sourceFilterCounts().importedPlanned"
           (toggleExpanded)="toggleSourceFilterExpanded()"
           (selectAll)="resetSourceFilter()"
-          (selectStrava)="toggleSourceFilter('strava')"
-          (selectImportedCompleted)="toggleSourceFilter('imported-completed')"
-          (selectImportedPlanned)="toggleSourceFilter('imported-planned')"
+          (sourceFilterChange)="sourceFilter.set($event)"
         />
 
         <app-activities-selected-actions

@@ -290,15 +290,6 @@ export class ActivitiesPageComponent {
 
   protected readonly totalFilteredCount = computed(() => this.allFiltered().length);
 
-  protected readonly activeSource = computed(() => {
-    const s = this.sourceFilter();
-    if (s.size === 0) return 'all';
-    if (s.has('strava')) return 'strava';
-    if (s.has('imported-completed')) return 'imported-completed';
-    if (s.has('imported-planned')) return 'imported-planned';
-    return 'all';
-  });
-
   protected readonly sourceFilterCounts = computed(() => {
     const items = this.activities();
     if (!items) return { all: 0, strava: 0, importedCompleted: 0, importedPlanned: 0 };

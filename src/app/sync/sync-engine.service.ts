@@ -5,16 +5,7 @@ import { StravaSessionService } from '../strava/strava-session.service';
 import { StravaActivityNormalizer } from '../strava/strava-activity-normalizer';
 import { RouteSyncService } from '../storage/route-sync.service';
 import type { RouteSyncBatchItem } from '../storage/route-sync.service';
-
-export interface SyncProgress {
-  status: SyncStatus;
-  phase: 'idle' | 'checking_session' | 'fetching_activities' | 'fetching_routes' | 'completed' | 'failed' | 'cancelled';
-  fetchedActivities: number;
-  totalActivities: number;
-  syncedRoutes: number;
-  totalRoutes: number;
-  errorMessage?: string;
-}
+import { createSyncProgressSignal, setProgress, type SyncProgress } from './sync-progress';
 
 export interface SyncNewResult {
   importedCount: number;
@@ -37,14 +28,7 @@ export class SyncEngineService {
 
   private cancelled = false;
 
-  readonly progress = signal<SyncProgress>({
-    status: 'idle',
-    phase: 'idle',
-    fetchedActivities: 0,
-    totalActivities: 0,
-    syncedRoutes: 0,
-    totalRoutes: 0,
-  });
+  readonly progress = createSyncProgressSignal();
 
   cancel(): void {
     this.cancelled = true;
@@ -95,7 +79,7 @@ export class SyncEngineService {
     };
 
     try {
-      this.setProgress('checking_session');
+      setProgress(this.progress, 'checking_session');
 
       const sessionStatus = await this.stravaSessionService.checkSession();
       if (sessionStatus !== 'logged_in') {
@@ -103,7 +87,7 @@ export class SyncEngineService {
         return { ...result, errorMessage: 'Strava login required' };
       }
 
-      this.setProgress('fetching_activities');
+      setProgress(this.progress, 'fetching_activities');
 
       await this.repositories.syncState.put({
         id: 'default',
@@ -117,7 +101,10 @@ export class SyncEngineService {
         rateLimitedCount: 0,
       });
 
-      const allActivities = await this.fetchAllActivityPages();
+      const { activities: allActivities, errorMessage: fetchError } = await this.fetchAllActivityPages();
+      if (fetchError) {
+        return this.fetchFailed(result, fetchError);
+      }
       const knownIds = new Set<string>();
 
       const existingActivities = await this.repositories.activities.list();
@@ -174,7 +161,7 @@ export class SyncEngineService {
   }
 
   private async syncRoutesWithBackoff(result: SyncNewResult): Promise<void> {
-    this.setProgress('fetching_routes');
+    setProgress(this.progress, 'fetching_routes');
 
     this.progress.update((p) => ({ ...p, totalActivities: result.importedCount + result.updatedCount }));
 
@@ -251,22 +238,23 @@ export class SyncEngineService {
       }
     }
 
-    const totalWithRoutes = await this.repositories.activities.countWithRouteSyncStatus('route_synced');
-    result.routesSyncedCount = totalWithRoutes;
+    result.routesSyncedCount = synced;
     result.skippedCount = skipped + noRoute + emptyRoute + invalidCoords;
     result.failedCount = failed;
     result.rateLimitedCount = rateLimited;
   }
 
-  private async fetchAllActivityPages(): Promise<any[]> {
+  private async fetchAllActivityPages(): Promise<{ activities: any[]; errorMessage?: string }> {
     const all: any[] = [];
     let page = 1;
     const perPage = 100;
     let hasMore = true;
+    let lastError: string | undefined;
 
     while (hasMore && !this.cancelled) {
       const result = await this.stravaSessionService.fetchActivityList({ page, perPage });
       if (!result.success) {
+        lastError = `Failed to fetch page ${page}: ${result.errorCode}`;
         break;
       }
       all.push(...result.activities);
@@ -275,18 +263,14 @@ export class SyncEngineService {
       page++;
     }
 
-    return all;
+    return { activities: all, errorMessage: lastError };
   }
 
-  private setProgress(phase: SyncProgress['phase']): void {
-    this.progress.set({
-      status: phase === 'completed' ? 'completed' : phase === 'failed' ? 'failed' : phase === 'cancelled' ? 'cancelled' : 'fetching_activities',
-      phase,
-      fetchedActivities: 0,
-      totalActivities: 0,
-      syncedRoutes: 0,
-      totalRoutes: 0,
-    });
+  private fetchFailed(result: SyncNewResult, message: string): SyncNewResult {
+    result.errorMessage = message;
+    result.failedCount += 1;
+    this.progress.set({ status: 'failed', phase: 'failed', fetchedActivities: 0, totalActivities: 0, syncedRoutes: 0, totalRoutes: 0, errorMessage: message });
+    return result;
   }
 
   private async saveSyncState(result: SyncNewResult, status: SyncStatus): Promise<void> {

@@ -35,7 +35,7 @@
             <div class="import-field">
               <label class="import-label" for="import-sport">Sport type</label>
               <div class="import-select-wrap">
-                <span class="import-select-emoji">{{ sportTypeEmoji(sportType()) }}</span>
+                <span class="import-select-emoji">{{ sportTypeEmojiFromString(sportType()) }}</span>
                 <select
                   id="import-sport"
                   class="import-select"
@@ -81,7 +81,7 @@
                 <span class="import-stat-label">Elevation</span>
               </div>
               <div class="import-stat">
-                <span class="import-stat-value">{{ formatDateShort(data.parsed.startTime) }}</span>
+                <span class="import-stat-value">{{ formatDate(data.parsed.startTime) }}</span>
                 <span class="import-stat-label">Date</span>
               </div>
             </div>

@@ -9,45 +9,9 @@ import {
 import { IconComponent } from '../shared/icon.component';
 import { type MapRouteFeature } from './mock-routes';
 import { mapSportTypeToCategory } from '../shared/activity-category';
+import { formatDistance, formatDuration, formatDateShort } from '../shared/formatters';
+import { sportTypeEmojiFromString } from '../shared/activity-display';
 
-const SPORT_TYPE_EMOJI: Record<string, string> = {
-  Ride: '🚴', GravelRide: '🚴', MountainBikeRide: '🚵', EBikeRide: '🚴', EMountainBikeRide: '🚵', VirtualRide: '🚴',
-  Run: '🏃', TrailRun: '🏃', VirtualRun: '🏃',
-  Walk: '🚶', Hike: '🥾',
-  Swim: '🏊',
-  Kayaking: '🛶', Canoeing: '🛶', StandUpPaddling: '🛶', Rowing: '🛶',
-  AlpineSki: '⛷️', BackcountrySki: '⛷️', NordicSki: '⛷️', Snowboard: '🏂', Snowshoe: '🥾',
-  RockClimbing: '🧗', Golf: '🏌️',
-  Other: '🏋️', Workout: '🏋️',
-};
-
-function sportTypeEmoji(sportType: string): string {
-  return SPORT_TYPE_EMOJI[sportType] ?? SPORT_TYPE_EMOJI['Other'] ?? '🏋️';
-}
-
-function formatDuration(movingTimeSeconds: number | undefined): string {
-  if (!movingTimeSeconds || movingTimeSeconds === 0) { return '—'; }
-  const h = Math.floor(movingTimeSeconds / 3600);
-  const m = Math.floor((movingTimeSeconds % 3600) / 60);
-  if (h > 0) { return `${h}h ${m}m`; }
-  return `${m}m`;
-}
-
-function formatDistanceKm(meters: number | undefined): string {
-  if (!meters || meters === 0) { return '—'; }
-  return `${(meters / 1000).toFixed(1)} km`;
-}
-
-function formatDateShort(iso: string): string {
-  const d = new Date(iso);
-  const now = new Date();
-  const isThisYear = d.getFullYear() === now.getFullYear();
-  return d.toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    ...(isThisYear ? {} : { year: 'numeric' }),
-  });
-}
 
 export type PanelSort = 'newest' | 'longest' | 'az';
 
@@ -183,8 +147,8 @@ export class MapActivityPanelComponent {
     this.hoverRoute.emit(null);
   }
 
-  protected readonly formatDistanceKm = formatDistanceKm;
+  protected readonly formatDistance = formatDistance;
   protected readonly formatDuration = formatDuration;
   protected readonly formatDateShort = formatDateShort;
-  protected readonly sportTypeEmoji = sportTypeEmoji;
+  protected readonly sportTypeEmojiFromString = sportTypeEmojiFromString;
 }

@@ -95,7 +95,7 @@
               (mouseenter)="hoverActivity(route)"
               (mouseleave)="unhoverActivity()"
             >
-              <span class="panel-item-emoji">{{ sportTypeEmoji(route.activity.sportType) }}</span>
+              <span class="panel-item-emoji">{{ sportTypeEmojiFromString(route.activity.sportType) }}</span>
               <div class="panel-item-body">
                 <div class="panel-item-name-row">
                   <span class="panel-item-name">{{ route.activity.name }}</span>
@@ -107,7 +107,7 @@
                   }
                 </div>
                 <div class="panel-item-meta">
-                  {{ formatDistanceKm(route.activity.distanceMeters) }} &middot; {{ formatDuration(route.activity.movingTimeSeconds) }}
+                  {{ formatDistance(route.activity.distanceMeters) }} &middot; {{ formatDuration(route.activity.movingTimeSeconds) }}
                 </div>
               </div>
               <div class="panel-item-date">{{ formatDateShort(route.activity.startDate) }}</div>

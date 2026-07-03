@@ -3,38 +3,13 @@ import { FormsModule } from '@angular/forms';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { IconComponent } from './icon.component';
 import { formatSportType } from './activity-category';
+import { formatDistance, formatDuration, formatDate } from './formatters';
+import { sportTypeEmojiFromString } from './activity-display';
 import type { ParsedActivity } from './activity-parser.service';
-import type { ActivityCategory, ActivityStatus } from '../storage/storage.models';
+import type { ActivityStatus } from '../storage/storage.models';
 
 const AVG_SPEED_FALLBACK = ['Walk', 'Hike', 'TrailRun', 'Run'];
 
-const SPORT_TYPE_EMOJI: Record<string, string> = {
-  Ride: '🚴', GravelRide: '🚴', MountainBikeRide: '🚵', EBikeRide: '🚴', EMountainBikeRide: '🚵', VirtualRide: '🚴',
-  Run: '🏃', TrailRun: '🏃', VirtualRun: '🏃',
-  Walk: '🚶', Hike: '🥾',
-  Swim: '🏊',
-  Kayaking: '🛶', Canoeing: '🛶', StandUpPaddling: '🛶', Rowing: '🛶',
-  AlpineSki: '⛷️', BackcountrySki: '⛷️', NordicSki: '⛷️', Snowboard: '🏂', Snowshoe: '🥾',
-  RockClimbing: '🧗', Golf: '🏌️',
-  Other: '🏋️', Workout: '🏋️',
-};
-
-const CATEGORY_EMOJI: Record<ActivityCategory, string> = {
-  ride: '🚴', run: '🏃', walk: '🚶', hike: '🥾',
-  water: '🌊', paddling: '🛶', winter: '⛷️', winter_sport: '⛷️',
-  mountaineering: '🧗', other: '🏋️',
-};
-
-function formatDistance(meters: number): string {
-  return `${(meters / 1000).toFixed(2)} km`;
-}
-
-function formatDuration(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m`;
-}
 
 export interface ImportDialogResult {
   name: string;
@@ -70,6 +45,8 @@ export class ImportActivityDialog {
   protected readonly formatSportType = formatSportType;
   protected readonly formatDistance = formatDistance;
   protected readonly formatDuration = formatDuration;
+  protected readonly formatDate = formatDate;
+  protected readonly sportTypeEmojiFromString = sportTypeEmojiFromString;
 
   protected name = this.data.parsed.suggestedName;
   protected readonly sportType = signal(this.data.parsed.suggestedSportType);
@@ -90,7 +67,7 @@ export class ImportActivityDialog {
     const parsed = this.data.parsed;
     const suggestedSt = parsed.suggestedSportType;
     const suggestedCat = parsed.suggestedCategory;
-    const suggestedEmoji = SPORT_TYPE_EMOJI[suggestedSt] ?? CATEGORY_EMOJI[suggestedCat] ?? '';
+    const suggestedEmoji = sportTypeEmojiFromString(suggestedSt);
     if (st !== suggestedSt) {
       return '';
     }
@@ -166,12 +143,4 @@ export class ImportActivityDialog {
     }, 100);
   }
 
-  protected sportTypeEmoji(sportType: string): string {
-    return SPORT_TYPE_EMOJI[sportType] ?? '🏋️';
-  }
-
-  protected formatDateShort(iso: string): string {
-    const d = new Date(iso);
-    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-  }
 }

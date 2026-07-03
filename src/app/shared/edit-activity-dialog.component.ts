@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { IconComponent } from './icon.component';
 import { formatSportType } from './activity-category';
+import { sportTypeEmojiFromString } from './activity-display';
 import type { ActivityStatus } from '../storage/storage.models';
 
 export interface EditActivityDialogData {
@@ -26,16 +27,6 @@ const SPORT_TYPES = [
   'Snowboard', 'Snowshoe', 'RockClimbing', 'Golf', 'Workout', 'Other',
 ];
 
-const SPORT_TYPE_EMOJI: Record<string, string> = {
-  Ride: '🚴', GravelRide: '🚴', MountainBikeRide: '🚵', EBikeRide: '🚴', EMountainBikeRide: '🚵', VirtualRide: '🚴',
-  Run: '🏃', TrailRun: '🏃', VirtualRun: '🏃',
-  Walk: '🚶', Hike: '🥾',
-  Swim: '🏊',
-  Kayaking: '🛶', Canoeing: '🛶', StandUpPaddling: '🛶', Rowing: '🛶',
-  AlpineSki: '⛷️', BackcountrySki: '⛷️', NordicSki: '⛷️', Snowboard: '🏂', Snowshoe: '🥾',
-  RockClimbing: '🧗', Golf: '🏌️',
-  Other: '🏋️', Workout: '🏋️',
-};
 
 @Component({
   selector: 'app-edit-activity-dialog',
@@ -101,7 +92,5 @@ export class EditActivityDialog {
     });
   }
 
-  protected sportTypeEmoji(sportType: string): string {
-    return SPORT_TYPE_EMOJI[sportType] ?? '🏋️';
-  }
+  protected sportTypeEmojiFromString = sportTypeEmojiFromString;
 }

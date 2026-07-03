@@ -5,25 +5,12 @@ import { ImportActivityDialog } from '../shared/import-activity-dialog.component
 import { EditActivityDialog } from '../shared/edit-activity-dialog.component';
 import { generateId } from '../shared/uuid';
 
-const SPORT_TYPE_EMOJI: Record<string, string> = {
-  Ride: '🚴', GravelRide: '🚴', MountainBikeRide: '🚵', EBikeRide: '🚴', EMountainBikeRide: '🚵', VirtualRide: '🚴',
-  Run: '🏃', TrailRun: '🏃', VirtualRun: '🏃',
-  Walk: '🚶', Hike: '🥾',
-  Swim: '🏊',
-  Kayaking: '🛶', Canoeing: '🛶', StandUpPaddling: '🛶', Rowing: '🛶',
-  AlpineSki: '⛷️', BackcountrySki: '⛷️', NordicSki: '⛷️', Snowboard: '🏂', Snowshoe: '🥾',
-  RockClimbing: '🧗', Golf: '🏌️',
-  Other: '🏋️', Workout: '🏋️',
-};
-
-function sportTypeEmoji(activity: { sportType: string; activityCategory?: string }): string {
-  return SPORT_TYPE_EMOJI[activity.sportType] ?? SPORT_TYPE_EMOJI['Other'] ?? '🏋️';
-}
 import { ActivatedRoute, Router } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { map } from 'rxjs';
 import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
 import { FiltersService, CATEGORY_COLORS, isAfterOrEqual, isBeforeOrEqual, type DatePreset } from '../shared/filters.service';
+import { formatDistance, formatElevation, computeSpeed, formatSpeedKmh, formatSpeed, formatHeartrate, formatDurationHours, formatDuration, formatDate, formatDateInput, fmtDate } from '../shared/formatters';
 import { ToastService } from '../shared/toast.service';
 import { DataRefreshService } from '../shared/data-refresh.service';
 import { ConfirmService } from '../shared/confirm.service';
@@ -41,75 +28,9 @@ import { RouteSparklineComponent } from './route-sparkline.component';
 import { ActivityDetailPanelComponent } from './activity-detail-panel.component';
 import { type ActivityCategory, type ActivityRecord, type ActivityRouteRecord, type RouteGeometryRecord } from '../storage/storage.models';
 import { formatSportType, formatCategory, mapSportTypeToCategory } from '../shared/activity-category';
+import { SPORT_TYPE_EMOJI, sportTypeEmoji } from '../shared/activity-display';
 
 const PAGE_SIZE_OPTIONS = [5, 10, 25, 50, 100];
-
-function formatDistance(meters: number | undefined): string {
-  if (meters === undefined || meters === 0) { return '—'; }
-  return `${(meters / 1000).toFixed(2)} km`;
-}
-
-function formatElevation(meters: number | undefined): string {
-  if (meters === undefined || meters === 0) { return '—'; }
-  return `${meters.toFixed(0)} m`;
-}
-
-function computeSpeed(
-  metersPerSecond: number | undefined,
-  distanceMeters: number | undefined,
-  movingTimeSeconds: number | undefined,
-): number | undefined {
-  if (metersPerSecond !== undefined && metersPerSecond !== 0) { return metersPerSecond; }
-  if (distanceMeters && movingTimeSeconds) { return distanceMeters / movingTimeSeconds; }
-  return undefined;
-}
-
-function formatSpeedKmh(speedMetersPerSecond: number | undefined): string {
-  if (speedMetersPerSecond === undefined || speedMetersPerSecond === 0) { return '—'; }
-  return `${(speedMetersPerSecond * 3.6).toFixed(1)} km/h`;
-}
-
-function formatSpeed(metersPerSecond: number | undefined): string {
-  if (metersPerSecond === undefined || metersPerSecond === 0) { return '—'; }
-  return `${(metersPerSecond * 3.6).toFixed(1)} km/h`;
-}
-
-function formatHeartrate(bpm: number | undefined): string {
-  if (bpm === undefined || bpm === 0) { return '—'; }
-  return `${bpm.toFixed(0)} bpm`;
-}
-
-function formatDurationHours(seconds: number | undefined): string {
-  if (seconds === undefined || seconds === 0) { return '—'; }
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  if (h > 0) { return `${h}h ${m}m`; }
-  return `${m}m`;
-}
-
-function fmtDate(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-function formatDuration(seconds: number | undefined): string {
-  if (seconds === undefined || seconds === 0) { return '—'; }
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  if (h > 0) { return `${h}h ${m}m`; }
-  return `${m}m`;
-}
-
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-function formatDateInput(iso: string | null): string {
-  if (!iso) { return ''; }
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) { return ''; }
-  return d.toISOString().slice(0, 10);
-}
 
 export type SortColumn = 'date' | 'name' | 'source' | 'status' | 'type' | 'distance' | 'speed' | 'time' | 'route';
 
@@ -926,18 +847,18 @@ export class ActivitiesPageComponent {
     }
   }
 
-  protected computeSpeed = computeSpeed;
-  protected formatDistance = formatDistance;
-  protected formatSpeed = formatSpeed;
-  protected formatDuration = formatDuration;
-  protected formatDurationHours = formatDurationHours;
-  protected formatSpeedKmh = formatSpeedKmh;
-  protected formatDate = formatDate;
-  protected routeStatusLabel = routeStatusLabel;
-  protected formatDateInput = formatDateInput;
-  protected formatSportType = formatSportType;
-  protected formatCategory = formatCategory;
-  protected mapSportTypeToCategory = mapSportTypeToCategory;
+  protected readonly computeSpeed = computeSpeed;
+  protected readonly formatDistance = formatDistance;
+  protected readonly formatSpeed = formatSpeed;
+  protected readonly formatDuration = formatDuration;
+  protected readonly formatDurationHours = formatDurationHours;
+  protected readonly formatSpeedKmh = formatSpeedKmh;
+  protected readonly formatDate = formatDate;
+  protected readonly routeStatusLabel = routeStatusLabel;
+  protected readonly formatDateInput = formatDateInput;
+  protected readonly formatSportType = formatSportType;
+  protected readonly formatCategory = formatCategory;
+  protected readonly mapSportTypeToCategory = mapSportTypeToCategory;
   protected readonly sportTypeEmoji = sportTypeEmoji;
 
   protected categoryTagBg = (cat: string): string => {

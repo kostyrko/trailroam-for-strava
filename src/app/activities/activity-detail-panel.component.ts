@@ -15,35 +15,8 @@ import { type ActivityRecord, type ActivityRouteRecord } from '../storage/storag
 import { IconComponent } from '../shared/icon.component';
 import { EditActivityDialog } from '../shared/edit-activity-dialog.component';
 import { formatSportType } from '../shared/activity-category';
+import { formatDistance, formatDuration, formatSpeedKmh, formatElevation, formatDateWithTime } from '../shared/formatters';
 
-function formatDistance(meters: number | undefined): string {
-  if (meters === undefined || meters === 0) { return '—'; }
-  return `${(meters / 1000).toFixed(2)} km`;
-}
-
-function formatDuration(seconds: number | undefined): string {
-  if (seconds === undefined || seconds === 0) { return '—'; }
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  if (h > 0) { return `${h}h ${m}m`; }
-  return `${m}m`;
-}
-
-function formatSpeedKmh(speedMs: number | undefined): string {
-  if (speedMs === undefined || speedMs === 0) { return '—'; }
-  return `${(speedMs * 3.6).toFixed(1)} km/h`;
-}
-
-function formatElevation(meters: number | undefined): string {
-  if (meters === undefined || meters === 0) { return '—'; }
-  return `${meters.toFixed(0)} m`;
-}
-
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) +
-    ' at ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-}
 
 function haversineDistance(lng1: number, lat1: number, lng2: number, lat2: number): number {
   const R = 6371000;
@@ -169,7 +142,7 @@ export class ActivityDetailPanelComponent {
     });
   }
 
-  protected readonly formatDate = formatDate;
+  protected readonly formatDate = formatDateWithTime;
   protected readonly formatDistance = formatDistance;
   protected readonly formatDuration = formatDuration;
   protected readonly formatSpeedKmh = formatSpeedKmh;

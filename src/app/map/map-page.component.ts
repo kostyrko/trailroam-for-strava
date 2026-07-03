@@ -22,6 +22,7 @@ import { EditActivityDialog } from '../shared/edit-activity-dialog.component';
 import { RouteRendererService } from './route-renderer.service';
 import { type ActivityCategory } from '../storage/storage.models';
 import { formatSportType, formatCategory, mapSportTypeToCategory } from '../shared/activity-category';
+import { formatDurationHours, formatDistance, formatElevation, computeSpeed, formatSpeed, formatDuration, formatDate, fmtDate } from '../shared/formatters';
 import { ToastService } from '../shared/toast.service';
 import { DataRefreshService } from '../shared/data-refresh.service';
 import { GpxExportService } from '../shared/gpx-export.service';
@@ -32,52 +33,6 @@ import { ActivityDetailPanelComponent } from '../activities/activity-detail-pane
 import { MapActivityPanelComponent } from './map-activity-panel.component';
 import { MapNoticeBannersComponent } from './map-notice-banners.component';
 import { MapFilterOverlayComponent } from './map-filter-overlay.component';
-
-function formatDurationHours(seconds: number | undefined): string {
-  if (seconds === undefined || seconds === 0) { return '—'; }
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  if (h > 0) { return `${h}h ${m}m`; }
-  return `${m}m`;
-}
-
-function formatDistance(meters: number | undefined): string {
-  if (meters === undefined || meters === 0) { return '—'; }
-  return `${(meters / 1000).toFixed(2)} km`;
-}
-
-function formatElevation(meters: number | undefined): string {
-  if (meters === undefined || meters === 0) { return '—'; }
-  return `${meters.toFixed(0)} m`;
-}
-
-function computeSpeed(metersPerSecond: number | undefined, distanceMeters: number | undefined, movingTimeSeconds: number | undefined): number | undefined {
-  if (metersPerSecond !== undefined && metersPerSecond !== 0) { return metersPerSecond; }
-  if (distanceMeters && movingTimeSeconds) { return distanceMeters / movingTimeSeconds; }
-  return undefined;
-}
-
-function formatSpeed(metersPerSecond: number | undefined): string {
-  if (metersPerSecond === undefined || metersPerSecond === 0) { return '—'; }
-  return `${(metersPerSecond * 3.6).toFixed(1)} km/h`;
-}
-
-function formatDuration(seconds: number | undefined): string {
-  if (seconds === undefined || seconds === 0) { return '—'; }
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  if (h > 0) { return `${h}h ${m}m`; }
-  return `${m}m`;
-}
-
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-function fmtDate(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
 
 const ROUTES_WARN_THRESHOLD = 1_000;
 const POINTS_WARN_THRESHOLD = 1_000_000;

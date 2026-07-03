@@ -1,0 +1,164 @@
+    <div class="drp-overlay" (click)="$event.stopPropagation()">
+      <div class="drp-col">
+        <div class="drp-header">
+          <span class="drp-title">Select date range</span>
+          <button class="drp-close" type="button" (click)="closed.emit()" aria-label="Close">&times;</button>
+        </div>
+
+        <div class="drp-presets">
+          @for (p of presets; track p.label) {
+            <button
+              class="drp-preset-btn"
+              [class.drp-preset-active]="activePreset() === p"
+              type="button"
+              (click)="applyPreset(p)"
+            >{{ p.label }}</button>
+          }
+        </div>
+
+        <div class="drp-calendars">
+          <div class="drp-cal">
+            <div class="drp-cal-header">
+              @if (leftMode() === 'calendar') {
+                <button class="drp-nav" type="button" (click)="prev(false)" aria-label="Previous month">&lsaquo;</button>
+                <button class="drp-cal-title-btn" type="button" (click)="leftMode.set('months')">{{ leftMonthLabel() }}</button>
+                <button class="drp-nav" type="button" (click)="next(false)" aria-label="Next month">&rsaquo;</button>
+              } @else if (leftMode() === 'months') {
+                <button class="drp-nav" type="button" (click)="leftMpPrevYear()" aria-label="Previous year">&lsaquo;</button>
+                <button class="drp-cal-title-btn" type="button" (click)="leftMode.set('years')">{{ leftMpYearLabel() }}</button>
+                <button class="drp-nav" type="button" (click)="leftMpNextYear()" aria-label="Next year">&rsaquo;</button>
+              } @else {
+                <button class="drp-nav" type="button" (click)="leftMpPrevDecade()" aria-label="Previous decade">&lsaquo;</button>
+                <span class="drp-mp-decade">{{ leftDecadeLabel() }}</span>
+                <button class="drp-nav" type="button" (click)="leftMpNextDecade()" aria-label="Next decade">&rsaquo;</button>
+              }
+            </div>
+            @if (leftMode() === 'calendar') {
+              <div class="drp-wdays">
+                @for (d of DAYS_SHORT; track d) { <span class="drp-wd">{{ d }}</span> }
+              </div>
+              <div class="drp-grid">
+                @for (cell of leftCells(); track cell.key) {
+                  @if (cell.empty) { <span class="drp-cell"></span> }
+                  @else {
+                    <button
+                      class="drp-cell drp-day"
+                      [class.drp-today]="cell.today"
+                      [class.drp-selected]="cell.selected"
+                      [class.drp-in-range]="cell.inRange"
+                      [class.drp-range-start]="cell.rangeStart"
+                      [class.drp-range-end]="cell.rangeEnd"
+                      type="button"
+                      (click)="pickDay(cell.date)"
+                      (mouseenter)="hoverDay(cell.date)"
+                    >{{ cell.day }}</button>
+                  }
+                }
+              </div>
+            } @else if (leftMode() === 'months') {
+              <div class="drp-mp-grid">
+                @for (m of monthsGrid; track m.n) {
+                  <button
+                    class="drp-mp-btn"
+                    [class.drp-mp-active]="leftMpMonth() === m.n && leftMpYear() === leftMpYear()"
+                    type="button"
+                    (click)="leftPickMonth(m.n)"
+                  >{{ m.label }}</button>
+                }
+              </div>
+            } @else {
+              <div class="drp-mp-grid">
+                @for (y of leftYearsGrid(); track y) {
+                  <button
+                    class="drp-mp-btn"
+                    [class.drp-mp-active]="y === leftMpYear()"
+                    type="button"
+                    (click)="leftPickYear(y)"
+                  >{{ y }}</button>
+                }
+              </div>
+            }
+          </div>
+
+          <div class="drp-cal">
+            <div class="drp-cal-header">
+              @if (rightMode() === 'calendar') {
+                <button class="drp-nav" type="button" (click)="prev(true)" aria-label="Previous month">&lsaquo;</button>
+                <button class="drp-cal-title-btn" type="button" (click)="rightMode.set('months')">{{ rightMonthLabel() }}</button>
+                <button class="drp-nav" type="button" (click)="next(true)" aria-label="Next month">&rsaquo;</button>
+              } @else if (rightMode() === 'months') {
+                <button class="drp-nav" type="button" (click)="rightMpPrevYear()" aria-label="Previous year">&lsaquo;</button>
+                <button class="drp-cal-title-btn" type="button" (click)="rightMode.set('years')">{{ rightMpYearLabel() }}</button>
+                <button class="drp-nav" type="button" (click)="rightMpNextYear()" aria-label="Next year">&rsaquo;</button>
+              } @else {
+                <button class="drp-nav" type="button" (click)="rightMpPrevDecade()" aria-label="Previous decade">&lsaquo;</button>
+                <span class="drp-mp-decade">{{ rightDecadeLabel() }}</span>
+                <button class="drp-nav" type="button" (click)="rightMpNextDecade()" aria-label="Next decade">&rsaquo;</button>
+              }
+            </div>
+            @if (rightMode() === 'calendar') {
+              <div class="drp-wdays">
+                @for (d of DAYS_SHORT; track d) { <span class="drp-wd">{{ d }}</span> }
+              </div>
+              <div class="drp-grid">
+                @for (cell of rightCells(); track cell.key) {
+                  @if (cell.empty) { <span class="drp-cell"></span> }
+                  @else {
+                    <button
+                      class="drp-cell drp-day"
+                      [class.drp-today]="cell.today"
+                      [class.drp-selected]="cell.selected"
+                      [class.drp-in-range]="cell.inRange"
+                      [class.drp-range-start]="cell.rangeStart"
+                      [class.drp-range-end]="cell.rangeEnd"
+                      type="button"
+                      (click)="pickDay(cell.date)"
+                      (mouseenter)="hoverDay(cell.date)"
+                    >{{ cell.day }}</button>
+                  }
+                }
+              </div>
+            } @else if (rightMode() === 'months') {
+              <div class="drp-mp-grid">
+                @for (m of monthsGrid; track m.n) {
+                  <button
+                    class="drp-mp-btn"
+                    [class.drp-mp-active]="rightMpMonth() === m.n && rightMpYear() === rightMpYear()"
+                    type="button"
+                    (click)="rightPickMonth(m.n)"
+                  >{{ m.label }}</button>
+                }
+              </div>
+            } @else {
+              <div class="drp-mp-grid">
+                @for (y of rightYearsGrid(); track y) {
+                  <button
+                    class="drp-mp-btn"
+                    [class.drp-mp-active]="y === rightMpYear()"
+                    type="button"
+                    (click)="rightPickYear(y)"
+                  >{{ y }}</button>
+                }
+              </div>
+            }
+          </div>
+        </div>
+
+        <div class="drp-summary">
+          <span class="drp-summary-icon">📅</span>
+          @if (draftStart() && draftEnd()) {
+            <span>{{ formatDate(draftStart()!) }} – {{ formatDate(draftEnd()!) }}</span>
+            <span class="drp-summary-days">&middot; {{ dayCount() }} {{ dayCount() === 1 ? 'day' : 'days' }}</span>
+          } @else if (draftStart()) {
+            <span>Start: {{ formatDate(draftStart()!) }} — Select an end date</span>
+          } @else {
+            <span>Select a date range</span>
+          }
+        </div>
+
+        <div class="drp-footer">
+          <button class="drp-clear-btn" type="button" (click)="clearDraft()">Clear</button>
+          <button class="drp-apply-btn" type="button" (click)="doApply()">Apply</button>
+        </div>
+      </div>
+    </div>

@@ -206,6 +206,98 @@ Run relevant specs for the area you changed. Add focused tests when changing:
 
 Do not mark work complete if typecheck or relevant tests fail. If a known unrelated failure blocks verification, document the exact diagnostic.
 
+## Test Layers and When They Run
+
+Trailroam should use multiple verification layers with different costs.
+
+### Typecheck
+
+Run on every code change and in CI:
+
+```sh
+npm run typecheck
+```
+
+This catches TypeScript and Angular template errors.
+
+### Unit Tests
+
+Run on every code change and in CI:
+
+```sh
+npm test
+```
+
+Unit tests should cover isolated functions, services, normalizers, repositories, and small component behavior.
+
+### Service Integration Tests
+
+Service integration tests should run with the normal test command once added.
+
+They should use fake IndexedDB and mocked Strava/Chrome APIs. They must not make network calls or depend on real browser extension state.
+
+They should cover:
+
+- repository and Dexie behavior
+- backup/restore round trips
+- route sync persistence
+- sync counters and failure states
+- extension bridge message handling
+
+### Browser / E2E Smoke Tests
+
+Run before release or PR merge, not on every normal build:
+
+```sh
+npm run test:e2e
+```
+
+These should cover only stable app flows:
+
+- app shell loads
+- navigation works
+- empty states render
+- import dialog opens
+- map page does not crash
+
+Do not use E2E tests for pixel-perfect checks or real Strava integration.
+
+### Build
+
+Build should produce the extension artifact:
+
+```sh
+npm run build
+```
+
+Do not make `npm run build` run the full test suite by default. Use release checks for that.
+
+### Recommended Commands
+
+For normal development and CI:
+
+```sh
+npm run check
+```
+
+Expected meaning:
+
+```sh
+npm run typecheck && npm test
+```
+
+For release:
+
+```sh
+npm run check:release
+```
+
+Expected meaning:
+
+```sh
+npm run check && npm run test:e2e && npm run build
+```
+
 ## Refactoring Workflow
 
 Prefer this order:
@@ -228,4 +320,3 @@ Keep refactors and behavior fixes separate where practical. This makes review ea
 - Did I keep browser globals behind a boundary service?
 - Did I run `npm run typecheck` or document why it could not pass?
 - Did I run relevant tests for the changed area?
-

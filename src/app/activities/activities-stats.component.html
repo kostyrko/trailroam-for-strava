@@ -1,0 +1,38 @@
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-card__icon stat-card__icon--activities">
+      <app-icon name="activity" [size]="18" strokeWidth="2"></app-icon>
+    </div>
+    <div class="stat-card__body">
+      <span class="stat-card__value">{{ statCount }}</span>
+      <span class="stat-card__label">Activities</span>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card__icon stat-card__icon--route">
+      <app-icon name="route" [size]="18" strokeWidth="2"></app-icon>
+    </div>
+    <div class="stat-card__body">
+      <span class="stat-card__value">{{ statDistance }}</span>
+      <span class="stat-card__label">Total Distance</span>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card__icon stat-card__icon--time">
+      <app-icon name="clock" [size]="18" strokeWidth="2"></app-icon>
+    </div>
+    <div class="stat-card__body">
+      <span class="stat-card__value">{{ statMovingTime }}</span>
+      <span class="stat-card__label">Total Time</span>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card__icon stat-card__icon--speed">
+      <app-icon name="gauge" [size]="18" strokeWidth="2"></app-icon>
+    </div>
+    <div class="stat-card__body">
+      <span class="stat-card__value">{{ statAvgSpeed }}</span>
+      <span class="stat-card__label">Avg Speed</span>
+    </div>
+  </div>
+</div>

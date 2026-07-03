@@ -1,0 +1,20 @@
+<div class="selected-actions-bar" [class.selected-actions-bar--active]="selectionCount > 0">
+  <div class="selected-actions-bar__summary">
+    <app-icon name="check-circle" [size]="18" strokeWidth="2" [class]="'selected-actions-bar__check'"></app-icon>
+    <span>{{ selectionCount === 1 ? '1 activity selected' : selectionCount + ' activities selected' }}</span>
+  </div>
+  <div class="selected-actions-bar__actions">
+    <button class="selected-action selected-action--secondary" type="button" (click)="downloadGpx.emit()">
+      <app-icon name="download" [size]="16" strokeWidth="2"></app-icon>
+      Download GPX
+    </button>
+    <button class="selected-action selected-action--danger" type="button" (click)="deleteSelected.emit()">
+      <app-icon name="trash-2" [size]="16" strokeWidth="2"></app-icon>
+      Delete
+    </button>
+    <button class="selected-action selected-action--secondary" type="button" (click)="clearSelection.emit()">
+      <app-icon name="x" [size]="16" strokeWidth="2"></app-icon>
+      Clear Selection
+    </button>
+  </div>
+</div>

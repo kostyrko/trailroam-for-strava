@@ -33,7 +33,10 @@ import { GpxExportService } from '../shared/gpx-export.service';
 import { StravaSessionService } from '../strava/strava-session.service';
 import { StravaRouteNormalizer } from '../strava/strava-route-normalizer';
 import { LoadingSpinnerComponent } from '../shared/loading-spinner.component';
-import { DateRangePickerComponent } from '../shared/date-range-picker.component';
+import { ActivitiesToolbarComponent } from './activities-toolbar.component';
+import { ActivitiesStatsComponent } from './activities-stats.component';
+import { ActivitiesSourceFilterComponent } from './activities-source-filter.component';
+import { ActivitiesSelectedActionsComponent } from './activities-selected-actions.component';
 import { RouteSparklineComponent } from './route-sparkline.component';
 import { ActivityDetailPanelComponent } from './activity-detail-panel.component';
 import { type ActivityCategory, type ActivityRecord, type ActivityRouteRecord, type RouteGeometryRecord } from '../storage/storage.models';
@@ -149,7 +152,7 @@ function routeStatusLabel(status: string): string {
 
 @Component({
   selector: 'app-activities-page',
-  imports: [LoadingSpinnerComponent, RouteSparklineComponent, ActivityDetailPanelComponent, IconComponent, DateRangePickerComponent],
+  imports: [LoadingSpinnerComponent, RouteSparklineComponent, ActivityDetailPanelComponent, IconComponent, ActivitiesToolbarComponent, ActivitiesStatsComponent, ActivitiesSourceFilterComponent, ActivitiesSelectedActionsComponent],
   templateUrl: './activities-page.component.html',
   styleUrl: './activities-page.component.scss',
 })
@@ -365,6 +368,15 @@ export class ActivitiesPageComponent {
   });
 
   protected readonly totalFilteredCount = computed(() => this.allFiltered().length);
+
+  protected readonly activeSource = computed(() => {
+    const s = this.sourceFilter();
+    if (s.size === 0) return 'all';
+    if (s.has('strava')) return 'strava';
+    if (s.has('imported-completed')) return 'imported-completed';
+    if (s.has('imported-planned')) return 'imported-planned';
+    return 'all';
+  });
 
   protected readonly sourceFilterCounts = computed(() => {
     const items = this.activities();

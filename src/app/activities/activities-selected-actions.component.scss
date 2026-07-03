@@ -1,0 +1,98 @@
+.selected-actions-bar {
+  align-items: center;
+  background: #eef5f0;
+  border: 1px solid #dce6df;
+  border-radius: 10px;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 0;
+  padding: 10px 16px;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.selected-actions-bar.selected-actions-bar--active {
+  background: #1f6f50;
+  border-color: #1f6f50;
+}
+
+.selected-actions-bar__summary {
+  align-items: center;
+  color: #63746a;
+  display: inline-flex;
+  font-size: 0.875rem;
+  font-weight: 700;
+  gap: 8px;
+}
+
+.selected-actions-bar--active .selected-actions-bar__summary {
+  color: #ffffff;
+}
+
+.selected-actions-bar__check {
+  flex-shrink: 0;
+}
+
+.selected-actions-bar__actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.selected-action {
+  align-items: center;
+  background: transparent;
+  border: 1px solid #cbd8d0;
+  border-radius: 8px;
+  color: #314b3f;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 14px;
+  white-space: nowrap;
+}
+
+.selected-action:hover {
+  background: #d6e8dc;
+  border-color: #b6cdbe;
+}
+
+.selected-actions-bar--active .selected-action {
+  background: rgb(255 255 255 / 12%);
+  border-color: rgb(255 255 255 / 25%);
+  color: #ffffff;
+}
+
+.selected-actions-bar--active .selected-action:hover {
+  background: rgb(255 255 255 / 30%);
+  border-color: rgb(255 255 255 / 50%);
+}
+
+.selected-actions-bar--active .selected-action--secondary:hover {
+  background: rgb(255 255 255 / 30%);
+  border-color: rgb(255 255 255 / 50%);
+}
+
+.selected-actions-bar--active .selected-action--danger {
+  border-color: rgb(255 255 255 / 35%);
+}
+
+.selected-actions-bar--active .selected-action--danger:hover {
+  background: #8f2d22;
+  border-color: #8f2d22;
+}
+
+@media (max-width: 640px) {
+  .selected-actions-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .selected-actions-bar__actions {
+    flex-wrap: wrap;
+  }
+}

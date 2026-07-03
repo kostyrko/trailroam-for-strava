@@ -30,6 +30,8 @@ import { IconComponent } from '../shared/icon.component';
 import { ActivityCardComponent } from './activity-card.component';
 import { ActivityDetailPanelComponent } from '../activities/activity-detail-panel.component';
 import { MapActivityPanelComponent } from './map-activity-panel.component';
+import { MapNoticeBannersComponent } from './map-notice-banners.component';
+import { MapFilterOverlayComponent } from './map-filter-overlay.component';
 
 function formatDurationHours(seconds: number | undefined): string {
   if (seconds === undefined || seconds === 0) { return '—'; }
@@ -82,7 +84,7 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
 
 @Component({
   selector: 'app-map-page',
-  imports: [MapLibreMapComponent, LoadingSpinnerComponent, IconComponent, ActivityCardComponent, ActivityDetailPanelComponent, MapActivityPanelComponent, DateRangePickerComponent],
+  imports: [MapLibreMapComponent, LoadingSpinnerComponent, ActivityCardComponent, ActivityDetailPanelComponent, MapActivityPanelComponent, MapNoticeBannersComponent, MapFilterOverlayComponent],
   templateUrl: './map-page.component.html',
   styleUrl: './map-page.component.scss',
 })

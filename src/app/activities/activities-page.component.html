@@ -29,170 +29,55 @@
           </div>
         }
 
-        <div class="activities-toolbar">
-          <div class="search-field">
-            <app-icon name="search" [size]="16" strokeWidth="2" [class]="'search-field__icon'"></app-icon>
-            <input
-              class="search-field__input"
-              type="text"
-              aria-label="Search activities"
-              placeholder="Search activities..."
-              [value]="nameSearch()"
-              (input)="onNameSearchChange($any($event.target).value)"
-            />
-            @if (nameSearch()) {
-              <button class="search-field__clear" type="button" (click)="onNameSearchChange('')" aria-label="Clear search">&times;</button>
-            }
-          </div>
+        <app-activities-toolbar
+          [nameSearch]="nameSearch()"
+          [sportTypeFilter]="sportTypeFilter()"
+          [datePresetLabel]="datePresetLabel()"
+          [datePresetOpen]="datePresetOpen()"
+          [dateFrom]="dateFrom()"
+          [dateTo]="dateTo()"
+          [filterMenuOpen]="filterMenuOpen()"
+          [sportTypeGroups]="sportTypeGroups()"
+          [CATEGORY_COLORS]="CATEGORY_COLORS"
+          (nameSearchChange)="onNameSearchChange($event)"
+          (sportTypeChange)="onSportTypeChange($event)"
+          (categoryFilterChange)="onCategoryFilterChange($event)"
+          (toggleFilterMenu)="toggleFilterMenu()"
+          (closeFilterMenu)="closeFilterMenu()"
+          (toggleDatePreset)="datePresetOpen.set(!datePresetOpen())"
+          (datePresetClose)="datePresetOpen.set(false)"
+          (rangeApplied)="onRangeApplied($event)"
+          (importClick)="showImportOverlay()"
+          (fileSelected)="onFileSelected($event)"
+        />
 
-          <div class="toolbar-select" tabindex="0" (click)="toggleFilterMenu()" (keydown.enter)="toggleFilterMenu()" (blur)="closeFilterMenu()" aria-label="Filter by activity type">
-            <span class="toolbar-select__trigger">
-              @if (sportTypeFilter(); as sel) {
-                @if (sel.startsWith('__cat__')) {
-                  <span class="cat-dot" [style.background]="CATEGORY_COLORS[sel.slice(7)]"></span>{{ formatCategory(sel.slice(7)) }}
-                } @else {
-                  <span class="cat-dot" [style.background]="CATEGORY_COLORS[mapSportTypeToCategory(sel)]"></span>{{ formatSportType(sel) }}
-                }
-              } @else {
-                All Activities
-              }
-              <app-icon name="chevron-down" [size]="12" strokeWidth="2" [class]="'toolbar-select__arrow'"></app-icon>
-            </span>
-            @if (filterMenuOpen()) {
-              <ul class="toolbar-select__options sport-type-filter" (mousedown)="$event.preventDefault()" (click)="$event.stopPropagation()">
-                <li role="option" (click)="onSportTypeChange('')" [class.active]="!sportTypeFilter()">All Activities</li>
-                @for (group of sportTypeGroups(); track group.category) {
-                  <li class="sport-type-group-header" role="option" (click)="onCategoryFilterChange(group.category)" [class.active]="sportTypeFilter() === '__cat__' + group.category">
-                    <span class="cat-dot" [style.background]="CATEGORY_COLORS[group.category]"></span>{{ formatCategory(group.category) }}
-                  </li>
-                  @for (st of group.sportTypes; track st) {
-                    <li class="sport-type-option" role="option" (click)="onSportTypeChange(st)" [class.active]="sportTypeFilter() === st">
-                      <span class="sport-type-label">{{ formatSportType(st) }}</span>
-                    </li>
-                  }
-                }
-              </ul>
-            }
-          </div>
+        <app-activities-stats
+          [statCount]="statCount()"
+          [statDistance]="statDistance()"
+          [statMovingTime]="statMovingTime()"
+          [statAvgSpeed]="statAvgSpeed()"
+        />
 
-          <div class="toolbar-select" tabindex="0" (click)="datePresetOpen.set(!datePresetOpen())" (keydown.enter)="datePresetOpen.set(!datePresetOpen())" (keydown.escape)="datePresetOpen.set(false)" aria-label="Filter by date range">
-            <span class="toolbar-select__trigger">
-              <app-icon name="calendar" [size]="14" strokeWidth="2"></app-icon>
-              {{ datePresetLabel() }}
-              <app-icon name="chevron-down" [size]="12" strokeWidth="2" [class]="'toolbar-select__arrow'"></app-icon>
-            </span>
-          </div>
+        <app-activities-source-filter
+          [sourceFilterExpanded]="sourceFilterExpanded()"
+          [activeSource]="activeSource()"
+          [allCount]="sourceFilterCounts().all"
+          [stravaCount]="sourceFilterCounts().strava"
+          [importedCompletedCount]="sourceFilterCounts().importedCompleted"
+          [importedPlannedCount]="sourceFilterCounts().importedPlanned"
+          (toggleExpanded)="toggleSourceFilterExpanded()"
+          (selectAll)="resetSourceFilter()"
+          (selectStrava)="toggleSourceFilter('strava')"
+          (selectImportedCompleted)="toggleSourceFilter('imported-completed')"
+          (selectImportedPlanned)="toggleSourceFilter('imported-planned')"
+        />
 
-          @if (datePresetOpen()) {
-            <div class="drp-backdrop" (mousedown)="datePresetOpen.set(false)"></div>
-            <div class="drp-floating">
-              <app-date-range-picker
-                [appliedDateFrom]="dateFrom()"
-                [appliedDateTo]="dateTo()"
-                (applied)="onRangeApplied($event)"
-                (closed)="datePresetOpen.set(false)"
-              />
-            </div>
-          }
-          <button class="import-btn" type="button" (click)="showImportOverlay()">
-            <app-icon name="upload" [size]="14" strokeWidth="2"></app-icon>
-            Import Activity
-          </button>
-          <input
-            #fileInput
-            type="file"
-            accept=".gpx,.fit,.tcx"
-            style="display:none"
-            (change)="onFileSelected($event)"
-          />
-        </div>
-
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-card__icon stat-card__icon--activities">
-              <app-icon name="activity" [size]="18" strokeWidth="2"></app-icon>
-            </div>
-            <div class="stat-card__body">
-              <span class="stat-card__value">{{ statCount() }}</span>
-              <span class="stat-card__label">Activities</span>
-            </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-card__icon stat-card__icon--route">
-              <app-icon name="route" [size]="18" strokeWidth="2"></app-icon>
-            </div>
-            <div class="stat-card__body">
-              <span class="stat-card__value">{{ statDistance() }}</span>
-              <span class="stat-card__label">Total Distance</span>
-            </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-card__icon stat-card__icon--time">
-              <app-icon name="clock" [size]="18" strokeWidth="2"></app-icon>
-            </div>
-            <div class="stat-card__body">
-              <span class="stat-card__value">{{ statMovingTime() }}</span>
-              <span class="stat-card__label">Total Time</span>
-            </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-card__icon stat-card__icon--speed">
-              <app-icon name="gauge" [size]="18" strokeWidth="2"></app-icon>
-            </div>
-            <div class="stat-card__body">
-              <span class="stat-card__value">{{ statAvgSpeed() }}</span>
-              <span class="stat-card__label">Avg Speed</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="source-filter-collapsible-header" (click)="toggleSourceFilterExpanded()" role="button" tabindex="0" (keydown.enter)="toggleSourceFilterExpanded()" aria-label="Toggle source filter">
-          <span class="source-filter-toggle">{{ sourceFilterExpanded() ? '&#9660;' : '&#9654;' }}</span>
-          <span class="source-filter-label">Source filter</span>
-        </div>
-        <div class="source-filter-collapsible-body" [class.source-filter-collapsible-body--open]="sourceFilterExpanded()">
-          <div class="source-filter-bar">
-            @let sc = sourceFilterCounts();
-            @let sf = sourceFilter();
-            <button class="source-filter-chip" [class.source-filter-chip--active]="sf.size === 0" (click)="resetSourceFilter()">
-              All Activities
-              <span class="source-filter-count">{{ sc.all }}</span>
-            </button>
-            <button class="source-filter-chip" [class.source-filter-chip--active]="sf.has('strava')" (click)="toggleSourceFilter('strava')">
-              ⚡ Strava (Synced)
-              <span class="source-filter-count">{{ sc.strava }}</span>
-            </button>
-            <button class="source-filter-chip" [class.source-filter-chip--active]="sf.has('imported-completed')" (click)="toggleSourceFilter('imported-completed')">
-              ⬆ Imported (Done)
-              <span class="source-filter-count">{{ sc.importedCompleted }}</span>
-            </button>
-            <button class="source-filter-chip" [class.source-filter-chip--active]="sf.has('imported-planned')" (click)="toggleSourceFilter('imported-planned')">
-              ◌ Imported (Planned)
-              <span class="source-filter-count">{{ sc.importedPlanned }}</span>
-            </button>
-          </div>
-        </div>
-
-        <div class="selected-actions-bar" [class.selected-actions-bar--active]="selectionCount() > 0">
-            <div class="selected-actions-bar__summary">
-              <app-icon name="check-circle" [size]="18" strokeWidth="2" [class]="'selected-actions-bar__check'"></app-icon>
-              <span>{{ selectionCount() === 1 ? '1 activity selected' : selectionCount() + ' activities selected' }}</span>
-            </div>
-            <div class="selected-actions-bar__actions">
-              <button class="selected-action selected-action--secondary" type="button" (click)="downloadSelectedGpx()">
-                <app-icon name="download" [size]="16" strokeWidth="2"></app-icon>
-                Download GPX
-              </button>
-              <button class="selected-action selected-action--danger" type="button" (click)="deleteSelected()">
-                <app-icon name="trash-2" [size]="16" strokeWidth="2"></app-icon>
-                Delete
-              </button>
-              <button class="selected-action selected-action--secondary" type="button" (click)="clearSelection()">
-                <app-icon name="x" [size]="16" strokeWidth="2"></app-icon>
-                Clear Selection
-              </button>
-            </div>
-          </div>
+        <app-activities-selected-actions
+          [selectionCount]="selectionCount()"
+          (downloadGpx)="downloadSelectedGpx()"
+          (deleteSelected)="deleteSelected()"
+          (clearSelection)="clearSelection()"
+        />
 
         @if (status() !== 'empty') {
         <p class="activities-count">
@@ -216,6 +101,13 @@
               <p class="import-drop-formats">Supports: GPX &#8226; FIT &#8226; TCX</p>
             </div>
           </div>
+          <input
+            #fileInput
+            type="file"
+            accept=".gpx,.fit,.tcx"
+            style="display:none"
+            (change)="onFileSelected($event)"
+          />
         }
 
         <div class="activities-table-wrap" (dragover)="onDragOver($event)" (dragleave)="onDragLeave($event)" (drop)="onDrop($event)">

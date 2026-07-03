@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { mapSportTypeToCategory, formatSportType } from './activity-category';
 import type { ActivityCategory } from '../storage/storage.models';
+import { logger } from './logger';
 
 export interface ParsedTrackPoint {
   lat: number;
@@ -290,16 +291,16 @@ export class ActivityParserService {
       }
     }
 
-    console.log('[GPX] coords:', coordinates.length, 'hasTimeInTrkpt:', hasTimeInTrkpt);
-    console.log('[GPX] first timestamp:', timestamps[0], 'last:', timestamps[timestamps.length - 1]);
-    console.log('[GPX] first elevation:', elevations[0], 'has any elevation:', elevations.some(e => e > 0));
+    logger.gpx('coords:', coordinates.length, 'hasTimeInTrkpt:', hasTimeInTrkpt);
+    logger.gpx('first timestamp:', timestamps[0], 'last:', timestamps[timestamps.length - 1]);
+    logger.gpx('first elevation:', elevations[0], 'has any elevation:', elevations.some(e => e > 0));
     const eleInText = /<ele[^>]*>/i.test(text);
     const timeInText = /<time[^>]*>/i.test(text);
-    console.log('[GPX] <ele> in text:', eleInText, '<time> in text:', timeInText);
+    logger.gpx('<ele> in text:', eleInText, '<time> in text:', timeInText);
 
     const stats = computeDerivedStats(coordinates, elevations, timestamps);
-    console.log('[GPX] stats movingTimeSeconds:', stats.movingTimeSeconds, 'startTime:', stats.startTime, 'elevGain:', stats.totalElevationGainMeters, 'elevLoss:', stats.totalElevationLossMeters);
-    console.log('[GPX] HR values:', heartRateValues.length, 'cadence:', cadenceValues.length, 'temp:', temperatureValues.length, 'power:', powerValues.length);
+    logger.gpx('stats movingTimeSeconds:', stats.movingTimeSeconds, 'startTime:', stats.startTime, 'elevGain:', stats.totalElevationGainMeters, 'elevLoss:', stats.totalElevationLossMeters);
+    logger.gpx('HR values:', heartRateValues.length, 'cadence:', cadenceValues.length, 'temp:', temperatureValues.length, 'power:', powerValues.length);
 
     const heuristics = suggestSportType(stats.averageSpeedMetersPerSecond, stats.totalDistanceMeters, stats.totalElevationGainMeters);
 

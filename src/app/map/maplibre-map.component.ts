@@ -13,6 +13,7 @@ import {
 } from '@angular/core';
 import { type Map } from 'maplibre-gl';
 import { AVAILABLE_PROVIDERS, BasemapProviderService } from './basemap-provider.service';
+import { logger } from '../shared/logger';
 import { type BasemapProviderConfig } from './basemap-provider';
 import { type MapRouteFeature } from './mock-routes';
 import type { RouteBounds } from '../storage/storage.models';
@@ -113,7 +114,7 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
   private drainPendingTasks(source: string): void {
     const tasks = this.pendingReadyTasks;
     this.pendingReadyTasks = [];
-    console.log(`[TRACE] drainPendingTasks from ${source}: ${tasks.length} pending tasks, ${this.cachedRoutes.length} cached routes`);
+    logger.trace(`drainPendingTasks from ${source}: ${tasks.length} pending tasks, ${this.cachedRoutes.length} cached routes`);
     for (const t of tasks) { t(); }
   }
 
@@ -124,12 +125,12 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
   private queueOrRender(routes: MapRouteFeature[], selectedId?: string): void {
     const map = this.mapInstance;
     if (!map) {
-      console.log(`[TRACE] queueOrRender: map null, queuing ${routes.length} routes`);
+      logger.trace(`queueOrRender: map null, queuing ${routes.length} routes`);
       this.pendingReadyTasks.push(() => this.renderRouteFeatures(routes, selectedId));
       return;
     }
     if (map.isStyleLoaded()) {
-      console.log(`[TRACE] queueOrRender: style loaded, rendering ${routes.length} routes directly`);
+      logger.trace(`queueOrRender: style loaded, rendering ${routes.length} routes directly`);
       this.routeRendererService.renderRoutes(routes, (route) => this.routeSelected.emit(route));
       if (selectedId) {
         this.routeRendererService.selectRoute(selectedId);
@@ -140,7 +141,7 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
       }
       return;
     }
-    console.log(`[TRACE] queueOrRender: waiting for style, will poll for ${routes.length} routes`);
+    logger.trace(`queueOrRender: waiting for style, will poll for ${routes.length} routes`);
     this.pollForStyle(routes, selectedId);
   }
 
@@ -163,7 +164,7 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
       return;
     }
     if (attempt >= 50) {
-      console.warn(`[TRACE] pollForStyle: giving up after ${attempt} attempts`);
+      logger.warn(`pollForStyle: giving up after ${attempt} attempts`);
       return;
     }
     setTimeout(() => this.pollForStyle(routes, selectedId, attempt + 1), 100);
@@ -207,7 +208,7 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
       const basemapProvider = this.basemapProviderService.getSelectedProvider();
       map = await this.mapLibreService.createMap(this.mapContainer.nativeElement, basemapProvider);
     } catch (err) {
-      console.error('MapLibre initialization failed:', err);
+      logger.error('MapLibre initialization failed:', err);
       this.emitBasemapLoadFailed();
       return;
     }
@@ -240,20 +241,20 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
 
     map.on('error', (err) => {
       if (err?.error?.status === 404 || err?.error?.status === 403 || err?.error?.status === 500) {
-        console.error('MapLibre runtime error:', err);
+        logger.error('MapLibre runtime error:', err);
         this.emitBasemapLoadFailed();
       }
     });
 
     const render = () => {
-      console.log('[TRACE] ngAfterViewInit render() called');
+      logger.trace('ngAfterViewInit render() called');
       this.drainPendingTasks('ngAfterViewInit');
       const routes = this.cachedRoutes;
       if (routes.length > 0) {
-        console.log(`[TRACE] ngAfterViewInit render: rendering ${routes.length} cached routes`);
+        logger.trace(`ngAfterViewInit render: rendering ${routes.length} cached routes`);
         this.routeRendererService.renderRoutes(routes, (route) => this.routeSelected.emit(route));
       } else {
-        console.log('[TRACE] ngAfterViewInit render: no cached routes');
+        logger.trace('ngAfterViewInit render: no cached routes');
       }
     };
 

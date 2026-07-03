@@ -2,6 +2,7 @@ import { Component, computed, Inject, inject, signal } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { environment } from '../environments/environment';
+import { logger } from './shared/logger';
 import { IconComponent } from './shared/icon.component';
 import { ConfirmService } from './shared/confirm.service';
 import { ToastComponent } from './shared/toast.component';
@@ -121,11 +122,11 @@ export class App {
   private listenForMessages(): void {
     const c = (globalThis as any).chrome;
     if (!c?.runtime?.onMessage) { return; }
-    console.log('[Trailroam] Registering runtime message listener');
+    logger.info('Registering runtime message listener');
     c.runtime.onMessage.addListener((msg: any, _sender: any, sendResponse: any) => {
-      console.log('[Trailroam] Runtime message received', msg?.type, msg?.payload ? '(has payload)' : '(no payload)');
+      logger.info('Runtime message received', msg?.type, msg?.payload ? '(has payload)' : '(no payload)');
       if (msg?.type === 'TRAILROAM_SYNC_DONE') {
-        console.log('[Trailroam] Sync done notification received');
+        logger.info('Sync done notification received');
         this.loadSyncSummary();
         this.loadLastSyncLabel();
         this.completeSync();
@@ -140,7 +141,7 @@ export class App {
         return true;
       }
       if (msg?.type === 'TRAILROAM_STORE_ACTIVITIES') {
-        console.log('[Trailroam] Store activities received, activities:', msg.payload?.activities?.length ?? 0, 'routes:', msg.payload?.routes?.length ?? 0);
+        logger.info('Store activities received, activities:', msg.payload?.activities?.length ?? 0, 'routes:', msg.payload?.routes?.length ?? 0);
         this.dataRefresh.syncProgressLabel.set('Storing data...');
         this.storeQueue = this.storeQueue.then(() => this.storeImportedData(msg.payload));
       }

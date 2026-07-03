@@ -1,7 +1,8 @@
 var syncId = Math.random().toString(36).slice(2, 8);
+var DEBUG = false;
 
 function log(msg, data) {
-  console.log('[Trailroam:cs:' + syncId + ']', msg, data !== undefined ? data : '');
+  if (DEBUG) console.log('[Trailroam:cs:' + syncId + ']', msg, data !== undefined ? data : '');
 }
 
 var urlParam = getUrlParam('trailroamSync') === 'true' ? 'sync' : getUrlParam('trailroamSyncMissing') === 'true' ? 'missing' : null;

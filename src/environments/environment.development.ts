@@ -1,4 +1,5 @@
 export const environment = {
+  debug: true,
   stravaApiBase: '',
   appName: 'TrailRoam for Strava',
   appSlug: 'trailroam-for-strava',

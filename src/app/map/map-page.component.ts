@@ -33,6 +33,7 @@ import { ActivityDetailPanelComponent } from '../activities/activity-detail-pane
 import { MapActivityPanelComponent } from './map-activity-panel.component';
 import { MapNoticeBannersComponent } from './map-notice-banners.component';
 import { MapFilterOverlayComponent } from './map-filter-overlay.component';
+import { logger } from '../shared/logger';
 
 const ROUTES_WARN_THRESHOLD = 1_000;
 const POINTS_WARN_THRESHOLD = 1_000_000;
@@ -464,12 +465,12 @@ export class MapPage implements AfterViewInit {
 
   private tryRenderRoutes(source?: string): void {
     const src = source ?? 'unknown';
-    console.log(`[TRACE] tryRenderRoutes from ${src}: dataLoaded=${this.dataLoaded()}, mapReady=${this.mapReady()}, mapComp=${!!this.mapComponent}, filteredRoutes=${this.filteredRoutes().length}`);
-    if (!this.dataLoaded() || !this.mapReady()) { console.log(`[TRACE] tryRenderRoutes from ${src}: SKIP (not ready)`); return; }
+    logger.trace(`tryRenderRoutes from ${src}: dataLoaded=${this.dataLoaded()}, mapReady=${this.mapReady()}, mapComp=${!!this.mapComponent}, filteredRoutes=${this.filteredRoutes().length}`);
+    if (!this.dataLoaded() || !this.mapReady()) { logger.trace(`tryRenderRoutes from ${src}: SKIP (not ready)`); return; }
     const routes = this.filteredRoutes();
     const mapComp = this.mapComponent;
     const selectId = this.selectedActivityId();
-    if (!mapComp) { console.log(`[TRACE] tryRenderRoutes from ${src}: SKIP (no mapComp)`); return; }
+    if (!mapComp) { logger.trace(`tryRenderRoutes from ${src}: SKIP (no mapComp)`); return; }
     mapComp.renderRouteFeatures(routes, selectId ?? undefined);
   }
 
@@ -488,10 +489,10 @@ export class MapPage implements AfterViewInit {
     setTimeout(() => {
       if (this.retryDestroyed()) { return; }
       if (this.dataLoaded() && this.mapReady()) {
-        console.log('[TRACE] scheduleRenderRetry: condition met, calling tryRenderRoutes');
+        logger.trace('scheduleRenderRetry: condition met, calling tryRenderRoutes');
         this.tryRenderRoutes('retry');
       } else {
-        console.log(`[TRACE] scheduleRenderRetry: retry ${this.renderRetryCount}/${this.MAX_RENDER_RETRIES}, still waiting. dataLoaded=${this.dataLoaded()}, mapReady=${this.mapReady()}`);
+        logger.trace(`scheduleRenderRetry: retry ${this.renderRetryCount}/${this.MAX_RENDER_RETRIES}, still waiting. dataLoaded=${this.dataLoaded()}, mapReady=${this.mapReady()}`);
         this.scheduleRenderRetry();
       }
     }, 100);

@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { LocalDataService, type TrailroamBackupFile } from './local-data.service';
 import { TRAILROAM_REPOSITORIES } from './repositories/repositories.token';
 import { TrailroamRepositories } from './repositories';
-import { DATABASE_SCHEMA_VERSION } from './storage.models';
+import { BACKUP_SCHEMA_VERSION } from './local-data.service';
 
 describe('LocalDataService', () => {
   it('should clear synced local data while leaving settings and access state untouched', async () => {
@@ -62,7 +62,7 @@ describe('LocalDataService', () => {
 
     const backup = await TestBed.inject(LocalDataService).backup();
 
-    expect(backup.schemaVersion).toBe(DATABASE_SCHEMA_VERSION);
+    expect(backup.schemaVersion).toBe(BACKUP_SCHEMA_VERSION);
     expect(backup.exportedAt).toBeTruthy();
     expect(backup.settings).toHaveLength(1);
     expect(backup.accessState).toHaveLength(1);
@@ -82,9 +82,24 @@ describe('LocalDataService', () => {
       expect(() => service.validateBackup({} as any)).toThrow('missing or invalid schemaVersion');
     });
 
+    it('should reject unsupported future schema version', () => {
+      const service = TestBed.inject(LocalDataService);
+      expect(() => service.validateBackup({ schemaVersion: 999, settings: [], accessState: [], syncState: [], activities: [], activityRoutes: [] } as any)).toThrow('Unsupported backup schema version');
+    });
+
     it('should reject object without settings array', () => {
       const service = TestBed.inject(LocalDataService);
       expect(() => service.validateBackup({ schemaVersion: 1 } as any)).toThrow('missing or invalid settings');
+    });
+
+    it('should reject invalid top-level shape (string instead of object)', () => {
+      const service = TestBed.inject(LocalDataService);
+      expect(() => service.validateBackup('not-an-object')).toThrow('not an object');
+    });
+
+    it('should reject invalid record shape in settings (missing createdAt)', () => {
+      const service = TestBed.inject(LocalDataService);
+      expect(() => service.validateBackup({ schemaVersion: 1, settings: [{ id: 'default' }], accessState: [], syncState: [], activities: [], activityRoutes: [] } as any)).not.toThrow();
     });
 
     it('should accept valid backup', () => {
@@ -137,14 +152,15 @@ describe('LocalDataService', () => {
         ],
       });
 
+      const now = '2025-01-01T00:00:00Z';
       const backup: TrailroamBackupFile = {
         schemaVersion: 1,
-        exportedAt: '2025-01-01T00:00:00Z',
-        settings: [{ id: 'default', mapProvider: 'openfreemap' }],
-        accessState: [{ id: 'default', status: 'beta_unrestricted' }],
+        exportedAt: now,
+        settings: [{ id: 'default', mapProvider: 'openfreemap', createdAt: now, updatedAt: now }],
+        accessState: [{ id: 'default', status: 'beta_unrestricted', updatedAt: now }],
         syncState: [{ id: 'default', status: 'completed' }],
-        activities: [{ id: 'strava:1', name: 'Morning Ride' }],
-        activityRoutes: [{ activityId: 'strava:1', coordinates: [] as any }],
+        activities: [{ id: 'strava:1', provider: 'strava', providerActivityId: '1', name: 'Morning Ride', sportType: 'Ride', activityCategory: 'ride', startDate: now, hasRoute: true, routeSyncStatus: 'route_synced', importedAt: now, updatedAt: now }],
+        activityRoutes: [{ activityId: 'strava:1', providerActivityId: '1', simplifiedCoordinates: [[19.9, 50.05]], simplifiedPointCount: 1, pointCount: 1, syncedAt: '2025-01-01T00:00:00Z', updatedAt: '2025-01-01T00:00:00Z' }],
       };
 
       const result = await TestBed.inject(LocalDataService).restore(backup);

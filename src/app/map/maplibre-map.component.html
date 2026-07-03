@@ -62,7 +62,7 @@
         </button>
         @if (sliderVisible()) {
           <div class="map-opacity-slider-wrapper">
-            <input #opacitySlider class="map-opacity-slider" type="range" min="0" max="100" [value]="opacitySliderValue" (input)="onOpacityChange($any($event.target).value)" aria-label="Adjust layer opacity" />
+            <input #opacitySlider class="map-opacity-slider" type="range" min="0" max="100" [value]="opacitySliderValue()" (input)="onOpacityChange($any($event.target).value)" aria-label="Adjust layer opacity" />
           </div>
         }
       </div>

@@ -92,7 +92,7 @@
         @if (dragOver()) {
           <div class="import-drop-overlay" (click)="dismissImportOverlay()" (dragleave)="onDragLeave($event)" (drop)="onDrop($event)" (dragover)="onDragOver($event)">
             <div class="import-drop-card" (click)="openFilePicker(); $event.stopPropagation()" role="button" tabindex="0" (keydown.enter)="openFilePicker()" aria-label="Open file picker">
-              <button class="import-drop-close" type="button" (click)="dismissImportOverlay()" aria-label="Close import panel">
+              <button class="import-drop-close" type="button" (click)="dismissImportOverlay(); $event.stopPropagation()" aria-label="Close import panel">
                 <app-icon name="x" [size]="14" strokeWidth="2"></app-icon>
               </button>
               <span class="import-drop-icon">&#11014;</span>

@@ -1,0 +1,99 @@
+    <div class="import-overlay" (click)="dialogRef.close()">
+      <div class="import-dialog" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="import-title">
+        <button class="import-close" type="button" (click)="dialogRef.close()" aria-label="Close dialog">
+          <app-icon name="x" [size]="14" strokeWidth="2"></app-icon>
+        </button>
+
+        <div class="import-layout">
+          <div class="import-left">
+            <div #mapContainer class="import-map" aria-label="Activity route preview map"></div>
+          </div>
+          <div class="import-right">
+            <h2 class="import-title" id="import-title">Import Activity</h2>
+            <p class="import-file">{{ data.fileName }}</p>
+
+            @if (data.isDuplicate) {
+              <div class="import-duplicate-warn">
+                A similar activity already exists.
+              </div>
+            }
+
+            <div class="import-field">
+              <label class="import-label" for="import-name">Activity name</label>
+              <input
+                id="import-name"
+                class="import-input"
+                [(ngModel)]="name"
+                (keydown.enter)="onImport()"
+                maxlength="100"
+                placeholder="Activity name"
+                #nameInput
+                autocomplete="off"
+              />
+            </div>
+
+            <div class="import-field">
+              <label class="import-label" for="import-sport">Sport type</label>
+              <div class="import-select-wrap">
+                <span class="import-select-emoji">{{ sportTypeEmoji(sportType()) }}</span>
+                <select
+                  id="import-sport"
+                  class="import-select"
+                  [ngModel]="sportType()"
+                  (ngModelChange)="sportType.set($event)"
+                >
+                  @for (st of SPORT_TYPES; track st) {
+                    <option [value]="st">{{ formatSportType(st) }}</option>
+                  }
+                </select>
+                <app-icon name="chevron-down" [size]="14" strokeWidth="2" [class]="'import-select-arrow'"></app-icon>
+              </div>
+              <p class="import-sport-hint">{{ sportHint() }}</p>
+            </div>
+
+            <div class="import-field">
+              <label class="import-label">Activity status</label>
+              <div class="import-status-group">
+                <label class="import-status-option">
+                  <input type="radio" name="activityStatus" [value]="'completed'" [(ngModel)]="activityStatus" />
+                  <span class="import-status-dot"></span>
+                  Completed
+                </label>
+                <label class="import-status-option">
+                  <input type="radio" name="activityStatus" [value]="'planned'" [(ngModel)]="activityStatus" />
+                  <span class="import-status-dot"></span>
+                  Planned
+                </label>
+              </div>
+            </div>
+
+            <div class="import-stats">
+              <div class="import-stat">
+                <span class="import-stat-value">{{ formatDistance(data.parsed.totalDistanceMeters) }}</span>
+                <span class="import-stat-label">Distance</span>
+              </div>
+              <div class="import-stat">
+                <span class="import-stat-value">{{ formatDuration(data.parsed.movingTimeSeconds) }}</span>
+                <span class="import-stat-label">Moving time</span>
+              </div>
+              <div class="import-stat">
+                <span class="import-stat-value">{{ data.parsed.totalElevationGainMeters.toFixed(0) }} m</span>
+                <span class="import-stat-label">Elevation</span>
+              </div>
+              <div class="import-stat">
+                <span class="import-stat-value">{{ formatDateShort(data.parsed.startTime) }}</span>
+                <span class="import-stat-label">Date</span>
+              </div>
+            </div>
+
+            <div class="import-actions">
+              <button class="import-btn import-btn--secondary" type="button" (click)="dialogRef.close()">Cancel</button>
+              <button class="import-btn import-btn--primary" type="button" [disabled]="!canImport()" (click)="onImport()">
+                <app-icon name="check-circle" [size]="14" strokeWidth="2"></app-icon>
+                Import
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>

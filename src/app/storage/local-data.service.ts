@@ -10,7 +10,7 @@ export interface TrailroamBackupFile {
   syncState: unknown[];
   activities: unknown[];
   activityRoutes: unknown[];
-  routeGeometry: unknown[];
+  routeGeometry?: unknown[];
 }
 
 export interface RestoreResult {

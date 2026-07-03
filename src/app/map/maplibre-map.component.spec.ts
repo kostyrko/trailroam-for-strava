@@ -41,7 +41,8 @@ function makeMockRoute(overrides: Partial<MapRouteFeature> = {}): MapRouteFeatur
     route: {
       activityId: 'test:1',
       providerActivityId: '1',
-      coordinates: [[19.9, 50.05], [19.91, 50.06]],
+      simplifiedCoordinates: [[19.9, 50.05], [19.91, 50.06]],
+      simplifiedPointCount: 2,
       pointCount: 2,
       bounds: { west: 19.9, south: 50.05, east: 19.91, north: 50.06 },
       syncedAt: '2024-01-01T00:00:00Z',

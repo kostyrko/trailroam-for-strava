@@ -33,6 +33,7 @@ describe('App', () => {
           useValue: {
             activities: { put: vi.fn(), get: vi.fn(), list: vi.fn(), count: vi.fn().mockResolvedValue(activitiesCount), clear: vi.fn(), upsert: vi.fn() },
             activityRoutes: { put: vi.fn(), get: vi.fn(), list: vi.fn(), count: vi.fn().mockResolvedValue(routesCount), clear: vi.fn() },
+            routeGeometry: { list: vi.fn().mockResolvedValue([]), clear: vi.fn() },
             syncState: { put: vi.fn(), get: vi.fn().mockImplementation(syncStateGet), clear: vi.fn() },
             syncHistory: { put: vi.fn(), list: vi.fn(), clear: vi.fn() },
             settings: { put: vi.fn(), get: vi.fn(), clear: vi.fn(), getOrCreateDefault: vi.fn().mockResolvedValue({ id: 'default', mapProvider: 'openfreemap', createdAt: '2024-01-01', updatedAt: '2024-01-01' }) },
@@ -218,7 +219,8 @@ describe('MapPage', () => {
   const mockRoutes = [{
     activityId: 'test:1',
     providerActivityId: '1',
-    coordinates: [[19.9, 50.05], [19.91, 50.06]] as [number, number][],
+    simplifiedCoordinates: [[19.9, 50.05], [19.91, 50.06]] as [number, number][],
+    simplifiedPointCount: 2,
     pointCount: 2,
     bounds: { west: 19.9, south: 50.05, east: 19.91, north: 50.06 },
     syncedAt: '2024-01-01T00:00:00Z',
@@ -259,6 +261,7 @@ describe('MapPage', () => {
             activityRoutes: {
               list: vi.fn().mockResolvedValue(activityRoutes),
             },
+            routeGeometry: { list: vi.fn().mockResolvedValue([]) },
             syncState: { get: vi.fn().mockResolvedValue(undefined), clear: vi.fn() },
             syncHistory: { put: vi.fn(), list: vi.fn(), clear: vi.fn() },
             settings: { get: vi.fn(), getOrCreateDefault: vi.fn() },
@@ -318,7 +321,7 @@ describe('MapPage', () => {
       activityId: 'test:1',
       activity: mockActivities[0],
       route: mockRoutes[0],
-      coordinates: mockRoutes[0].coordinates,
+      coordinates: mockRoutes[0].simplifiedCoordinates,
       name: 'Test Ride',
     });
     fixture.detectChanges();

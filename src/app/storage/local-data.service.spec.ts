@@ -16,6 +16,7 @@ describe('LocalDataService', () => {
       syncHistory: { clear: syncHistoryClear },
       settings: { clear: settingsClear },
       accessState: { clear: accessStateClear },
+      routeGeometry: { clear: vi.fn().mockResolvedValue(undefined) },
     } as unknown as TrailroamRepositories;
 
     TestBed.configureTestingModule({
@@ -46,6 +47,7 @@ describe('LocalDataService', () => {
       syncHistory: { list: vi.fn().mockResolvedValue([]) },
       activities: { list: vi.fn().mockResolvedValue([{ id: 'strava:1', name: 'Morning Ride' }]) },
       activityRoutes: { list: vi.fn().mockResolvedValue([{ activityId: 'strava:1', coordinates: [] }]) },
+      routeGeometry: { list: vi.fn().mockResolvedValue([]) },
     } as unknown as TrailroamRepositories;
 
     TestBed.configureTestingModule({
@@ -106,6 +108,7 @@ describe('LocalDataService', () => {
       const syncStateClear = vi.fn().mockResolvedValue(undefined);
       const activitiesClear = vi.fn().mockResolvedValue(undefined);
       const activityRoutesClear = vi.fn().mockResolvedValue(undefined);
+      const routeGeometryClear = vi.fn().mockResolvedValue(undefined);
 
       const settingsPut = vi.fn().mockResolvedValue('default');
       const accessStatePut = vi.fn().mockResolvedValue('default');
@@ -121,6 +124,7 @@ describe('LocalDataService', () => {
         syncHistory: { clear: syncHistoryClear },
         activities: { clear: activitiesClear, put: activitiesPut },
         activityRoutes: { clear: activityRoutesClear, put: activityRoutesPut },
+        routeGeometry: { clear: routeGeometryClear },
       } as unknown as TrailroamRepositories;
 
       TestBed.configureTestingModule({
@@ -150,6 +154,7 @@ describe('LocalDataService', () => {
       expect(syncStateClear).toHaveBeenCalledOnce();
       expect(activitiesClear).toHaveBeenCalledOnce();
       expect(activityRoutesClear).toHaveBeenCalledOnce();
+      expect(routeGeometryClear).toHaveBeenCalledOnce();
 
       expect(settingsPut).toHaveBeenCalledOnce();
       expect(accessStatePut).toHaveBeenCalledOnce();
@@ -162,6 +167,7 @@ describe('LocalDataService', () => {
       expect(result.syncStateCount).toBe(1);
       expect(result.activitiesCount).toBe(1);
       expect(result.activityRoutesCount).toBe(1);
+      expect(result.routeGeometryCount).toBe(0);
     });
   });
 });

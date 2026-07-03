@@ -10,8 +10,8 @@ describe('StravaRouteNormalizer', () => {
     normalizer = TestBed.inject(StravaRouteNormalizer);
   });
 
-  function successfulFetch(latlng: [number, number][]): RouteFetchResult {
-    return { success: true, latlng };
+  function successfulFetch(coordinates: [number, number][]): RouteFetchResult {
+    return { success: true, coordinates } as RouteFetchResult;
   }
 
   it('should normalize valid coordinates into an ActivityRouteRecord', () => {
@@ -25,7 +25,7 @@ describe('StravaRouteNormalizer', () => {
     if (result.success) {
       expect(result.route.activityId).toBe('strava:100');
       expect(result.route.providerActivityId).toBe('100');
-      expect(result.route.coordinates).toHaveLength(3);
+      expect(result.geometry!.coordinates).toHaveLength(3);
       expect(result.route.pointCount).toBe(3);
       expect(result.route.bounds).toEqual({ west: 19.94, south: 50.06, east: 19.96, north: 50.08 });
       expect(result.route.syncedAt).toBeTruthy();
@@ -96,7 +96,7 @@ describe('StravaRouteNormalizer', () => {
 
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.route.coordinates).toHaveLength(2);
+      expect(result.geometry!.coordinates).toHaveLength(2);
       expect(result.route.pointCount).toBe(2);
     }
   });

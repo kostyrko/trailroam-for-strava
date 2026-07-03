@@ -195,7 +195,7 @@ describe('StravaSessionService', () => {
 
       expect(result).toEqual({
         success: true,
-        latlng: [[19.94, 50.06], [19.95, 50.07], [19.96, 50.08]],
+        coordinates: [[19.94, 50.06], [19.95, 50.07], [19.96, 50.08]],
       });
     });
 

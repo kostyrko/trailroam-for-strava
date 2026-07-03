@@ -13,6 +13,7 @@ function createMockRepositories(
     syncHistory: { put: vi.fn(), list: vi.fn(), clear: vi.fn() } as any,
     settings: { put: vi.fn(), get: vi.fn(), clear: vi.fn(), getOrCreateDefault: vi.fn() } as any,
     accessState: { put: vi.fn(), get: vi.fn(), clear: vi.fn(), getOrCreateDefault: vi.fn() } as any,
+    routeGeometry: { put: vi.fn(), get: vi.fn(), clear: vi.fn() } as any,
     ...overrides,
   };
 }

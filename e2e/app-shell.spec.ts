@@ -8,15 +8,16 @@ let server: Server | null = null;
 const PORT = 9877;
 
 test.beforeAll(async () => {
-  const { createHash } = await import('node:crypto');
   const manifest = JSON.parse(readFileSync(resolve(BROWSER_DIR, 'manifest.json'), 'utf-8'));
-  const key = manifest.key;
-  const der = Buffer.from(key, 'base64');
-  const hash = createHash('sha256').update(der).digest();
   let extId = '';
-  for (let i = 0; i < 16; i++) {
-    extId += String.fromCharCode(0x61 + ((hash[i * 2] & 0xF0) >> 4));
-    extId += String.fromCharCode(0x61 + (hash[i * 2] & 0x0F));
+  if (manifest.key) {
+    const { createHash } = await import('node:crypto');
+    const der = Buffer.from(manifest.key, 'base64');
+    const hash = createHash('sha256').update(der).digest();
+    for (let i = 0; i < 16; i++) {
+      extId += String.fromCharCode(0x61 + ((hash[i * 2] & 0xF0) >> 4));
+      extId += String.fromCharCode(0x61 + (hash[i * 2] & 0x0F));
+    }
   }
 
   // Start a static file server that also serves chrome-extension://<id> path

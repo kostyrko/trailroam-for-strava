@@ -1,8 +1,23 @@
+import Dexie from 'dexie';
+import { IDBKeyRange, indexedDB } from 'fake-indexeddb';
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRoute, convertToParamMap, provideRouter, ParamMap } from '@angular/router';
+import { ActivatedRoute, Router, convertToParamMap, provideRouter, ParamMap, withDisabledInitialNavigation } from '@angular/router';
 import { Observable, of } from 'rxjs';
 import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { App } from './app';
+
+Dexie.dependencies.indexedDB = indexedDB;
+Dexie.dependencies.IDBKeyRange = IDBKeyRange;
+
+beforeAll(() => {
+  if (typeof document !== 'undefined') {
+    const base = document.createElement('base');
+    base.href = '/';
+    if (!document.querySelector('base')) {
+      document.head.appendChild(base);
+    }
+  }
+});
 import { ActivitiesPageComponent } from './activities/activities-page.component';
 import { MapPage } from './map/map-page.component';
 import { SettingsPage, routes } from './app.routes';
@@ -19,6 +34,10 @@ function flushMicrotasks(): Promise<void> {
 }
 
 describe('App', () => {
+  beforeEach(() => {
+    window.history.pushState({}, '', '/');
+  });
+
   function configureApp(
     syncStateGet: () => any = () => undefined,
     confirmMock = vi.fn(),
@@ -28,7 +47,7 @@ describe('App', () => {
     TestBed.configureTestingModule({
       imports: [App],
       providers: [
-        provideRouter(routes),
+        provideRouter(routes, withDisabledInitialNavigation()),
         {
           provide: TRAILROAM_REPOSITORIES,
           useValue: {
@@ -240,6 +259,10 @@ describe('MapPage', () => {
       imports: [MapPage],
       schemas: [NO_ERRORS_SCHEMA],
       providers: [
+        {
+          provide: Router,
+          useValue: { navigate: vi.fn().mockResolvedValue(true) },
+        },
         {
           provide: ActivatedRoute,
           useValue: {

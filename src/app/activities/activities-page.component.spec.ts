@@ -1,9 +1,14 @@
+import Dexie from 'dexie';
+import { IDBKeyRange, indexedDB } from 'fake-indexeddb';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { of } from 'rxjs';
 import { ActivitiesPageComponent } from './activities-page.component';
-import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
+import { TRAILROAM_DATABASE, TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
 import type { ActivityRecord } from '../storage/storage.models';
+
+Dexie.dependencies.indexedDB = indexedDB;
+Dexie.dependencies.IDBKeyRange = IDBKeyRange;
 
 function createActivity(overrides: Partial<ActivityRecord> = {}): ActivityRecord {
   const now = new Date().toISOString();
@@ -58,6 +63,13 @@ function provideActivatedRoute(): { provide: typeof ActivatedRoute; useValue: { 
     provide: ActivatedRoute,
     useValue: { queryParamMap: of(convertToParamMap({})) },
   };
+}
+
+function mockDatabaseProviders(): any[] {
+  return [
+    provideActivatedRoute(),
+    { provide: TRAILROAM_DATABASE, useValue: { verno: 3, tables: [], open: vi.fn(), close: vi.fn(), delete: vi.fn() } },
+  ];
 }
 
 describe('ActivitiesPageComponent', () => {

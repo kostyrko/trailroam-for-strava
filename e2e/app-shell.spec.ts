@@ -5,7 +5,8 @@ import { createServer, type Server } from 'http';
 
 const BROWSER_DIR = resolve('dist/trailroam-for-strava/browser');
 let server: Server | null = null;
-const PORT = 9877;
+let PORT = 9877;
+const MAX_PORT_ATTEMPTS = 5;
 
 test.beforeAll(async () => {
   const manifest = JSON.parse(readFileSync(resolve(BROWSER_DIR, 'manifest.json'), 'utf-8'));
@@ -50,7 +51,21 @@ test.beforeAll(async () => {
     }
   });
 
-  await new Promise<void>((resolve) => server!.listen(PORT, resolve));
+  for (let attempt = 0; attempt < MAX_PORT_ATTEMPTS; attempt++) {
+    try {
+      await new Promise<void>((resolve, reject) => {
+        server!.listen(PORT, () => resolve());
+        server!.once('error', reject);
+      });
+      break;
+    } catch (err: any) {
+      if (err.code === 'EADDRINUSE' && attempt < MAX_PORT_ATTEMPTS - 1) {
+        PORT += 1;
+        continue;
+      }
+      throw err;
+    }
+  }
 });
 
 test.afterAll(async () => {

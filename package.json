@@ -9,9 +9,11 @@
     "package:extension": "node scripts/package-extension.mjs",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
+    "test:base": "ng test",
+    "test:stress": "ng test -- --include src/app/shared/property-stress.spec.ts",
+    "test:e2e": "npm run build && npx playwright test",
     "typecheck": "ng build --configuration development",
-    "check": "npm run typecheck && npm run build",
-    "test:e2e": "npm run build && npx playwright test"
+    "check": "npm run typecheck && npm run build"
   },
   "private": true,
   "packageManager": "npm@11.14.1",

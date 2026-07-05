@@ -54,7 +54,7 @@ export interface ParsedActivity {
   laps: ParsedLap[];
 }
 
-function haversineDistance(lng1: number, lat1: number, lng2: number, lat2: number): number {
+export function haversineDistance(lng1: number, lat1: number, lng2: number, lat2: number): number {
   const R = 6371000;
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLng = (lng2 - lng1) * Math.PI / 180;

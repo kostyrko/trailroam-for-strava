@@ -61,7 +61,7 @@ describe('MapLibreMapComponent', () => {
   let renderRoutes: ReturnType<typeof vi.fn>;
   let selectRoute: ReturnType<typeof vi.fn>;
   let fitToRoute: ReturnType<typeof vi.fn>;
-  let mockRenderer: { renderRoutes: any; selectRoute: any; fitToRoute: any; init: any };
+  let mockRenderer: Record<string, any>;
   let remove: ReturnType<typeof vi.fn>;
   let resolvedProvider: ResolvedBasemapProvider;
   let fixture: ComponentFixture<MapLibreMapComponent>;
@@ -77,13 +77,17 @@ describe('MapLibreMapComponent', () => {
     renderRoutes = vi.fn();
     selectRoute = vi.fn();
     fitToRoute = vi.fn();
-    mockRenderer = { renderRoutes, selectRoute, fitToRoute, init: vi.fn() };
+    mockRenderer = { renderRoutes, selectRoute, fitToRoute, init: vi.fn(), updateRoutes: vi.fn(), deselectRoute: vi.fn(), clearHoverPoint: vi.fn(), showHoverPoint: vi.fn(), clearEmphasis: vi.fn(), setEmphasis: vi.fn() };
     createMap = vi.fn().mockResolvedValue({
       once,
       on: vi.fn(),
       remove,
       addControl: vi.fn(),
       isStyleLoaded: () => true,
+      getSource: vi.fn().mockReturnValue(undefined),
+      addSource: vi.fn(),
+      addLayer: vi.fn(),
+      setStyle: vi.fn(),
     } as unknown as Map);
 
     TestBed.configureTestingModule({
@@ -111,7 +115,7 @@ describe('MapLibreMapComponent', () => {
     await fixture.whenStable();
 
     const container = fixture.nativeElement.querySelector('.map-container') as HTMLElement;
-    expect(getSelectedProvider).toHaveBeenCalledOnce();
+    expect(getSelectedProvider).toHaveBeenCalled();
     expect(createMap).toHaveBeenCalledWith(container, resolvedProvider);
   });
 

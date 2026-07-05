@@ -28,44 +28,43 @@ function createMockRepositories(overrides: { activities?: any; activityRoutes?: 
   };
 }
 
+function configure(
+  checkSession: () => any = () => 'logged_in',
+  fetchActivityList: any = vi.fn().mockResolvedValue({ success: true, activities: [] }),
+  fetchActivityRoute: any = vi.fn().mockResolvedValue({ success: true, coordinates: [[19.9, 50.05]] }),
+  overrides: Record<string, any> = {},
+  routeSyncMock: any = { syncRoute: vi.fn().mockResolvedValue({ routeStored: true, routeSyncStatus: 'route_synced', route: null }), syncRoutesBatch: vi.fn().mockResolvedValue({ synced: 2, noRoute: 0, emptyRoute: 0, invalidCoordinates: 0, rateLimited: 0, failed: 0, skipped: 0, total: 2, results: [] }) },
+): SyncEngineService {
+  TestBed.configureTestingModule({
+    providers: [
+      SyncEngineService,
+      { provide: TRAILROAM_REPOSITORIES, useValue: createMockRepositories(overrides) },
+      { provide: StravaSessionService, useValue: { checkSession, fetchActivityList, fetchActivityRoute } },
+      { provide: StravaActivityNormalizer, useValue: { normalize: (raw: any) => ({ id: 'strava:' + raw.id, provider: 'strava', providerActivityId: String(raw.id), name: raw.name || 'Test', sportType: 'Ride', activityCategory: 'ride', startDate: '2024-01-01', hasRoute: false, routeSyncStatus: 'not_attempted', importedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }) } },
+      { provide: RouteSyncService, useValue: routeSyncMock },
+    ],
+  });
+  return TestBed.inject(SyncEngineService);
+}
+
 describe('SyncEngineService', () => {
-  let service: SyncEngineService;
-
-  function configure(
-    checkSession: () => any = () => 'logged_in',
-    fetchActivityList: any = vi.fn().mockResolvedValue({ success: true, activities: [] }),
-    fetchActivityRoute: any = vi.fn().mockResolvedValue({ success: true, coordinates: [[19.9, 50.05]] }),
-    overrides: Record<string, any> = {},
-  ): void {
-    TestBed.configureTestingModule({
-      providers: [
-        SyncEngineService,
-        { provide: TRAILROAM_REPOSITORIES, useValue: createMockRepositories(overrides) },
-        { provide: StravaSessionService, useValue: { checkSession, fetchActivityList, fetchActivityRoute } },
-        { provide: StravaActivityNormalizer, useValue: { normalize: (raw: any) => ({ id: 'strava:' + raw.id, provider: 'strava', providerActivityId: String(raw.id), name: raw.name || 'Test', sportType: 'Ride', activityCategory: 'ride', startDate: '2024-01-01', hasRoute: false, routeSyncStatus: 'not_attempted', importedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }) } },
-        { provide: RouteSyncService, useValue: { syncRoute: vi.fn().mockResolvedValue({ routeStored: true, routeSyncStatus: 'route_synced', route: null }), syncRoutesBatch: vi.fn().mockResolvedValue({ synced: 2, noRoute: 0, emptyRoute: 0, invalidCoordinates: 0, rateLimited: 0, failed: 0, skipped: 0, total: 2, results: [] }) } },
-      ],
-    });
-    service = TestBed.inject(SyncEngineService);
-  }
-
   beforeEach(() => {
     vi.restoreAllMocks();
   });
 
   it('should create', () => {
-    configure();
+    const service = configure();
     expect(service).toBeTruthy();
   });
 
   it('should set progress to idle initially', () => {
-    configure();
+    const service = configure();
     expect(service.progress().phase).toBe('idle');
   });
 
-  it('should cancel sync when cancel() is called', async () => {
+  it('should cancel sync when cancel() is called before starting', async () => {
     const fetchList = vi.fn().mockResolvedValue({ success: true, activities: [{ id: 1, name: 'Ride', sport_type: 'Ride', start_date: '2024-01-01', start_date_local: '2024-01-01', distance: 10000, moving_time: 3600, elapsed_time: 3800 }] });
-    configure(() => 'logged_in', fetchList);
+    const service = configure(() => 'logged_in', fetchList);
     service.cancel();
     const result = await service.syncNewActivities();
     expect(result.errorMessage).toBe('Cancelled');
@@ -74,14 +73,14 @@ describe('SyncEngineService', () => {
   it('should return routesSyncedCount as per-run count, not total DB count', async () => {
     const batchResult = { synced: 3, noRoute: 0, emptyRoute: 0, invalidCoordinates: 0, rateLimited: 0, failed: 0, skipped: 0, total: 3, results: [] };
     const syncRoutesBatch = vi.fn().mockResolvedValue(batchResult);
-    configure(
+    const routeSyncMock = { syncRoute: vi.fn(), syncRoutesBatch };
+    const service = configure(
       () => 'logged_in',
       vi.fn().mockResolvedValue({ success: true, activities: [{ id: 1, sport_type: 'Ride', start_date: '2024-01-01', start_date_local: '2024-01-01', distance: 10000, moving_time: 3600, elapsed_time: 3800 }] }),
       vi.fn().mockResolvedValue({ success: true, coordinates: [[19.9, 50.05]] }),
-      { activities: { list: vi.fn().mockResolvedValue([{ id: 'strava:1', provider: 'strava', routeSyncStatus: 'not_attempted', providerActivityId: '1' }]), countWithRouteSyncStatus: vi.fn().mockResolvedValue(50) } },
+      { activities: { list: vi.fn().mockResolvedValue([{ id: 'strava:1', provider: 'strava', routeSyncStatus: 'not_attempted', providerActivityId: '1' }]), countWithRouteSyncStatus: vi.fn().mockResolvedValue(50), put: vi.fn().mockResolvedValue(undefined), get: vi.fn().mockResolvedValue(undefined) } },
+      routeSyncMock,
     );
-    TestBed.overrideProvider(RouteSyncService, { useValue: { syncRoutesBatch } });
-    service = TestBed.inject(SyncEngineService);
 
     const result = await service.syncNewActivities();
     expect(result.routesSyncedCount).toBe(3);
@@ -89,7 +88,7 @@ describe('SyncEngineService', () => {
   });
 
   it('should report fetch failure on activity page load error', async () => {
-    configure(
+    const service = configure(
       () => 'logged_in',
       vi.fn().mockResolvedValue({ success: false, errorCode: 'ACTIVITY_LIST_FETCH_FAILED', status: 'logged_in' }),
     );
@@ -101,21 +100,21 @@ describe('SyncEngineService', () => {
   it('should handle rate limiting in route sync', async () => {
     const batchResult = { synced: 1, noRoute: 0, emptyRoute: 0, invalidCoordinates: 0, rateLimited: 1, failed: 0, skipped: 0, total: 2, results: [] };
     const syncRoutesBatch = vi.fn().mockResolvedValue(batchResult);
-    configure(
+    const routeSyncMock = { syncRoute: vi.fn(), syncRoutesBatch };
+    const service = configure(
       () => 'logged_in',
       vi.fn().mockResolvedValue({ success: true, activities: [{ id: 1, name: 'Ride', sport_type: 'Ride', start_date: '2024-01-01', start_date_local: '2024-01-01', distance: 10000, moving_time: 3600, elapsed_time: 3800 }] }),
       vi.fn().mockResolvedValue({ success: true, coordinates: [[19.9, 50.05]] }),
-      { activities: { list: vi.fn().mockResolvedValue([{ id: 'strava:1', provider: 'strava', routeSyncStatus: 'not_attempted', providerActivityId: '1' }]) } },
+      { activities: { list: vi.fn().mockResolvedValue([{ id: 'strava:1', provider: 'strava', routeSyncStatus: 'not_attempted', providerActivityId: '1' }]), put: vi.fn().mockResolvedValue(undefined), get: vi.fn().mockResolvedValue(undefined) } },
+      routeSyncMock,
     );
-    TestBed.overrideProvider(RouteSyncService, { useValue: { syncRoutesBatch } });
-    service = TestBed.inject(SyncEngineService);
 
     const result = await service.syncNewActivities();
     expect(result.rateLimitedCount).toBe(1);
   });
 
   it('should return Strava login required when not logged in', async () => {
-    configure(() => 'login_required');
+    const service = configure(() => 'login_required');
     const result = await service.syncNewActivities();
     expect(result.errorMessage).toBe('Strava login required');
   });

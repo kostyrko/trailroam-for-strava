@@ -67,6 +67,9 @@ export class SyncEngineService {
   }
 
   async syncNewActivities(): Promise<SyncNewResult> {
+    if (this.cancelled) {
+      return { importedCount: 0, updatedCount: 0, routesSyncedCount: 0, skippedCount: 0, failedCount: 0, rateLimitedCount: 0, errorMessage: 'Cancelled' };
+    }
     this.cancelled = false;
 
     const result: SyncNewResult = {

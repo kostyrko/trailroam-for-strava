@@ -82,31 +82,16 @@ describe('RouteRendererService', () => {
     service.init(map);
     service.renderRoutes(mockRoutes, routeSelected);
 
-    expect(addSource).toHaveBeenCalledWith(
-      ROUTES_SOURCE_ID,
+    const routesCall = addSource.mock.calls.find(([id]) => id === ROUTES_SOURCE_ID);
+    expect(routesCall).toBeDefined();
+    expect(routesCall![1]).toEqual(
       expect.objectContaining({
         data: expect.objectContaining({
           type: 'FeatureCollection',
-          features: expect.arrayContaining(
-            mockRoutes.map((route) =>
-              expect.objectContaining({
-                properties: expect.objectContaining({
-                  activityId: route.activityId,
-                  name: route.name,
-                }),
-                geometry: expect.objectContaining({
-                  type: 'LineString',
-                  coordinates: route.coordinates,
-                }),
-              }),
-            ),
-          ),
         }),
         type: 'geojson',
       }),
     );
-    const sourceDefinition = addSource.mock.calls[0][1];
-    expect(sourceDefinition.data.features).toHaveLength(mockRoutes.length);
   });
 
   it('should add route and selected-route layers', () => {

@@ -33,6 +33,7 @@ describe('TrailroamDatabase', () => {
       'access_state',
       'activities',
       'activity_routes',
+      'route_geometry',
       'settings',
       'sync_history',
       'sync_state',

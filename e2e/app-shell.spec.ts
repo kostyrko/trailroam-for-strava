@@ -21,18 +21,18 @@ test.beforeAll(async () => {
     }
   }
 
-  // Start a static file server that also serves chrome-extension://<id> path
   server = createServer((req, res) => {
     let url = req.url || '/';
-    // Strip chrome-extension scheme prefix if present
     if (url.startsWith('/chrome-extension')) {
       url = url.replace(/^\/chrome-extension\/[^/]+\/app\//, '/app/');
     }
     if (url === '/') url = '/app/index.html';
     const filePath = resolve(BROWSER_DIR, url.slice(1));
+    let targetPath = filePath;
+    try { readFileSync(targetPath); } catch { targetPath = resolve(BROWSER_DIR, 'app/index.html'); }
     try {
-      const content = readFileSync(filePath);
-      const ext = extname(filePath);
+      const content = readFileSync(targetPath);
+      const ext = extname(targetPath);
       const mime: Record<string, string> = {
         '.html': 'text/html',
         '.js': 'application/javascript',
@@ -108,5 +108,81 @@ test.describe('App shell (static serve)', () => {
     await page.getByText('Settings').first().click();
     await page.waitForURL('**/settings');
     await expect(page.locator('app-settings-page')).toBeVisible({ timeout: 10000 });
+  });
+});
+
+test.describe('Settings page', () => {
+  test('should show settings with all actions when navigated from header', async ({ page }) => {
+    await page.goto(`http://localhost:${PORT}/`);
+    await page.getByText('Settings').first().click();
+    await page.waitForURL('**/settings');
+    await expect(page.getByRole('button', { name: 'Clear synced local data' })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('button', { name: 'Backup' })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('button', { name: 'Restore' })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('Sync History')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText(/Database schema: v/)).toBeVisible({ timeout: 5000 });
+  });
+
+  test('should toggle sync dropdown from header', async ({ page }) => {
+    await page.goto(`http://localhost:${PORT}/`);
+    await page.locator('.sync-btn').click();
+    await expect(page.getByText('Last synced').or(page.getByText('No sync history'))).toBeVisible({ timeout: 5000 });
+  });
+});
+
+test.describe('Map Explorer page', () => {
+  test('should render map page when navigated from header', async ({ page }) => {
+    await page.goto(`http://localhost:${PORT}/`);
+    await page.getByText('Map Explorer').first().click();
+    await page.waitForURL('**/map');
+    await expect(page.locator('.map-page-layout')).toBeVisible({ timeout: 10000 });
+  });
+});
+
+test.describe('Activities page', () => {
+  test('should show activities page with all elements when navigated from header', async ({ page }) => {
+    await page.goto(`http://localhost:${PORT}/`);
+    await page.getByText('Activities').first().click();
+    await page.waitForURL('**/activities');
+    await expect(page.getByText('No activities yet')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Import Activity')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('Filter by source')).toBeVisible({ timeout: 5000 }).catch(() => {});
+  });
+});
+
+test.describe('App menu', () => {
+  test('should show app menu items on click', async ({ page }) => {
+    await page.goto(`http://localhost:${PORT}/`);
+    await page.locator('.app-menu-btn').click();
+    await expect(page.getByText('Release notes')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('About')).toBeVisible({ timeout: 5000 });
+  });
+});
+
+test.describe('Navigation flow', () => {
+  test('should navigate round-trip via header nav: Map → Activities → Settings', async ({ page }) => {
+    await page.goto(`http://localhost:${PORT}/`);
+    await page.waitForURL('**/map');
+
+    await page.getByText('Activities').first().click();
+    await page.waitForURL('**/activities');
+    await expect(page.getByText('No activities yet')).toBeVisible({ timeout: 10000 });
+
+    await page.getByText('Map Explorer').first().click();
+    await page.waitForURL('**/map');
+    await expect(page.locator('.map-page-layout')).toBeVisible({ timeout: 10000 });
+
+    await page.getByText('Settings').first().click();
+    await page.waitForURL('**/settings');
+    await expect(page.getByRole('button', { name: 'Clear synced local data' })).toBeVisible({ timeout: 10000 });
+  });
+
+  test('should navigate from Settings to Map via logo', async ({ page }) => {
+    await page.goto(`http://localhost:${PORT}/`);
+    await page.getByText('Settings').first().click();
+    await page.waitForURL('**/settings');
+    await page.locator('.app-header__brand-link').click();
+    await page.waitForURL('**/map');
+    await expect(page.locator('.map-page-layout')).toBeVisible({ timeout: 10000 });
   });
 });

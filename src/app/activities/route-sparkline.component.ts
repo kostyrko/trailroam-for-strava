@@ -3,7 +3,7 @@ import { Component, computed, input } from '@angular/core';
 const SVG_W = 44;
 const SVG_H = 32;
 
-function downsample(points: [number, number][], maxPoints: number): [number, number][] {
+export function downsample(points: [number, number][], maxPoints: number): [number, number][] {
   if (points.length <= maxPoints) { return points; }
   const step = (points.length - 1) / (maxPoints - 1);
   const result: [number, number][] = [];

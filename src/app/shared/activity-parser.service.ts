@@ -63,7 +63,7 @@ function haversineDistance(lng1: number, lat1: number, lng2: number, lat2: numbe
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function computeDerivedStats(
+export function computeDerivedStats(
   coordinates: [number, number][],
   elevations: number[],
   timestamps: string[],
@@ -176,7 +176,7 @@ function computeDerivedStats(
   };
 }
 
-function suggestSportType(
+export function suggestSportType(
   avgSpeedMs: number,
   totalDistanceMeters: number,
   totalElevationGainMeters: number,

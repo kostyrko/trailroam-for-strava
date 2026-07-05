@@ -209,7 +209,7 @@ export class ElevationProfileComponent {
   }
 }
 
-function smoothElevations(elevations: number[], distances: number[]): number[] {
+export function smoothElevations(elevations: number[], distances: number[]): number[] {
   const n = elevations.length;
   if (n < 4) { return elevations; }
 
@@ -239,7 +239,7 @@ function smoothElevations(elevations: number[], distances: number[]): number[] {
   return result;
 }
 
-function niceRound(value: number): number {
+export function niceRound(value: number): number {
   if (value <= 0) { return 0; }
   const exp = Math.floor(Math.log10(value));
   const mant = value / Math.pow(10, exp);
@@ -248,7 +248,7 @@ function niceRound(value: number): number {
   return rounded * Math.pow(10, exp);
 }
 
-function niceScale(min: number, max: number, maxTicks: number): number[] {
+export function niceScale(min: number, max: number, maxTicks: number): number[] {
   const range = max - min;
   if (range === 0) { return [min]; }
   const roughStep = range / maxTicks;
@@ -262,7 +262,7 @@ function niceScale(min: number, max: number, maxTicks: number): number[] {
   return result;
 }
 
-function binarySearch(arr: number[], target: number): number {
+export function binarySearch(arr: number[], target: number): number {
   let lo = 0;
   let hi = arr.length - 1;
   while (lo < hi) {

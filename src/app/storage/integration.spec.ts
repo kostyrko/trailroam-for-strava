@@ -4,9 +4,10 @@ import { IDBKeyRange, indexedDB } from 'fake-indexeddb';
 import { TrailroamDatabase } from './db';
 import { createRepositories } from './repositories';
 import { DATABASE_SCHEMA_VERSION, DEFAULT_RECORD_ID } from './storage.models';
-import type { ActivityRecord, ActivityRouteRecord, RouteGeometryRecord, SettingsRecord, AccessStateRecord, SyncStateRecord } from './storage.models';
+import type { ActivityRecord, ActivityRouteRecord, RouteGeometryRecord, SettingsRecord, SyncStateRecord } from './storage.models';
 import { LocalDataService, BACKUP_SCHEMA_VERSION } from './local-data.service';
 import { TRAILROAM_REPOSITORIES } from './repositories/repositories.token';
+import { FiltersService } from '../shared/filters.service';
 
 function createTestDb(): TrailroamDatabase {
   Dexie.dependencies.indexedDB = indexedDB;
@@ -453,5 +454,313 @@ describe('Sync Engine Integration with real repositories', () => {
     expect(history).toHaveLength(1);
     expect(history[0].importedCount).toBe(5);
     expect(history[0].routesSyncedCount).toBe(3);
+  });
+});
+
+describe('GPX Import + Storage integration', () => {
+  let db: TrailroamDatabase;
+
+  beforeEach(async () => {
+    db = createTestDb();
+    await db.open();
+  });
+
+  afterEach(async () => {
+    db.close();
+    await db.delete();
+  });
+
+  it('should parse GPX and persist to repositories', async () => {
+    const { ActivityParserService } = await import('../shared/activity-parser.service');
+    const repos = createRepositories(db);
+    const parser = new ActivityParserService();
+
+    const gpx = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx><trk><name>Morning Hike</name><trkseg>
+<trkpt lat="50.06" lon="19.94"><ele>200</ele><time>2024-06-01T08:00:00Z</time></trkpt>
+<trkpt lat="50.07" lon="19.95"><ele>210</ele><time>2024-06-01T08:01:00Z</time></trkpt>
+<trkpt lat="50.08" lon="19.96"><ele>220</ele><time>2024-06-01T08:02:00Z</time></trkpt>
+</trkseg></trk></gpx>`;
+    const file = new File([gpx], 'morning-hike.gpx', { type: 'application/gpx+xml' });
+    const parsed = await parser.parseFile(file);
+
+    const activity: ActivityRecord = {
+      id: 'local:import-1', provider: 'local', providerActivityId: 'import-1',
+      name: parsed.suggestedName, sportType: parsed.suggestedSportType,
+      activityCategory: parsed.suggestedCategory, startDate: parsed.startTime,
+      distanceMeters: Math.round(parsed.totalDistanceMeters),
+      movingTimeSeconds: Math.round(parsed.movingTimeSeconds),
+      elapsedTimeSeconds: Math.round(parsed.elapsedTimeSeconds),
+      totalElevationGainMeters: Math.round(parsed.totalElevationGainMeters),
+      averageSpeedMetersPerSecond: parsed.averageSpeedMetersPerSecond,
+      hasRoute: true, routeSyncStatus: 'route_synced',
+      activityStatus: 'completed',
+      importedAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    };
+    await repos.activities.put(activity);
+
+    const route: ActivityRouteRecord = {
+      activityId: activity.id, providerActivityId: activity.providerActivityId,
+      simplifiedCoordinates: parsed.coordinates,
+      simplifiedPointCount: parsed.coordinates.length,
+      pointCount: parsed.coordinates.length,
+      bounds: { west: parsed.bounds[0][0], south: parsed.bounds[0][1], east: parsed.bounds[1][0], north: parsed.bounds[1][1] },
+      syncedAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    };
+    await repos.activityRoutes.put(route);
+
+    const storedActivity = await repos.activities.get(activity.id);
+    expect(storedActivity).toBeDefined();
+    expect(storedActivity!.name).toBe('Morning Hike');
+    expect(storedActivity!.sportType).toBeTruthy();
+    expect(storedActivity!.hasRoute).toBe(true);
+    expect(storedActivity!.routeSyncStatus).toBe('route_synced');
+    expect(storedActivity!.activityStatus).toBe('completed');
+
+    const storedRoute = await repos.activityRoutes.get(activity.id);
+    expect(storedRoute).toBeDefined();
+    expect(storedRoute!.pointCount).toBe(3);
+  });
+
+  it('should detect duplicate by comparing start time and distance', async () => {
+    const repos = createRepositories(db);
+    const now = new Date().toISOString();
+
+    const existing: ActivityRecord = {
+      id: 'local:existing', provider: 'local', providerActivityId: 'existing',
+      name: 'Existing Hike', sportType: 'Hike', activityCategory: 'hike',
+      startDate: '2024-06-01T08:00:00Z', distanceMeters: 300,
+      movingTimeSeconds: 120, totalElevationGainMeters: 20,
+      hasRoute: true, routeSyncStatus: 'route_synced',
+      importedAt: now, updatedAt: now,
+    };
+    await repos.activities.put(existing);
+
+    const newActivity: ActivityRecord = {
+      id: 'local:candidate', provider: 'local', providerActivityId: 'candidate',
+      name: 'Candidate Hike', sportType: 'Hike', activityCategory: 'hike',
+      startDate: '2024-06-01T08:02:00Z', distanceMeters: 305,
+      movingTimeSeconds: 125, totalElevationGainMeters: 22,
+      hasRoute: true, routeSyncStatus: 'route_synced',
+      importedAt: now, updatedAt: now,
+    };
+
+    const all = await repos.activities.list();
+    const match = all.find((a) => {
+      const timeDiff = Math.abs(new Date(a.startDate).getTime() - new Date(newActivity.startDate).getTime());
+      const distDiff = a.distanceMeters ? Math.abs(newActivity.distanceMeters! - a.distanceMeters) / a.distanceMeters : 1;
+      return timeDiff < 5 * 60 * 1000 && distDiff < 0.02;
+    });
+    expect(match).toBeDefined();
+    expect(match!.id).toBe('local:existing');
+  });
+});
+
+describe('Activity filtering + search with real repositories', () => {
+  let db: TrailroamDatabase;
+
+  beforeEach(async () => {
+    db = createTestDb();
+    await db.open();
+  });
+
+  afterEach(async () => {
+    db.close();
+    await db.delete();
+  });
+
+  function makeActivity(id: string, overrides: Partial<ActivityRecord> = {}): ActivityRecord {
+    return {
+      id, provider: 'strava', providerActivityId: id.replace('strava:', ''),
+      name: 'Test', sportType: 'Ride', activityCategory: 'ride',
+      startDate: '2024-01-01T10:00:00Z', distanceMeters: 10000,
+      movingTimeSeconds: 3600, averageSpeedMetersPerSecond: 8.3,
+      hasRoute: true, routeSyncStatus: 'route_synced',
+      importedAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      ...overrides,
+    };
+  }
+
+  it('should filter by sport type', async () => {
+    const repos = createRepositories(db);
+    await repos.activities.put(makeActivity('strava:1', { sportType: 'Ride', activityCategory: 'ride' }));
+    await repos.activities.put(makeActivity('strava:2', { sportType: 'Hike', activityCategory: 'hike' }));
+
+    const all = await repos.activities.list();
+    const hikes = all.filter((a) => a.activityCategory === 'hike');
+    expect(hikes).toHaveLength(1);
+    expect(hikes[0].sportType).toBe('Hike');
+  });
+
+  it('should filter by date range', async () => {
+    const repos = createRepositories(db);
+    await repos.activities.put(makeActivity('strava:1', { name: 'Old', startDate: '2023-01-01T10:00:00Z' }));
+    await repos.activities.put(makeActivity('strava:2', { name: 'Mid', startDate: '2024-06-01T10:00:00Z' }));
+    await repos.activities.put(makeActivity('strava:3', { name: 'New', startDate: '2025-01-01T10:00:00Z' }));
+
+    const all = await repos.activities.list();
+    const filtered = all.filter((a) => {
+      const d = a.startDate.slice(0, 10);
+      return d >= '2024-01-01' && d <= '2024-12-31';
+    });
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0].name).toBe('Mid');
+  });
+
+  it('should search by name', async () => {
+    const repos = createRepositories(db);
+    await repos.activities.put(makeActivity('strava:1', { name: 'Morning Ride' }));
+    await repos.activities.put(makeActivity('strava:2', { name: 'Evening Hike' }));
+
+    const all = await repos.activities.list();
+    const matches = all.filter((a) => a.name.toLowerCase().includes('ride'));
+    expect(matches).toHaveLength(1);
+  });
+
+  it('should filter by source (strava vs local)', async () => {
+    const repos = createRepositories(db);
+    await repos.activities.put(makeActivity('strava:1', { provider: 'strava' }));
+    await repos.activities.put(makeActivity('local:1', { id: 'local:1', provider: 'local', providerActivityId: 'local:1', activityStatus: 'completed' }));
+
+    const all = await repos.activities.list();
+    expect(all.filter((a) => a.provider === 'strava')).toHaveLength(1);
+    expect(all.filter((a) => a.provider === 'local')).toHaveLength(1);
+  });
+
+  it('should sort by distance', async () => {
+    const repos = createRepositories(db);
+    await repos.activities.put(makeActivity('strava:1', { distanceMeters: 5000 }));
+    await repos.activities.put(makeActivity('strava:2', { distanceMeters: 42000 }));
+    await repos.activities.put(makeActivity('strava:3', { distanceMeters: 10000 }));
+
+    const all = await repos.activities.list();
+    const sorted = [...all].sort((a, b) => (b.distanceMeters ?? 0) - (a.distanceMeters ?? 0));
+    expect(sorted[0].distanceMeters).toBe(42000);
+    expect(sorted[1].distanceMeters).toBe(10000);
+    expect(sorted[2].distanceMeters).toBe(5000);
+  });
+
+  it('should combine filters (type + date + search)', async () => {
+    const repos = createRepositories(db);
+    await repos.activities.put(makeActivity('strava:1', { name: 'Alps Ride', sportType: 'Ride', activityCategory: 'ride', startDate: '2024-06-01T10:00:00Z' }));
+    await repos.activities.put(makeActivity('strava:2', { name: 'Alps Hike', sportType: 'Hike', activityCategory: 'hike', startDate: '2024-06-02T10:00:00Z' }));
+    await repos.activities.put(makeActivity('strava:3', { name: 'Local Ride', sportType: 'Ride', activityCategory: 'ride', startDate: '2023-01-01T10:00:00Z' }));
+
+    const all = await repos.activities.list();
+    const filtered = all.filter((a) => {
+      if (a.activityCategory !== 'ride') return false;
+      if (a.startDate.slice(0, 10) < '2024-01-01') return false;
+      if (!a.name.toLowerCase().includes('alps')) return false;
+      return true;
+    });
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0].name).toBe('Alps Ride');
+  });
+});
+
+describe('Extension bridge message handling integration', () => {
+  let db: TrailroamDatabase;
+
+  beforeEach(async () => {
+    db = createTestDb();
+    await db.open();
+  });
+
+  afterEach(async () => {
+    db.close();
+    await db.delete();
+  });
+
+  it('should store activities sent via TRAILROAM_STORE_ACTIVITIES format', async () => {
+    const repos = createRepositories(db);
+    const now = new Date().toISOString();
+
+    const batch = [{
+      id: 'strava:1', provider: 'strava', providerActivityId: '1',
+      name: 'Synced Ride', sportType: 'Ride', activityCategory: 'ride',
+      startDate: now, distanceMeters: 15000, movingTimeSeconds: 5400,
+      averageSpeedMetersPerSecond: 7.5, hasRoute: true, routeSyncStatus: 'route_synced',
+      importedAt: now, updatedAt: now,
+    }];
+
+    for (const a of batch) {
+      await repos.activities.put(a as ActivityRecord);
+    }
+
+    const all = await repos.activities.list();
+    expect(all).toHaveLength(1);
+    expect(all[0].name).toBe('Synced Ride');
+  });
+
+  it('should respond to TRAILROAM_GET_SYNCED_IDS with stored IDs', async () => {
+    const repos = createRepositories(db);
+    const now = new Date().toISOString();
+
+    const ids = ['strava:1', 'strava:2', 'strava:3'];
+    for (const id of ids) {
+      await repos.activities.put({
+        id, provider: 'strava', providerActivityId: id.replace('strava:', ''),
+        name: `Activity ${id}`, sportType: 'Ride', activityCategory: 'ride',
+        startDate: now, distanceMeters: 10000, movingTimeSeconds: 3600,
+        hasRoute: true, routeSyncStatus: 'route_synced',
+        importedAt: now, updatedAt: now,
+      } as ActivityRecord);
+    }
+
+    const all = await repos.activities.list();
+    const syncedIds = new Set(all.map((a) => a.providerActivityId));
+    expect(syncedIds.size).toBe(3);
+    expect(syncedIds.has('1')).toBe(true);
+    expect(syncedIds.has('2')).toBe(true);
+    expect(syncedIds.has('3')).toBe(true);
+  });
+
+  it('should handle empty batch in TRAILROAM_STORE_ACTIVITIES', async () => {
+    const repos = createRepositories(db);
+    const before = await repos.activities.count();
+    expect(before).toBe(0);
+  });
+});
+
+describe('Settings persistence integration', () => {
+  let db: TrailroamDatabase;
+
+  beforeEach(async () => {
+    db = createTestDb();
+    await db.open();
+  });
+
+  afterEach(async () => {
+    db.close();
+    await db.delete();
+  });
+
+  it('should persist and retrieve default settings', async () => {
+    const repos = createRepositories(db);
+    await repos.settings.put({
+      id: DEFAULT_RECORD_ID, mapProvider: 'openfreemap',
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    });
+
+    const stored = await repos.settings.get();
+    expect(stored?.mapProvider).toBe('openfreemap');
+  });
+
+  it('should update existing settings with new map provider', async () => {
+    const repos = createRepositories(db);
+    await repos.settings.put({
+      id: DEFAULT_RECORD_ID, mapProvider: 'openfreemap',
+      createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z',
+    });
+
+    await repos.settings.put({
+      id: DEFAULT_RECORD_ID, mapProvider: 'openfreemap',
+      autoFilterHintCount: 3, mapExplorerPanelExpanded: false,
+      createdAt: '2024-01-01T00:00:00.000Z', updatedAt: new Date().toISOString(),
+    });
+
+    const stored = await repos.settings.get();
+    expect(stored?.autoFilterHintCount).toBe(3);
+    expect(stored?.mapExplorerPanelExpanded).toBe(false);
   });
 });

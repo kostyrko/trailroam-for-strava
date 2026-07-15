@@ -8,6 +8,54 @@
           <p class="panel-empty-sub">The interactive map will show the selected route with speed-based coloring.</p>
         </div>
       } @else {
+        <div class="panel-header">
+          <div class="panel-header-main">
+            @let a = activity()!;
+            <div class="panel-title-row">
+              <h2 class="panel-title">{{ a.name }}</h2>
+              <p class="panel-date">{{ formatDate(a.startDate) }}</p>
+            </div>
+            <div class="panel-source-status-row">
+              @let st = a.activityStatus ?? 'completed';
+              @if (st === 'completed') {
+                <span class="panel-detail-status-badge panel-detail-status-badge--completed">&#10003; Completed</span>
+              } @else {
+                <span class="panel-detail-status-badge panel-detail-status-badge--planned">&#9711; Planned</span>
+              }
+              @if (a.provider === 'strava') {
+                <span class="panel-detail-source">⚡ Strava (Synced)</span>
+              } @else {
+                <span class="panel-detail-source panel-detail-source--imported">⬆ Imported</span>
+              }
+              <div class="panel-menu-wrapper">
+                <button class="panel-menu-trigger" type="button" (click)="toggleMenu($event)" aria-label="Activity actions">&#8942;</button>
+                @if (menuOpen()) {
+                  <ul class="panel-menu-dropdown" role="menu" (click)="$event.stopPropagation()">
+                    <li role="none">
+                      <button class="panel-menu-item" role="menuitem" (click)="openInStrava($event)">
+                        <app-icon name="external-link" [size]="16" strokeWidth="2"></app-icon>
+                        Strava
+                      </button>
+                    </li>
+                    <li role="none">
+                      <button class="panel-menu-item" role="menuitem" (click)="editActivity($event)">
+                        <app-icon name="pencil" [size]="16" strokeWidth="2"></app-icon>
+                        Edit
+                      </button>
+                    </li>
+                    <li role="none">
+                      <button class="panel-menu-item panel-menu-item--danger" role="menuitem" (click)="deleteActivity($event)">
+                        <app-icon name="trash-2" [size]="16" strokeWidth="2"></app-icon>
+                        Delete
+                      </button>
+                    </li>
+                  </ul>
+                }
+              </div>
+            </div>
+          </div>
+          <button class="panel-close" type="button" (click)="closePanel()" aria-label="Close activity details">&times;</button>
+        </div>
         <div class="panel-map-wrap" [class.panel-map-expanded]="panelExpanded()">
           @if (routeLoading()) {
             <div class="panel-map-loading" aria-label="Loading route data">
@@ -66,55 +114,6 @@
               <span>Faster</span>
             </div>
           }
-
-          <div class="panel-header">
-            <div class="panel-header-main">
-              <div class="panel-title-row">
-                <h2 class="panel-title">{{ activity()!.name }}</h2>
-                <div class="panel-menu-wrapper">
-                  <button class="panel-menu-trigger" type="button" (click)="toggleMenu($event)" aria-label="Activity actions">&#8942;</button>
-                  @if (menuOpen()) {
-                    <ul class="panel-menu-dropdown" role="menu" (click)="$event.stopPropagation()">
-                      <li role="none">
-                        <button class="panel-menu-item" role="menuitem" (click)="openInStrava($event)">
-                          <app-icon name="external-link" [size]="16" strokeWidth="2"></app-icon>
-                          Strava
-                        </button>
-                      </li>
-                      <li role="none">
-                        <button class="panel-menu-item" role="menuitem" (click)="editActivity($event)">
-                          <app-icon name="pencil" [size]="16" strokeWidth="2"></app-icon>
-                          Edit
-                        </button>
-                      </li>
-                      <li role="none">
-                        <button class="panel-menu-item panel-menu-item--danger" role="menuitem" (click)="deleteActivity($event)">
-                          <app-icon name="trash-2" [size]="16" strokeWidth="2"></app-icon>
-                          Delete
-                        </button>
-                      </li>
-                    </ul>
-                  }
-                </div>
-              </div>
-              <div class="panel-source-status-row">
-                @let a = activity()!;
-                @let st = a.activityStatus ?? 'completed';
-                @if (st === 'completed') {
-                  <span class="panel-detail-status-badge panel-detail-status-badge--completed">&#10003; Completed</span>
-                } @else {
-                  <span class="panel-detail-status-badge panel-detail-status-badge--planned">&#9711; Planned</span>
-                }
-                @if (a.provider === 'strava') {
-                  <span class="panel-detail-source">⚡ Strava (Synced)</span>
-                } @else {
-                  <span class="panel-detail-source panel-detail-source--imported">⬆ Imported</span>
-                }
-              </div>
-              <p class="panel-date">{{ formatDate(a.startDate) }}</p>
-            </div>
-            <button class="panel-close" type="button" (click)="closePanel()" aria-label="Close activity details">&times;</button>
-          </div>
 
           <div class="panel-metrics">
             <div class="metric">

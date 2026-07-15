@@ -615,6 +615,7 @@ export class MapPage implements AfterViewInit {
 
   protected closeDetailPanel(): void {
     this.detailPanelOpen.set(false);
+    this.detailPanelExpanded.set(false);
   }
 
   protected async onRenameActivity(route: MapRouteFeature): Promise<void> {

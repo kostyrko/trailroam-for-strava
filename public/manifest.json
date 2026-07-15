@@ -31,10 +31,7 @@
       "run_at": "document_idle"
     }
   ],
-  "permissions": [
-    "storage",
-    "tabs"
-  ],
+  "permissions": [],
   "host_permissions": [
     "https://www.strava.com/*",
     "https://strava.com/*",

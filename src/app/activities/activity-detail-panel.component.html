@@ -1,0 +1,199 @@
+    @if (!pushMode()) {
+      <div class="panel-backdrop" [class.backdrop-visible]="panelVisible()" (click)="closePanel()"></div>
+    }
+    <aside class="detail-panel" [class.panel-expanded]="panelExpanded()" [class.panel-visible]="panelVisible()" [class.panel-push]="pushMode()" role="complementary" aria-label="Selected activity details">
+      @if (!activity()) {
+        <div class="panel-empty">
+          <p>Select an activity to view its route and details.</p>
+          <p class="panel-empty-sub">The interactive map will show the selected route with speed-based coloring.</p>
+        </div>
+      } @else {
+        <div class="panel-header">
+          <div class="panel-header-main">
+            @let a = activity()!;
+            <div class="panel-title-row">
+              <h2 class="panel-title">{{ a.name }}</h2>
+              <p class="panel-date">{{ formatDate(a.startDate) }}</p>
+            </div>
+            <div class="panel-source-status-row">
+              @let st = a.activityStatus ?? 'completed';
+              @if (st === 'completed') {
+                <span class="panel-detail-status-badge panel-detail-status-badge--completed">&#10003; Completed</span>
+              } @else {
+                <span class="panel-detail-status-badge panel-detail-status-badge--planned">&#9711; Planned</span>
+              }
+              @if (a.provider === 'strava') {
+                <span class="panel-detail-source">⚡ Strava (Synced)</span>
+              } @else {
+                <span class="panel-detail-source panel-detail-source--imported">⬆ Imported</span>
+              }
+              <div class="panel-menu-wrapper">
+                <button class="panel-menu-trigger" type="button" (click)="toggleMenu($event)" aria-label="Activity actions">&#8942;</button>
+                @if (menuOpen()) {
+                  <ul class="panel-menu-dropdown" role="menu" (click)="$event.stopPropagation()">
+                    <li role="none">
+                      <button class="panel-menu-item" role="menuitem" (click)="openInStrava($event)">
+                        <app-icon name="external-link" [size]="16" strokeWidth="2"></app-icon>
+                        Strava
+                      </button>
+                    </li>
+                    <li role="none">
+                      <button class="panel-menu-item" role="menuitem" (click)="editActivity($event)">
+                        <app-icon name="pencil" [size]="16" strokeWidth="2"></app-icon>
+                        Edit
+                      </button>
+                    </li>
+                    <li role="none">
+                      <button class="panel-menu-item panel-menu-item--danger" role="menuitem" (click)="deleteActivity($event)">
+                        <app-icon name="trash-2" [size]="16" strokeWidth="2"></app-icon>
+                        Delete
+                      </button>
+                    </li>
+                  </ul>
+                }
+              </div>
+            </div>
+          </div>
+          <button class="panel-close" type="button" (click)="closePanel()" aria-label="Close activity details">&times;</button>
+        </div>
+        <div class="panel-map-wrap" [class.panel-map-expanded]="panelExpanded()">
+          @if (routeLoading()) {
+            <div class="panel-map-loading" aria-label="Loading route data">
+              <div class="map-loading-spinner"></div>
+            </div>
+          }
+          <div #mapContainer class="panel-map" aria-label="Interactive map showing selected activity route"></div>
+          <div class="panel-map-controls">
+            <button
+              class="panel-map-btn panel-map-btn--maximize"
+              type="button"
+              [attr.aria-label]="panelExpanded() ? 'Collapse map' : 'Expand map'"
+              data-tooltip="Expand map"
+              (click)="togglePanelExpand()"
+            >{{ panelExpanded() ? '⤡' : '⤢' }}</button>
+            <button
+              class="panel-map-btn panel-map-btn--layer"
+              type="button"
+              (click)="toggleLayerMenu($event)"
+              aria-label="Switch map layer"
+              data-tooltip="Switch basemap"
+            >
+              <app-icon name="layers" [size]="16" strokeWidth="2"></app-icon>
+            </button>
+            @if (layerMenuOpen()) {
+              <div class="panel-layer-menu" (click)="$event.stopPropagation()">
+                @for (p of AVAILABLE_PROVIDERS; track p.id) {
+                  <button class="panel-layer-item" type="button" [class.active]="p.id === activeLayerId()" (click)="selectLayer(p)">
+                    {{ p.label }}
+                    @if (p.id === activeLayerId()) {
+                      <span> ✓</span>
+                    }
+                  </button>
+                }
+              </div>
+            }
+          </div>
+        </div>
+        <div class="panel-scroll">
+
+          @if (speedLegend()) {
+            <div class="speed-legend" aria-label="Route speed legend">
+              <span>Slower</span>
+              <svg class="legend-gradient" width="80" height="8" aria-hidden="true">
+                <defs>
+                  <linearGradient id="speed-grad" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stop-color="#3b82c4" />
+                    <stop offset="25%" stop-color="#78c679" />
+                    <stop offset="50%" stop-color="#1f6f50" />
+                    <stop offset="75%" stop-color="#d9a23d" />
+                    <stop offset="100%" stop-color="#b8433a" />
+                  </linearGradient>
+                </defs>
+                <rect width="80" height="8" rx="4" fill="url(#speed-grad)" />
+              </svg>
+              <span>Faster</span>
+            </div>
+          }
+
+          <div class="panel-metrics">
+            <div class="metric">
+              <span class="metric-value">{{ formatDistance(activity()!.distanceMeters) }}</span>
+              <span class="metric-label">Distance</span>
+            </div>
+            <div class="metric">
+              <span class="metric-value">{{ formatDuration(activity()!.movingTimeSeconds) }}</span>
+              <span class="metric-label">Moving Time</span>
+            </div>
+            <div class="metric">
+              <span class="metric-value">{{ formatSpeedKmh(speedMs()) }}</span>
+              <span class="metric-label">Avg Speed</span>
+            </div>
+            <div class="metric">
+              <span class="metric-value">{{ formatElevation(activity()!.totalElevationGainMeters) }}</span>
+              <span class="metric-label">Elev Gain</span>
+            </div>
+          </div>
+
+          @if (routeElevations() && routeElevations()!.length > 0) {
+            <div class="panel-elevation card">
+              <h3 class="card-title">Elevation</h3>
+              <app-elevation-profile
+                [elevations]="routeElevations()"
+                [cumulativeDistances]="routeDistances()"
+                [coordinates]="routeCoords()"
+                [totalDistanceMeters]="activity()!.distanceMeters"
+                (hoveredPosition)="onElevationHover($event)"
+              />
+            </div>
+          }
+
+          <div class="panel-actions">
+            <button class="action-btn action-btn--primary" type="button" (click)="downloadGpx()" [disabled]="!activity()!.hasRoute">
+              <app-icon name="download" [size]="16" strokeWidth="2"></app-icon>
+              Download GPX
+            </button>
+            @if (showInActivities()) {
+              <button class="action-btn action-btn--secondary" type="button" (click)="showOnActivitiesTable()" [disabled]="!activity()">
+                <app-icon name="list" [size]="16" strokeWidth="2"></app-icon>
+                Show in Activities
+              </button>
+            } @else {
+              <button class="action-btn action-btn--secondary" type="button" (click)="showOnMapExplorer()" [disabled]="!route()">
+                <app-icon name="map" [size]="16" strokeWidth="2"></app-icon>
+                Show on Map Explorer
+              </button>
+            }
+          </div>
+
+          <div class="panel-details card">
+            <h3 class="card-title">Activity Details</h3>
+            <dl class="details-list">
+              <div class="detail-row">
+                <dt>Type</dt>
+                <dd>{{ formatSportType(activity()!.sportType) }}</dd>
+              </div>
+              <div class="detail-row">
+                <dt>Moving Time</dt>
+                <dd>{{ formatDuration(activity()!.movingTimeSeconds) }}</dd>
+              </div>
+              <div class="detail-row">
+                <dt>Calories</dt>
+                <dd>{{ calories() }}</dd>
+              </div>
+              <div class="detail-row">
+                <dt>Start Elevation</dt>
+                <dd>{{ formatElevation(startElevation()) }}</dd>
+              </div>
+              <div class="detail-row">
+                <dt>Max Elevation</dt>
+                <dd>{{ formatElevation(maxElevation()) }}</dd>
+              </div>
+              <div class="detail-row">
+                <dt>Total Elev Gain</dt>
+                <dd>{{ formatElevation(activity()!.totalElevationGainMeters) }}</dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+      }
+    </aside>

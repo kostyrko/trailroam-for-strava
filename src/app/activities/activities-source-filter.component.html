@@ -1,0 +1,24 @@
+<div class="source-filter-collapsible-header" (click)="toggleExpanded.emit()" role="button" tabindex="0" (keydown.enter)="toggleExpanded.emit()" aria-label="Toggle source filter">
+  <span class="source-filter-toggle">{{ sourceFilterExpanded ? '&#9660;' : '&#9654;' }}</span>
+  <span class="source-filter-label">Source filter</span>
+</div>
+<div class="source-filter-collapsible-body" [class.source-filter-collapsible-body--open]="sourceFilterExpanded">
+  <div class="source-filter-bar">
+    <button class="source-filter-chip" [class.source-filter-chip--active]="activeSourceSet.size === 0" (click)="selectAll.emit()">
+      All Activities
+      <span class="source-filter-count">{{ allCount }}</span>
+    </button>
+    <button class="source-filter-chip" [class.source-filter-chip--active]="activeSourceSet.has('strava')" (click)="onChipClick('strava')">
+      &#9889; Strava (Synced)
+      <span class="source-filter-count">{{ stravaCount }}</span>
+    </button>
+    <button class="source-filter-chip" [class.source-filter-chip--active]="activeSourceSet.has('imported-completed')" (click)="onChipClick('imported-completed')">
+      &#11014; Imported (Done)
+      <span class="source-filter-count">{{ importedCompletedCount }}</span>
+    </button>
+    <button class="source-filter-chip" [class.source-filter-chip--active]="activeSourceSet.has('imported-planned')" (click)="onChipClick('imported-planned')">
+      &#9711; Imported (Planned)
+      <span class="source-filter-count">{{ importedPlannedCount }}</span>
+    </button>
+  </div>
+</div>

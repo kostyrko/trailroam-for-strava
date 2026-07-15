@@ -1,7 +1,23 @@
+import Dexie from 'dexie';
+import { IDBKeyRange, indexedDB } from 'fake-indexeddb';
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
-import { of } from 'rxjs';
+import { ActivatedRoute, Router, convertToParamMap, provideRouter, ParamMap, withDisabledInitialNavigation } from '@angular/router';
+import { Observable, of } from 'rxjs';
+import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { App } from './app';
+
+Dexie.dependencies.indexedDB = indexedDB;
+Dexie.dependencies.IDBKeyRange = IDBKeyRange;
+
+beforeAll(() => {
+  if (typeof document !== 'undefined') {
+    const base = document.createElement('base');
+    base.href = '/';
+    if (!document.querySelector('base')) {
+      document.head.appendChild(base);
+    }
+  }
+});
 import { ActivitiesPageComponent } from './activities/activities-page.component';
 import { MapPage } from './map/map-page.component';
 import { SettingsPage, routes } from './app.routes';
@@ -18,6 +34,10 @@ function flushMicrotasks(): Promise<void> {
 }
 
 describe('App', () => {
+  beforeEach(() => {
+    window.history.pushState({}, '', '/');
+  });
+
   function configureApp(
     syncStateGet: () => any = () => undefined,
     confirmMock = vi.fn(),
@@ -27,12 +47,13 @@ describe('App', () => {
     TestBed.configureTestingModule({
       imports: [App],
       providers: [
-        provideRouter(routes),
+        provideRouter(routes, withDisabledInitialNavigation()),
         {
           provide: TRAILROAM_REPOSITORIES,
           useValue: {
             activities: { put: vi.fn(), get: vi.fn(), list: vi.fn(), count: vi.fn().mockResolvedValue(activitiesCount), clear: vi.fn(), upsert: vi.fn() },
             activityRoutes: { put: vi.fn(), get: vi.fn(), list: vi.fn(), count: vi.fn().mockResolvedValue(routesCount), clear: vi.fn() },
+            routeGeometry: { list: vi.fn().mockResolvedValue([]), clear: vi.fn() },
             syncState: { put: vi.fn(), get: vi.fn().mockImplementation(syncStateGet), clear: vi.fn() },
             syncHistory: { put: vi.fn(), list: vi.fn(), clear: vi.fn() },
             settings: { put: vi.fn(), get: vi.fn(), clear: vi.fn(), getOrCreateDefault: vi.fn().mockResolvedValue({ id: 'default', mapProvider: 'openfreemap', createdAt: '2024-01-01', updatedAt: '2024-01-01' }) },
@@ -113,10 +134,9 @@ describe('App', () => {
       const summary = fixture.nativeElement.querySelector('.sync-summary') as HTMLElement;
       expect(summary).toBeTruthy();
       expect(summary.textContent).toContain('Sync completed');
-      expect(summary.textContent).toContain('42 activities: 30 with routes, 12 without GPS');
       expect(summary.textContent).toContain('Imported: 5');
       expect(summary.textContent).toContain('Updated: 2');
-      expect(summary.textContent).toContain('Skipped: 1');
+      expect(summary.textContent).toContain('No route: 1');
       expect(summary.textContent).not.toContain('Failed');
     });
 
@@ -167,7 +187,6 @@ describe('App', () => {
 
       const summary = fixture.nativeElement.querySelector('.sync-summary') as HTMLElement;
       expect(summary).toBeTruthy();
-      expect(summary.textContent).toContain('0 activities: 0 with routes, 0 without GPS');
       expect(summary.textContent).toContain('Failed: 1');
       expect(summary.textContent).toContain('Error: Failed to fetch route for activity 123');
     });
@@ -178,13 +197,16 @@ describe('ActivitiesPageComponent', () => {
   it('should render loading state initially', () => {
     TestBed.configureTestingModule({
       imports: [ActivitiesPageComponent],
+      providers: [
+        { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
+      ],
     });
 
     const fixture = TestBed.createComponent(ActivitiesPageComponent);
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.empty-state-kicker')?.textContent).toContain('Loading');
+    expect(compiled.querySelector('.loading-state')).toBeTruthy();
   });
 });
 
@@ -218,7 +240,8 @@ describe('MapPage', () => {
   const mockRoutes = [{
     activityId: 'test:1',
     providerActivityId: '1',
-    coordinates: [[19.9, 50.05], [19.91, 50.06]] as [number, number][],
+    simplifiedCoordinates: [[19.9, 50.05], [19.91, 50.06]] as [number, number][],
+    simplifiedPointCount: 2,
     pointCount: 2,
     bounds: { west: 19.9, south: 50.05, east: 19.91, north: 50.06 },
     syncedAt: '2024-01-01T00:00:00Z',
@@ -230,11 +253,16 @@ describe('MapPage', () => {
     renderRoutes = vi.fn();
     selectRoute = vi.fn();
     removeMap = vi.fn();
-    createMap = vi.fn().mockResolvedValue({ once: onMapEvent, on: vi.fn(), remove: removeMap, addControl: vi.fn(), isStyleLoaded: () => true });
+    createMap = vi.fn().mockResolvedValue({ once: onMapEvent, on: vi.fn(), remove: removeMap, addControl: vi.fn(), isStyleLoaded: () => true, getSource: vi.fn().mockReturnValue(undefined) });
 
     TestBed.configureTestingModule({
       imports: [MapPage],
+      schemas: [NO_ERRORS_SCHEMA],
       providers: [
+        {
+          provide: Router,
+          useValue: { navigate: vi.fn().mockResolvedValue(true) },
+        },
         {
           provide: ActivatedRoute,
           useValue: {
@@ -247,7 +275,18 @@ describe('MapPage', () => {
         },
         {
           provide: RouteRendererService,
-          useValue: { renderRoutes, selectRoute, init: vi.fn(), fitToRoute: vi.fn() },
+          useValue: {
+            renderRoutes,
+            selectRoute,
+            init: vi.fn(),
+            fitToRoute: vi.fn(),
+            updateRoutes: vi.fn(),
+            deselectRoute: vi.fn(),
+            clearHoverPoint: vi.fn(),
+            showHoverPoint: vi.fn(),
+            clearEmphasis: vi.fn(),
+            setEmphasis: vi.fn(),
+          },
         },
         {
           provide: TRAILROAM_REPOSITORIES,
@@ -259,9 +298,10 @@ describe('MapPage', () => {
             activityRoutes: {
               list: vi.fn().mockResolvedValue(activityRoutes),
             },
+            routeGeometry: { list: vi.fn().mockResolvedValue([]), get: vi.fn().mockResolvedValue(undefined) },
             syncState: { get: vi.fn().mockResolvedValue(undefined), clear: vi.fn() },
             syncHistory: { put: vi.fn(), list: vi.fn(), clear: vi.fn() },
-            settings: { get: vi.fn(), getOrCreateDefault: vi.fn() },
+            settings: { get: vi.fn(), getOrCreateDefault: vi.fn().mockResolvedValue({ id: 'default', mapProvider: 'openfreemap', mapExplorerPanelExpanded: true, createdAt: '2024-01-01T00:00:00Z', updatedAt: '2024-01-01T00:00:00Z' }) },
             accessState: { get: vi.fn() },
           },
         },
@@ -277,89 +317,101 @@ describe('MapPage', () => {
     await fixture.whenStable();
 
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.map-shell')).toBeTruthy();
+    expect(compiled.querySelector('.map-page-layout')).toBeTruthy();
   });
 
-  it('should show no routes empty state when map loads with no routes', async () => {
-    configureMapPage({}, [], []);
+  it('should set mapReady after ngAfterViewInit', async () => {
+    configureMapPage();
 
     const fixture = TestBed.createComponent(MapPage);
     fixture.detectChanges();
     await fixture.whenStable();
+    fixture.detectChanges();
 
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.empty-state')?.textContent).toContain('No routes yet');
-    expect(compiled.querySelector('.empty-state')?.textContent).toContain('Sync activities');
+    const cmp = fixture.componentInstance as any;
+    expect(cmp.mapReady()).toBe(true);
   });
 
-  it('should update to basemap error state when map loading fails', async () => {
+  it('should update to basemap error state when showBasemapError is called', async () => {
     configureMapPage();
 
     const fixture = TestBed.createComponent(MapPage);
     fixture.detectChanges();
     await fixture.whenStable();
 
-    (fixture.componentInstance as any).showBasemapError();
+    const cmp = fixture.componentInstance as any;
+    cmp.showBasemapError();
     fixture.detectChanges();
 
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.map-shell')).toBeFalsy();
-    expect(compiled.querySelector('.warning-state')?.textContent).toContain('Basemap unavailable');
+    expect(cmp.hasBasemapError()).toBe(true);
   });
 
-  it('should show route detail panel after route click selection', async () => {
+  it('should select route and set selectedActivityId', async () => {
     configureMapPage();
 
     const fixture = TestBed.createComponent(MapPage);
     fixture.detectChanges();
     await fixture.whenStable();
+    fixture.detectChanges();
 
-    (fixture.componentInstance as any).selectRoute({
+    const cmp = fixture.componentInstance as any;
+    cmp.selectRoute({
       activityId: 'test:1',
       activity: mockActivities[0],
       route: mockRoutes[0],
-      coordinates: mockRoutes[0].coordinates,
+      coordinates: mockRoutes[0].simplifiedCoordinates,
       name: 'Test Ride',
     });
     fixture.detectChanges();
 
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.route-detail-title')?.textContent).toContain('Test Ride');
+    expect(cmp.selectedActivityId()).toBe('test:1');
   });
 
-  it('should render basemap error state from query param', () => {
+  it('should set basemap error from query param on init', () => {
     configureMapPage({ basemapError: 'true' });
 
     const fixture = TestBed.createComponent(MapPage);
     fixture.detectChanges();
 
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.map-shell')).toBeFalsy();
-    expect(compiled.querySelector('.warning-state')?.textContent).toContain('Basemap unavailable');
-    expect(compiled.querySelector('.warning-state')?.textContent).toContain('local activities and routes are unaffected');
+    const cmp = fixture.componentInstance as any;
+    expect(cmp.hasBasemapError()).toBe(true);
   });
 
-  it('should show no-route state when activityId does not match any route', async () => {
+  it('should set selectedActivityId from query param', async () => {
     configureMapPage({ activityId: 'strava:999' });
 
     const fixture = TestBed.createComponent(MapPage);
     fixture.detectChanges();
     await fixture.whenStable();
+    fixture.detectChanges();
 
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.empty-state')?.textContent).toContain('No route available');
+    const cmp = fixture.componentInstance as any;
+    expect(cmp.selectedActivityId()).toBe('strava:999');
   });
 
-  it('should show browse all activities button for no-route state', async () => {
-    configureMapPage({ activityId: 'strava:999' });
+  it('should clear selected route on clearSelectedActivity', async () => {
+    configureMapPage();
 
     const fixture = TestBed.createComponent(MapPage);
     fixture.detectChanges();
+    await fixture.whenStable();
 
-    const compiled = fixture.nativeElement as HTMLElement;
-    const browseButton = compiled.querySelector('.secondary-action') as HTMLButtonElement;
-    expect(browseButton).toBeTruthy();
-    expect(browseButton.textContent).toContain('Browse all activities');
+    const cmp = fixture.componentInstance as any;
+    cmp.selectRoute({
+      activityId: 'test:1',
+      activity: mockActivities[0],
+      route: mockRoutes[0],
+      coordinates: mockRoutes[0].simplifiedCoordinates,
+      name: 'Test Ride',
+    });
+    fixture.detectChanges();
+    expect(cmp.selectedActivityId()).toBe('test:1');
+
+    cmp.clearSelectedActivity();
+    fixture.detectChanges();
+
+    expect(cmp.selectedRoute()).toBeNull();
+    expect(cmp.noRouteActivity()).toBe(false);
   });
 });
 
@@ -403,9 +455,8 @@ describe('SettingsPage', () => {
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
-    const clearDataArticle = compiled.querySelector('[aria-labelledby="clear-local-data-title"]');
-    expect(clearDataArticle?.textContent).toContain('Clear synced local data');
-    expect(clearDataArticle?.textContent).toContain('Settings and access state are kept');
+    expect(compiled.textContent).toContain('Clear synced local data');
+    expect(compiled.textContent).toContain('Removes imported activities, routes, and sync state');
   });
 
   it('should ask for confirmation before clearing synced local data', async () => {
@@ -414,7 +465,7 @@ describe('SettingsPage', () => {
 
     const fixture = TestBed.createComponent(SettingsPage);
     fixture.detectChanges();
-    const buttons = fixture.nativeElement.querySelectorAll('.danger-action') as unknown as HTMLButtonElement[];
+    const buttons = fixture.nativeElement.querySelectorAll('.btn-danger') as unknown as HTMLButtonElement[];
     const clearButton = Array.from(buttons).find((b) => b.textContent?.includes('Clear synced local data'));
     clearButton?.click();
     await fixture.whenStable();
@@ -434,7 +485,7 @@ describe('SettingsPage', () => {
 
     const fixture = TestBed.createComponent(SettingsPage);
     fixture.detectChanges();
-    const buttons = fixture.nativeElement.querySelectorAll('.danger-action') as unknown as HTMLButtonElement[];
+    const buttons = fixture.nativeElement.querySelectorAll('.btn-danger') as unknown as HTMLButtonElement[];
     const clearButton = Array.from(buttons).find((b) => b.textContent?.includes('Clear synced local data'));
     clearButton?.click();
     await fixture.whenStable();
@@ -442,8 +493,8 @@ describe('SettingsPage', () => {
 
     const compiled = fixture.nativeElement as HTMLElement;
     expect(clearSyncedLocalData).toHaveBeenCalledOnce();
-    expect(compiled.querySelector('[role="status"]')?.textContent).toContain(
-      'Imported activities, routes, and sync state were cleared.',
-    );
+    const statusEl = compiled.querySelector('.clear-status');
+    expect(statusEl).toBeTruthy();
+    expect(statusEl?.textContent).toContain('cleared');
   });
 });

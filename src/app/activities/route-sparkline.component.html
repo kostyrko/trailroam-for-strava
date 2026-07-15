@@ -1,0 +1,14 @@
+    <svg
+      class="route-sparkline"
+      [attr.width]="SVG_W"
+      [attr.height]="SVG_H"
+      [attr.viewBox]="'0 0 ' + SVG_W + ' ' + SVG_H"
+      aria-hidden="true"
+    >
+      <rect x="0" y="0" [attr.width]="SVG_W" [attr.height]="SVG_H" fill="#eef5f0" rx="2" />
+      @if (polylinePoints(); as pts) {
+        <polyline [attr.points]="pts" fill="none" stroke="#1f6f50" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+      } @else {
+        <line x1="2" y1="16" x2="42" y2="16" stroke="#dce6df" stroke-width="1.5" stroke-dasharray="2,2" />
+      }
+    </svg>

@@ -1,0 +1,82 @@
+    <div class="edit-overlay" (click)="dialogRef.close()">
+      <div class="edit-dialog" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="edit-title">
+        <button class="edit-close" type="button" (click)="dialogRef.close()" aria-label="Close dialog">
+          <app-icon name="x" [size]="14" strokeWidth="2"></app-icon>
+        </button>
+
+        <div class="edit-icon">
+          <app-icon name="pencil" [size]="20" strokeWidth="2"></app-icon>
+        </div>
+
+        <h2 class="edit-title" id="edit-title">Edit activity</h2>
+        <p class="edit-subtitle">Update name, sport type and status</p>
+
+        <div class="edit-field">
+          <label class="edit-label" for="edit-input">Activity name</label>
+          <div class="edit-input-wrap">
+            <input
+              id="edit-input"
+              class="edit-input"
+              [class.edit-input--error]="!!errorMessage()"
+              [(ngModel)]="name"
+              (input)="onInput()"
+              (keydown.enter)="onSave()"
+              (keydown.escape)="dialogRef.close()"
+              maxlength="50"
+              placeholder="Morning Ride"
+              #nameInput
+              autocomplete="off"
+            />
+            <span
+              class="edit-chars"
+              [class.edit-chars--warn]="name.length >= MAX_NAME_LENGTH"
+            >{{ name.length }}/{{ MAX_NAME_LENGTH }}</span>
+          </div>
+          @if (errorMessage(); as msg) {
+            <p class="edit-error" role="alert">{{ msg }}</p>
+          }
+        </div>
+
+        <div class="edit-field">
+          <label class="edit-label" for="edit-sport">Sport type</label>
+          <div class="edit-select-wrap">
+            <span class="edit-select-emoji">{{ sportTypeEmojiFromString(sportType()) }}</span>
+            <select
+              id="edit-sport"
+              class="edit-select"
+              [ngModel]="sportType()"
+              (ngModelChange)="sportType.set($event)"
+            >
+              @for (st of SPORT_TYPES; track st) {
+                <option [value]="st">{{ formatSportType(st) }}</option>
+              }
+            </select>
+            <app-icon name="chevron-down" [size]="14" strokeWidth="2" [class]="'edit-select-arrow'"></app-icon>
+          </div>
+        </div>
+
+        <div class="edit-field">
+          <label class="edit-label">Activity status</label>
+          <div class="edit-status-group">
+            <label class="edit-status-option">
+              <input type="radio" name="activityStatus" [value]="'completed'" [(ngModel)]="activityStatus" />
+              <span class="edit-status-dot"></span>
+              Completed
+            </label>
+            <label class="edit-status-option">
+              <input type="radio" name="activityStatus" [value]="'planned'" [(ngModel)]="activityStatus" />
+              <span class="edit-status-dot"></span>
+              Planned
+            </label>
+          </div>
+        </div>
+
+        <div class="edit-actions">
+          <button class="edit-btn edit-btn--secondary" type="button" (click)="dialogRef.close()">Cancel</button>
+          <button class="edit-btn edit-btn--primary" type="button" [disabled]="!canSave()" (click)="onSave()">
+            <app-icon name="check-circle" [size]="14" strokeWidth="2"></app-icon>
+            Save changes
+          </button>
+        </div>
+      </div>
+    </div>

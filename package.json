@@ -1,6 +1,6 @@
 {
   "name": "trailroam-for-strava",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
@@ -9,6 +9,9 @@
     "package:extension": "node scripts/package-extension.mjs",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
+    "test:base": "ng test",
+    "test:stress": "ng test -- --include src/app/shared/property-stress.spec.ts",
+    "test:e2e": "npm run build && npx playwright test",
     "typecheck": "ng build --configuration development",
     "check": "npm run typecheck && npm run build"
   },
@@ -35,8 +38,10 @@
     "@angular/build": "^21.2.12",
     "@angular/cli": "^21.2.12",
     "@angular/compiler-cli": "^21.2.0",
+    "@playwright/test": "^1.61.1",
     "fake-indexeddb": "^6.2.5",
     "jsdom": "^28.0.0",
+    "playwright": "^1.61.1",
     "prettier": "^3.8.1",
     "typescript": "~5.9.2",
     "vitest": "^4.0.8"

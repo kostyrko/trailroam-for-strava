@@ -1,5 +1,6 @@
+var DEBUG = false;
 function log(msg, data) {
-  console.log('[Trailroam:bg]', msg, data !== undefined ? data : '');
+  if (DEBUG) console.log('[Trailroam:bg]', msg, data !== undefined ? data : '');
 }
 
 chrome.runtime.onInstalled.addListener(function (details) {

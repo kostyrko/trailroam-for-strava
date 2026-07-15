@@ -3,7 +3,7 @@ import { Component, computed, input } from '@angular/core';
 const SVG_W = 44;
 const SVG_H = 32;
 
-function downsample(points: [number, number][], maxPoints: number): [number, number][] {
+export function downsample(points: [number, number][], maxPoints: number): [number, number][] {
   if (points.length <= maxPoints) { return points; }
   const step = (points.length - 1) / (maxPoints - 1);
   const result: [number, number][] = [];
@@ -16,29 +16,8 @@ function downsample(points: [number, number][], maxPoints: number): [number, num
 
 @Component({
   selector: 'app-route-sparkline',
-  template: `
-    <svg
-      class="route-sparkline"
-      [attr.width]="SVG_W"
-      [attr.height]="SVG_H"
-      [attr.viewBox]="'0 0 ' + SVG_W + ' ' + SVG_H"
-      aria-hidden="true"
-    >
-      <rect x="0" y="0" [attr.width]="SVG_W" [attr.height]="SVG_H" fill="#eef5f0" rx="2" />
-      @if (polylinePoints(); as pts) {
-        <polyline [attr.points]="pts" fill="none" stroke="#1f6f50" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
-      } @else {
-        <line x1="2" y1="16" x2="42" y2="16" stroke="#dce6df" stroke-width="1.5" stroke-dasharray="2,2" />
-      }
-    </svg>
-  `,
-  styles: [`
-    .route-sparkline {
-      border-radius: 3px;
-      display: block;
-      flex-shrink: 0;
-    }
-  `],
+  templateUrl: './route-sparkline.component.html',
+  styleUrl: './route-sparkline.component.scss',
 })
 export class RouteSparklineComponent {
   protected readonly SVG_W = SVG_W;

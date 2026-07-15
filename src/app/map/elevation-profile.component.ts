@@ -11,55 +11,8 @@ const PLOT_HEIGHT = CHART_HEIGHT - PADDING_TOP - PADDING_BOTTOM;
 
 @Component({
   selector: 'app-elevation-profile',
-  template: `
-    <div class="elevation-chart-wrap" [class.elevation-compact]="compact()" (mousemove)="onMouseMove($event)" (mouseleave)="onMouseLeave()">
-      <svg viewBox="0 0 280 120" class="elevation-svg" aria-label="Elevation profile chart">
-        <line x1="36" [attr.y1]="120 - 18" x2="272" [attr.y2]="120 - 18" stroke="#dce6df" stroke-width="1" />
-        <line x1="36" y1="6" x2="36" [attr.y2]="120 - 18" stroke="#dce6df" stroke-width="1" />
-        @for (tick of yTicks(); track tick.value) {
-          <line [attr.x1]="PADDING_LEFT - 3" [attr.y1]="tick.y" [attr.x2]="PADDING_LEFT" [attr.y2]="tick.y" stroke="#dce6df" stroke-width="1" />
-          <text [attr.x]="PADDING_LEFT - 5" [attr.y]="tick.y + 3" text-anchor="end" fill="#63746a" font-size="8" font-family="system-ui, sans-serif">{{ tick.label }}</text>
-        }
-        @for (tick of xTicks(); track tick.value) {
-          <line [attr.x1]="tick.x" y1="102" [attr.x2]="tick.x" y2="105" stroke="#dce6df" stroke-width="1" />
-          <text [attr.x]="tick.x" y="116" text-anchor="middle" fill="#63746a" font-size="8" font-family="system-ui, sans-serif">{{ tick.label }}</text>
-        }
-        @if (hasElevation()) {
-          <path [attr.d]="fillPath()" fill="#1f6f50" fill-opacity="0.12" />
-          <path [attr.d]="linePath()" fill="none" stroke="#1f6f50" stroke-width="1.5" stroke-linejoin="round" />
-        } @else {
-          <line x1="36" [attr.y1]="midY()" x2="272" [attr.y2]="midY()" stroke="#cbd6cf" stroke-width="1.5" stroke-dasharray="4,3" />
-          <text x="140" y="60" text-anchor="middle" fill="#a0b4a6" font-size="10" font-family="system-ui, sans-serif">No elevation data</text>
-        }
-        @if (crosshairX(); as cx) {
-          <line [attr.x1]="cx" y1="6" [attr.x2]="cx" y2="102" stroke="#14211b" stroke-width="1" stroke-dasharray="3,2" />
-          @if (hoverElevation(); as el) {
-            <g>
-              <rect [attr.x]="cx - 38" y="1" width="76" height="18" rx="3" fill="#14211b" fill-opacity="0.85" />
-              @if (hoverDistance(); as dist) {
-                <text [attr.x]="cx" y="13" text-anchor="middle" fill="#ffffff" font-size="9" font-family="system-ui, sans-serif" font-weight="600">{{ (dist / 1000).toFixed(1) }}km / {{ Math.round(el) }}m</text>
-              } @else {
-                <text [attr.x]="cx" y="14" text-anchor="middle" fill="#ffffff" font-size="9" font-family="system-ui, sans-serif" font-weight="600">{{ Math.round(el) }}m</text>
-              }
-            </g>
-          }
-        }
-      </svg>
-    </div>
-  `,
-  styles: [`
-    .elevation-chart-wrap {
-      cursor: crosshair;
-      margin-top: 8px;
-      width: 100%;
-    }
-    .elevation-svg {
-      aspect-ratio: 280 / 120;
-      display: block;
-      overflow: visible;
-      width: 100%;
-    }
-  `],
+  templateUrl: './elevation-profile.component.html',
+  styleUrl: './elevation-profile.component.scss',
 })
 export class ElevationProfileComponent {
   readonly elevations = input<number[] | undefined>(undefined);
@@ -256,7 +209,7 @@ export class ElevationProfileComponent {
   }
 }
 
-function smoothElevations(elevations: number[], distances: number[]): number[] {
+export function smoothElevations(elevations: number[], distances: number[]): number[] {
   const n = elevations.length;
   if (n < 4) { return elevations; }
 
@@ -286,7 +239,7 @@ function smoothElevations(elevations: number[], distances: number[]): number[] {
   return result;
 }
 
-function niceRound(value: number): number {
+export function niceRound(value: number): number {
   if (value <= 0) { return 0; }
   const exp = Math.floor(Math.log10(value));
   const mant = value / Math.pow(10, exp);
@@ -295,7 +248,7 @@ function niceRound(value: number): number {
   return rounded * Math.pow(10, exp);
 }
 
-function niceScale(min: number, max: number, maxTicks: number): number[] {
+export function niceScale(min: number, max: number, maxTicks: number): number[] {
   const range = max - min;
   if (range === 0) { return [min]; }
   const roughStep = range / maxTicks;
@@ -309,7 +262,7 @@ function niceScale(min: number, max: number, maxTicks: number): number[] {
   return result;
 }
 
-function binarySearch(arr: number[], target: number): number {
+export function binarySearch(arr: number[], target: number): number {
   let lo = 0;
   let hi = arr.length - 1;
   while (lo < hi) {

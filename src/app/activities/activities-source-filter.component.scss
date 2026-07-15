@@ -1,0 +1,90 @@
+.source-filter-collapsible-header {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: 4px;
+  margin-top: 10px;
+  margin-bottom: 10px;
+  user-select: none;
+}
+
+.source-filter-collapsible-header:focus-visible {
+  outline: 2px solid #1f6f50;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.source-filter-toggle {
+  color: #63746a;
+  font-size: 0.65rem;
+  flex-shrink: 0;
+}
+
+.source-filter-collapsible-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 200ms ease, opacity 200ms ease;
+  opacity: 0;
+}
+
+.source-filter-collapsible-body--open {
+  max-height: 80px;
+  opacity: 1;
+}
+
+.source-filter-bar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.source-filter-label {
+  color: #63746a;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.source-filter-chip {
+  align-items: center;
+  background: #f4f9f6;
+  border: 1px solid #cbd8d0;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 0.8125rem;
+  gap: 4px;
+  height: 30px;
+  padding: 0 12px;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.source-filter-chip:hover {
+  background: #dce6df;
+  border-color: #b6cdbe;
+}
+
+.source-filter-chip--active {
+  background: #1f6f50;
+  border-color: #1f6f50;
+  color: #ffffff;
+}
+
+.source-filter-chip--active:hover {
+  background: #185940;
+}
+
+.source-filter-count {
+  background: rgb(0 0 0 / 10%);
+  border-radius: 10px;
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  padding: 0 6px;
+}
+
+.source-filter-chip--active .source-filter-count {
+  background: rgb(255 255 255 / 20%);
+}

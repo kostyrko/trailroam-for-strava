@@ -33,6 +33,7 @@ describe('TrailroamDatabase', () => {
       'access_state',
       'activities',
       'activity_routes',
+      'route_geometry',
       'settings',
       'sync_history',
       'sync_state',
@@ -65,10 +66,11 @@ describe('TrailroamDatabase', () => {
     const route: ActivityRouteRecord = {
       activityId: activity.id,
       providerActivityId: activity.providerActivityId,
-      coordinates: [
+      simplifiedCoordinates: [
         [19.94498, 50.06465],
         [19.9459, 50.0654],
       ],
+      simplifiedPointCount: 2,
       pointCount: 2,
       bounds: {
         west: 19.94498,
@@ -258,7 +260,8 @@ describe('TrailroamDatabase', () => {
       return {
         activityId: 'strava:100',
         providerActivityId: '100',
-        coordinates: [[19.94, 50.06]],
+        simplifiedCoordinates: [[19.94, 50.06]],
+        simplifiedPointCount: 1,
         pointCount: 1,
         bounds: { west: 19.94, south: 50.06, east: 19.94, north: 50.06 },
         syncedAt: now,
@@ -293,7 +296,7 @@ describe('TrailroamDatabase', () => {
 
       await repositories.activityRoutes.upsert(route);
 
-      const updatedRoute = createRoute({ coordinates: [[19.95, 50.07], [19.96, 50.08]], pointCount: 2 });
+      const updatedRoute = createRoute({ simplifiedCoordinates: [[19.95, 50.07], [19.96, 50.08]], simplifiedPointCount: 2, pointCount: 2 });
       const result = await repositories.activityRoutes.upsert(updatedRoute);
 
       expect(result.route.syncedAt).toBe(route.syncedAt);
@@ -307,7 +310,7 @@ describe('TrailroamDatabase', () => {
 
       await new Promise((resolve) => setTimeout(resolve, 10));
 
-      const updatedRoute = createRoute({ coordinates: [[19.95, 50.07]], pointCount: 1 });
+      const updatedRoute = createRoute({ simplifiedCoordinates: [[19.95, 50.07]], simplifiedPointCount: 1, pointCount: 1 });
       const result = await repositories.activityRoutes.upsert(updatedRoute);
 
       expect(new Date(result.route.updatedAt).getTime()).toBeGreaterThan(
@@ -319,8 +322,8 @@ describe('TrailroamDatabase', () => {
       const repositories = createRepositories(db);
 
       await repositories.activityRoutes.upsert(createRoute());
-      await repositories.activityRoutes.upsert(createRoute({ coordinates: [[19.95, 50.07]], pointCount: 1 }));
-      await repositories.activityRoutes.upsert(createRoute({ coordinates: [[19.96, 50.08]], pointCount: 1 }));
+      await repositories.activityRoutes.upsert(createRoute({ simplifiedCoordinates: [[19.95, 50.07]], simplifiedPointCount: 1, pointCount: 1 }));
+      await repositories.activityRoutes.upsert(createRoute({ simplifiedCoordinates: [[19.96, 50.08]], simplifiedPointCount: 1, pointCount: 1 }));
 
       const all = await repositories.activityRoutes.list();
       expect(all).toHaveLength(1);

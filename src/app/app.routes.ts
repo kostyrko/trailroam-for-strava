@@ -3,6 +3,7 @@ import { ActivitiesPageComponent } from './activities/activities-page.component'
 import { MapPage } from './map/map-page.component';
 import { SettingsPage } from './shared/settings-page.component';
 
+export { SettingsPage };
 export const routes: Routes = [
   {
     path: '',

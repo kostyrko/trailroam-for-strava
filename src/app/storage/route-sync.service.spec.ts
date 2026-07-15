@@ -14,6 +14,7 @@ function createMockRepositories(
     syncHistory: { put: vi.fn(), list: vi.fn(), clear: vi.fn() } as any,
     settings: { put: vi.fn(), get: vi.fn(), clear: vi.fn(), getOrCreateDefault: vi.fn() } as any,
     accessState: { put: vi.fn(), get: vi.fn(), clear: vi.fn(), getOrCreateDefault: vi.fn() } as any,
+    routeGeometry: { put: vi.fn(), get: vi.fn(), clear: vi.fn() } as any,
     ...overrides,
   };
 }
@@ -53,8 +54,8 @@ describe('RouteSyncService', () => {
   it('should store route and update status to route_synced on successful fetch', async () => {
     const fetchResult: RouteFetchResult = {
       success: true,
-      latlng: [[19.94, 50.06], [19.95, 50.07]],
-    };
+      coordinates: [[19.94, 50.06], [19.95, 50.07]],
+    } as RouteFetchResult;
 
     const result = await service.syncRoute('strava:100', '100', fetchResult);
 
@@ -77,7 +78,7 @@ describe('RouteSyncService', () => {
   });
 
   it('should set status to empty_route when coordinates array is empty', async () => {
-    const fetchResult: RouteFetchResult = { success: true, latlng: [] };
+    const fetchResult: RouteFetchResult = { success: true, coordinates: [] } as RouteFetchResult;
 
     const result = await service.syncRoute('strava:100', '100', fetchResult);
 
@@ -88,7 +89,7 @@ describe('RouteSyncService', () => {
   });
 
   it('should set status to invalid_coordinates when too few valid points', async () => {
-    const fetchResult: RouteFetchResult = { success: true, latlng: [[19.94, 50.06]] };
+    const fetchResult: RouteFetchResult = { success: true, coordinates: [[19.94, 50.06]] } as RouteFetchResult;
 
     const result = await service.syncRoute('strava:100', '100', fetchResult);
 
@@ -132,9 +133,9 @@ describe('RouteSyncService', () => {
   describe('syncRoutesBatch', () => {
     it('should batch process multiple routes and return aggregate counts', async () => {
       const items = [
-        { activityId: 'strava:1', providerActivityId: '1', fetchResult: { success: true, latlng: [[19.94, 50.06], [19.95, 50.07]] } as RouteFetchResult },
+        { activityId: 'strava:1', providerActivityId: '1', fetchResult: { success: true, coordinates: [[19.94, 50.06], [19.95, 50.07]] } as RouteFetchResult },
         { activityId: 'strava:2', providerActivityId: '2', fetchResult: { success: false, errorCode: 'NO_GPS_ROUTE' } as RouteFetchResult },
-        { activityId: 'strava:3', providerActivityId: '3', fetchResult: { success: true, latlng: [[19.96, 50.08], [19.97, 50.09]] } as RouteFetchResult },
+        { activityId: 'strava:3', providerActivityId: '3', fetchResult: { success: true, coordinates: [[19.96, 50.08], [19.97, 50.09]] } as RouteFetchResult },
       ];
 
       const result = await service.syncRoutesBatch(items);
@@ -147,9 +148,9 @@ describe('RouteSyncService', () => {
 
     it('should count skipped items and skip their processing', async () => {
       const items = [
-        { activityId: 'strava:1', providerActivityId: '1', fetchResult: { success: true, latlng: [[19.94, 50.06]] } as RouteFetchResult },
-        { activityId: 'strava:2', providerActivityId: '2', fetchResult: { success: true, latlng: [[19.95, 50.07]] } as RouteFetchResult, skipReason: 'already_synced' },
-        { activityId: 'strava:3', providerActivityId: '3', fetchResult: { success: true, latlng: [[19.96, 50.08], [19.97, 50.09]] } as RouteFetchResult },
+        { activityId: 'strava:1', providerActivityId: '1', fetchResult: { success: true, coordinates: [[19.94, 50.06]] } as RouteFetchResult },
+        { activityId: 'strava:2', providerActivityId: '2', fetchResult: { success: true, coordinates: [[19.95, 50.07]] } as RouteFetchResult, skipReason: 'already_synced' },
+        { activityId: 'strava:3', providerActivityId: '3', fetchResult: { success: true, coordinates: [[19.96, 50.08], [19.97, 50.09]] } as RouteFetchResult },
       ];
 
       const result = await service.syncRoutesBatch(items);
@@ -166,8 +167,8 @@ describe('RouteSyncService', () => {
         .mockResolvedValueOnce({ inserted: true, route: { activityId: 'strava:2', pointCount: 2 } });
 
       const items = [
-        { activityId: 'strava:1', providerActivityId: '1', fetchResult: { success: true, latlng: [[19.94, 50.06], [19.95, 50.07]] } as RouteFetchResult },
-        { activityId: 'strava:2', providerActivityId: '2', fetchResult: { success: true, latlng: [[19.96, 50.08], [19.97, 50.09]] } as RouteFetchResult },
+        { activityId: 'strava:1', providerActivityId: '1', fetchResult: { success: true, coordinates: [[19.94, 50.06], [19.95, 50.07]] } as RouteFetchResult },
+        { activityId: 'strava:2', providerActivityId: '2', fetchResult: { success: true, coordinates: [[19.96, 50.08], [19.97, 50.09]] } as RouteFetchResult },
       ];
 
       const result = await service.syncRoutesBatch(items);
@@ -179,7 +180,7 @@ describe('RouteSyncService', () => {
 
     it('should count rate_limited items separately', async () => {
       const items = [
-        { activityId: 'strava:1', providerActivityId: '1', fetchResult: { success: true, latlng: [[19.94, 50.06], [19.95, 50.07]] } as RouteFetchResult },
+        { activityId: 'strava:1', providerActivityId: '1', fetchResult: { success: true, coordinates: [[19.94, 50.06], [19.95, 50.07]] } as RouteFetchResult },
         { activityId: 'strava:2', providerActivityId: '2', fetchResult: { success: false, errorCode: 'STRAVA_RATE_LIMITED', retryAfterSeconds: 60 } as RouteFetchResult },
         { activityId: 'strava:3', providerActivityId: '3', fetchResult: { success: false, errorCode: 'NO_GPS_ROUTE' } as RouteFetchResult },
       ];

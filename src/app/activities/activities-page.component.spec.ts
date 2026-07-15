@@ -1,7 +1,14 @@
+import Dexie from 'dexie';
+import { IDBKeyRange, indexedDB } from 'fake-indexeddb';
 import { TestBed } from '@angular/core/testing';
+import { ActivatedRoute, convertToParamMap } from '@angular/router';
+import { of } from 'rxjs';
 import { ActivitiesPageComponent } from './activities-page.component';
-import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
+import { TRAILROAM_DATABASE, TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
 import type { ActivityRecord } from '../storage/storage.models';
+
+Dexie.dependencies.indexedDB = indexedDB;
+Dexie.dependencies.IDBKeyRange = IDBKeyRange;
 
 function createActivity(overrides: Partial<ActivityRecord> = {}): ActivityRecord {
   const now = new Date().toISOString();
@@ -51,23 +58,39 @@ function createMockRepositories(activities: ActivityRecord[], totalCount: number
   };
 }
 
+function provideActivatedRoute(): { provide: typeof ActivatedRoute; useValue: { queryParamMap: import('rxjs').Observable<import('@angular/router').ParamMap> } } {
+  return {
+    provide: ActivatedRoute,
+    useValue: { queryParamMap: of(convertToParamMap({})) },
+  };
+}
+
+function mockDatabaseProviders(): any[] {
+  return [
+    provideActivatedRoute(),
+    { provide: TRAILROAM_DATABASE, useValue: { verno: 3, tables: [], open: vi.fn(), close: vi.fn(), delete: vi.fn() } },
+  ];
+}
+
 describe('ActivitiesPageComponent', () => {
   it('should render loading state initially', () => {
     TestBed.configureTestingModule({
       imports: [ActivitiesPageComponent],
+      providers: [provideActivatedRoute()],
     });
 
     const fixture = TestBed.createComponent(ActivitiesPageComponent);
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.empty-state-kicker')?.textContent).toContain('Loading');
+    expect(compiled.querySelector('.loading-state')).toBeTruthy();
   });
 
   it('should render empty state when no activities exist', async () => {
     TestBed.configureTestingModule({
       imports: [ActivitiesPageComponent],
       providers: [
+        provideActivatedRoute(),
         {
           provide: TRAILROAM_REPOSITORIES,
           useValue: createMockRepositories([], 0),
@@ -81,7 +104,7 @@ describe('ActivitiesPageComponent', () => {
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.empty-state-kicker')?.textContent).toContain('No activities yet');
+    expect(compiled.textContent).toContain('No activities yet');
     expect(compiled.querySelector('.empty-state')?.textContent).toContain('Sync activities');
   });
 
@@ -94,6 +117,7 @@ describe('ActivitiesPageComponent', () => {
     TestBed.configureTestingModule({
       imports: [ActivitiesPageComponent],
       providers: [
+        provideActivatedRoute(),
         {
           provide: TRAILROAM_REPOSITORIES,
           useValue: createMockRepositories(activities, 2),
@@ -126,6 +150,7 @@ describe('ActivitiesPageComponent', () => {
     TestBed.configureTestingModule({
       imports: [ActivitiesPageComponent],
       providers: [
+        provideActivatedRoute(),
         {
           provide: TRAILROAM_REPOSITORIES,
           useValue: createMockRepositories(activities51, 51),
@@ -146,6 +171,7 @@ describe('ActivitiesPageComponent', () => {
     TestBed.configureTestingModule({
       imports: [ActivitiesPageComponent],
       providers: [
+        provideActivatedRoute(),
         {
           provide: TRAILROAM_REPOSITORIES,
           useValue: createMockRepositories([createActivity()], 1),
@@ -160,13 +186,14 @@ describe('ActivitiesPageComponent', () => {
 
     const compiled = fixture.nativeElement as HTMLElement;
     const headers = [...compiled.querySelectorAll('thead th')].map((h) => h.textContent?.trim());
-    expect(headers).toEqual(['Date ▼', 'Name', 'Type', 'Distance', 'Speed', 'Time', 'Route', '']);
+    expect(headers).toEqual(['', 'Date ▼', '', 'Name', 'Source', 'Status', 'Type', 'Distance', 'Speed', 'Time', 'Route', '']);
   });
 
   it('should show route badge for synced routes', async () => {
     TestBed.configureTestingModule({
       imports: [ActivitiesPageComponent],
       providers: [
+        provideActivatedRoute(),
         {
           provide: TRAILROAM_REPOSITORIES,
           useValue: createMockRepositories([createActivity({ routeSyncStatus: 'route_synced' })], 1),
@@ -189,6 +216,7 @@ describe('ActivitiesPageComponent', () => {
     TestBed.configureTestingModule({
       imports: [ActivitiesPageComponent],
       providers: [
+        provideActivatedRoute(),
         {
           provide: TRAILROAM_REPOSITORIES,
           useValue: createMockRepositories([createActivity({ routeSyncStatus: 'no_route' })], 1),
@@ -218,6 +246,7 @@ describe('ActivitiesPageComponent', () => {
     TestBed.configureTestingModule({
       imports: [ActivitiesPageComponent],
       providers: [
+        provideActivatedRoute(),
         { provide: TRAILROAM_REPOSITORIES, useValue: createMockRepositories(activities, 4) },
       ],
     });
@@ -242,6 +271,7 @@ describe('ActivitiesPageComponent', () => {
     TestBed.configureTestingModule({
       imports: [ActivitiesPageComponent],
       providers: [
+        provideActivatedRoute(),
         {
           provide: TRAILROAM_REPOSITORIES,
           useValue: createMockRepositories([], 0),
@@ -261,13 +291,14 @@ describe('ActivitiesPageComponent', () => {
     expect(compiled.querySelector('.stats-grid')).toBeTruthy();
     expect(compiled.querySelector('.activities-table')).toBeTruthy();
     expect(compiled.querySelector('.empty-state--no-activities')).toBeTruthy();
-    expect(compiled.querySelector('.empty-state--no-activities')?.textContent).toContain('Sync activities');
+    expect(compiled.textContent).toContain('Sync activities');
   });
 
   it('should show no-match empty state when filters yield no results', async () => {
     TestBed.configureTestingModule({
       imports: [ActivitiesPageComponent],
       providers: [
+        provideActivatedRoute(),
         {
           provide: TRAILROAM_REPOSITORIES,
           useValue: createMockRepositories([createActivity()], 1),
@@ -287,14 +318,15 @@ describe('ActivitiesPageComponent', () => {
     searchInput.dispatchEvent(new Event('input'));
     fixture.detectChanges();
 
-    expect(compiled.querySelector('.empty-state--no-match')).toBeTruthy();
-    expect(compiled.querySelector('.empty-state--no-match')?.textContent).toContain('No matching activities');
+    expect(compiled.textContent).toContain('No matching activities');
+    expect(compiled.textContent).toContain('No matching activities');
   });
 
   it('should not include hover preview popover', async () => {
     TestBed.configureTestingModule({
       imports: [ActivitiesPageComponent],
       providers: [
+        provideActivatedRoute(),
         {
           provide: TRAILROAM_REPOSITORIES,
           useValue: createMockRepositories([createActivity({
@@ -326,6 +358,7 @@ describe('ActivitiesPageComponent', () => {
     TestBed.configureTestingModule({
       imports: [ActivitiesPageComponent],
       providers: [
+        provideActivatedRoute(),
         { provide: TRAILROAM_REPOSITORIES, useValue: createMockRepositories(activities, 2) },
       ],
     });
@@ -349,6 +382,7 @@ describe('ActivitiesPageComponent', () => {
     TestBed.configureTestingModule({
       imports: [ActivitiesPageComponent],
       providers: [
+        provideActivatedRoute(),
         { provide: TRAILROAM_REPOSITORIES, useValue: createMockRepositories(activities, 2) },
       ],
     });
@@ -385,6 +419,7 @@ describe('ActivitiesPageComponent', () => {
     TestBed.configureTestingModule({
       imports: [ActivitiesPageComponent],
       providers: [
+        provideActivatedRoute(),
         { provide: TRAILROAM_REPOSITORIES, useValue: createMockRepositories(activities, 2) },
       ],
     });

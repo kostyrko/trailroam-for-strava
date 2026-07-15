@@ -4,7 +4,7 @@ import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.tok
 import { environment } from '../../environments/environment';
 import type { ActivityRecord, RouteGeometryRecord } from '../storage/storage.models';
 
-function slugify(text: string): string {
+export function slugify(text: string): string {
   return text
     .toLowerCase()
     .replace(/[^\w\s-]/g, '')
@@ -13,7 +13,7 @@ function slugify(text: string): string {
     .substring(0, 100) || 'activity';
 }
 
-function sportTypeSlug(sportType: string): string {
+export function sportTypeSlug(sportType: string): string {
   return sportType
     .replace(/([a-z])([A-Z])/g, '$1_$2')
     .replace(/([A-Z]+)([A-Z][a-z])/g, '$1_$2')
@@ -23,7 +23,7 @@ function sportTypeSlug(sportType: string): string {
     .replace(/^_|_$/g, '');
 }
 
-function buildGpx(activity: ActivityRecord, route: RouteGeometryRecord): string {
+export function buildGpx(activity: ActivityRecord, route: RouteGeometryRecord): string {
   const lines: string[] = [
     '<?xml version="1.0" encoding="UTF-8"?>',
     `<gpx version="1.1" creator="${environment.appName}"`,
@@ -49,7 +49,7 @@ function buildGpx(activity: ActivityRecord, route: RouteGeometryRecord): string 
   return lines.join('\n');
 }
 
-function escapeXml(s: string): string {
+export function escapeXml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 }
 

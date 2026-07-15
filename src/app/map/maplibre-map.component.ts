@@ -13,6 +13,7 @@ import {
 } from '@angular/core';
 import { type Map } from 'maplibre-gl';
 import { AVAILABLE_PROVIDERS, BasemapProviderService } from './basemap-provider.service';
+import { logger } from '../shared/logger';
 import { type BasemapProviderConfig } from './basemap-provider';
 import { type MapRouteFeature } from './mock-routes';
 import type { RouteBounds } from '../storage/storage.models';
@@ -23,78 +24,7 @@ import { IconComponent } from '../shared/icon.component';
 @Component({
   imports: [IconComponent],
   selector: 'app-maplibre-map',
-  template: `
-    <div class="map-shell" [class.map-fullscreen]="fullscreen()" [class.map-heatmap-active]="heatmapActive()" aria-label="Activity route map" (document:keydown)="onDocumentKeydown($event)">
-      <div #mapContainer class="map-container"></div>
-      <button
-        class="map-fit-btn"
-        type="button"
-        [attr.aria-label]="fullscreen() ? 'Reset map view' : 'Fit map to screen'"
-        (click)="toggleFullscreen()"
-        data-tooltip="Fit map"
-      >
-        @if (fullscreen()) {
-          <span class="fit-icon fit-icon-compress">⤡</span>
-        } @else {
-          <span class="fit-icon fit-icon-expand">⤢</span>
-        }
-      </button>
-      @if (heatmapActive()) {
-        <div class="heatmap-legend" aria-label="Heatmap route density legend">
-          <span class="heatmap-legend-label">Low</span>
-          <div class="heatmap-legend-gradient">
-            <span class="heatmap-legend-stop" style="background:rgba(255,59,48,0.08)"></span>
-            <span class="heatmap-legend-stop" style="background:rgba(255,59,48,0.2)"></span>
-            <span class="heatmap-legend-stop" style="background:rgba(255,59,48,0.4)"></span>
-            <span class="heatmap-legend-stop" style="background:rgba(255,59,48,0.6)"></span>
-            <span class="heatmap-legend-stop" style="background:rgba(255,59,48,0.85)"></span>
-          </div>
-          <span class="heatmap-legend-label">High</span>
-        </div>
-      }
-      <div class="map-layer-wrapper">
-      <div class="map-layer-btn-group">
-        <button #layerBtn class="map-layer-btn" type="button" (click)="toggleLayerMenu()" aria-label="Switch map layer" data-tooltip="Basemap">
-          <app-icon name="layers" [size]="18" strokeWidth="2"></app-icon>
-        </button>
-        @if (layerMenuOpen()) {
-          <div class="map-layer-menu" (click)="$event.stopPropagation()">
-            @for (provider of AVAILABLE_PROVIDERS; track provider.id) {
-              <button class="map-layer-menu-item" type="button" [class.active]="provider.id === activeProviderId()" (click)="selectLayer(provider)">
-                @if (provider.id === 'opentopomap') {
-                  <app-icon name="mountain" [size]="20" strokeWidth="2" [class]="'map-layer-icon'"></app-icon>
-                } @else if (provider.id === 'esri-satellite' || provider.id === 'versatiles-aerial') {
-                  <app-icon name="satellite" [size]="20" strokeWidth="2" [class]="'map-layer-icon'"></app-icon>
-                } @else {
-                  <app-icon name="map" [size]="20" strokeWidth="2" [class]="'map-layer-icon'"></app-icon>
-                }
-                <span class="map-layer-name">{{ provider.label }}</span>
-                @if (provider.id === activeProviderId()) {
-                  <span class="map-layer-check">✓</span>
-                }
-              </button>
-            }
-          </div>
-        }
-        <button class="map-heatmap-btn" type="button" [class.active]="heatmapActive()" (click)="toggleHeatmap()" [attr.aria-label]="heatmapActive() ? 'Show routes' : 'Show heatmap'" [attr.data-tooltip]="heatmapActive() ? 'Trails' : 'Heatmap'">
-          @if (heatmapActive()) {
-            <app-icon name="line-squiggle" [size]="18" strokeWidth="2"></app-icon>
-          } @else {
-            <app-icon name="flame" [size]="18" strokeWidth="2"></app-icon>
-          }
-        </button>
-        <button class="map-opacity-btn" type="button" (click)="toggleSliderVisibility()" [class.active]="sliderVisible()" data-tooltip="Opacity">
-          <app-icon name="eye" [size]="18" strokeWidth="2"></app-icon>
-        </button>
-        @if (sliderVisible()) {
-          <div class="map-opacity-slider-wrapper">
-            <input #opacitySlider class="map-opacity-slider" type="range" min="0" max="100" [value]="opacitySliderValue" (input)="onOpacityChange($any($event.target).value)" aria-label="Adjust layer opacity" />
-          </div>
-        }
-      </div>
-      </div>
-    </div>
-  `,
+  templateUrl: './maplibre-map.component.html',
 })
 export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
   @Input()
@@ -184,7 +114,7 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
   private drainPendingTasks(source: string): void {
     const tasks = this.pendingReadyTasks;
     this.pendingReadyTasks = [];
-    console.log(`[TRACE] drainPendingTasks from ${source}: ${tasks.length} pending tasks, ${this.cachedRoutes.length} cached routes`);
+    logger.trace(`drainPendingTasks from ${source}: ${tasks.length} pending tasks, ${this.cachedRoutes.length} cached routes`);
     for (const t of tasks) { t(); }
   }
 
@@ -195,12 +125,12 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
   private queueOrRender(routes: MapRouteFeature[], selectedId?: string): void {
     const map = this.mapInstance;
     if (!map) {
-      console.log(`[TRACE] queueOrRender: map null, queuing ${routes.length} routes`);
+      logger.trace(`queueOrRender: map null, queuing ${routes.length} routes`);
       this.pendingReadyTasks.push(() => this.renderRouteFeatures(routes, selectedId));
       return;
     }
     if (map.isStyleLoaded()) {
-      console.log(`[TRACE] queueOrRender: style loaded, rendering ${routes.length} routes directly`);
+      logger.trace(`queueOrRender: style loaded, rendering ${routes.length} routes directly`);
       this.routeRendererService.renderRoutes(routes, (route) => this.routeSelected.emit(route));
       if (selectedId) {
         this.routeRendererService.selectRoute(selectedId);
@@ -211,7 +141,7 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
       }
       return;
     }
-    console.log(`[TRACE] queueOrRender: waiting for style, will poll for ${routes.length} routes`);
+    logger.trace(`queueOrRender: waiting for style, will poll for ${routes.length} routes`);
     this.pollForStyle(routes, selectedId);
   }
 
@@ -234,7 +164,7 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
       return;
     }
     if (attempt >= 50) {
-      console.warn(`[TRACE] pollForStyle: giving up after ${attempt} attempts`);
+      logger.warn(`pollForStyle: giving up after ${attempt} attempts`);
       return;
     }
     setTimeout(() => this.pollForStyle(routes, selectedId, attempt + 1), 100);
@@ -278,7 +208,7 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
       const basemapProvider = this.basemapProviderService.getSelectedProvider();
       map = await this.mapLibreService.createMap(this.mapContainer.nativeElement, basemapProvider);
     } catch (err) {
-      console.error('MapLibre initialization failed:', err);
+      logger.error('MapLibre initialization failed:', err);
       this.emitBasemapLoadFailed();
       return;
     }
@@ -311,20 +241,20 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
 
     map.on('error', (err) => {
       if (err?.error?.status === 404 || err?.error?.status === 403 || err?.error?.status === 500) {
-        console.error('MapLibre runtime error:', err);
+        logger.error('MapLibre runtime error:', err);
         this.emitBasemapLoadFailed();
       }
     });
 
     const render = () => {
-      console.log('[TRACE] ngAfterViewInit render() called');
+      logger.trace('ngAfterViewInit render() called');
       this.drainPendingTasks('ngAfterViewInit');
       const routes = this.cachedRoutes;
       if (routes.length > 0) {
-        console.log(`[TRACE] ngAfterViewInit render: rendering ${routes.length} cached routes`);
+        logger.trace(`ngAfterViewInit render: rendering ${routes.length} cached routes`);
         this.routeRendererService.renderRoutes(routes, (route) => this.routeSelected.emit(route));
       } else {
-        console.log('[TRACE] ngAfterViewInit render: no cached routes');
+        logger.trace('ngAfterViewInit render: no cached routes');
       }
     };
 

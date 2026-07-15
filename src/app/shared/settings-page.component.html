@@ -1,0 +1,193 @@
+    <div class="settings-page">
+      <h1 class="settings-title">Settings</h1>
+      <p class="settings-subtitle">Manage your local extension data and synchronization.</p>
+
+      <div class="settings-layout">
+        <div class="settings-main">
+
+          <h2 class="section-title">Sync</h2>
+          <div class="action-grid">
+            <article class="action-card">
+              <div class="action-card-top">
+                <span class="action-card-label">SYNC</span>
+                <div class="action-card-icon action-card-icon-green">
+                  <app-icon name="refresh-cw" [size]="20" strokeWidth="2"></app-icon>
+                </div>
+              </div>
+              <h3 class="action-card-title">Sync activities</h3>
+              <p class="action-card-desc">Import new Strava activities and their GPS routes.</p>
+              <div class="action-card-bottom">
+                <button class="btn btn-primary" type="button" [disabled]="syncInProgress" (click)="syncNewActivities()">Sync activities</button>
+              </div>
+            </article>
+
+            <article class="action-card">
+              <div class="action-card-top">
+                <span class="action-card-label">SYNC</span>
+                <div class="action-card-icon action-card-icon-green">
+                  <app-icon name="refresh-cw-outline" [size]="20" strokeWidth="2"></app-icon>
+                </div>
+              </div>
+              <h3 class="action-card-title">Sync missing routes</h3>
+              <p class="action-card-desc">Retry route import for activities that have no GPS route yet.</p>
+              <div class="action-card-bottom">
+                <button class="btn btn-primary" type="button" [disabled]="syncInProgress" (click)="syncMissingRoutes()">Sync missing routes</button>
+              </div>
+            </article>
+          </div>
+
+          <h2 class="section-title">Data Management</h2>
+          <div class="action-grid">
+            <article class="action-card">
+              <div class="action-card-top">
+                <span class="action-card-label">DATA</span>
+                <div class="action-card-icon action-card-icon-red">
+                  <app-icon name="refresh-cw-outline" [size]="20" strokeWidth="2"></app-icon>
+                </div>
+              </div>
+              <h3 class="action-card-title">Clear and re-sync</h3>
+              <p class="action-card-desc">Deletes locally synced tours and route data, then imports them again.</p>
+              <div class="action-card-bottom">
+                <button class="btn btn-danger" type="button" [disabled]="isClearingLocalData() || syncInProgress" (click)="clearAndResync()">{{ isClearingLocalData() ? 'Clearing...' : 'Clear and re-sync' }}</button>
+              </div>
+            </article>
+
+            <article class="action-card">
+              <div class="action-card-top">
+                <span class="action-card-label">DATA</span>
+                <div class="action-card-icon action-card-icon-red">
+                  <app-icon name="trash-2" [size]="20" strokeWidth="2"></app-icon>
+                </div>
+              </div>
+              <h3 class="action-card-title">Clear synced local data</h3>
+              <p class="action-card-desc">Removes imported activities, routes, and sync state from this browser.</p>
+              <div class="action-card-bottom">
+                <button class="btn btn-danger" type="button" [disabled]="isClearingLocalData() || syncInProgress" (click)="clearSyncedLocalData()">{{ isClearingLocalData() ? 'Clearing...' : 'Clear synced local data' }}</button>
+                @if (clearLocalDataStatus()) {
+                  <p class="clear-status" role="status">{{ clearLocalDataStatus() }}</p>
+                }
+              </div>
+            </article>
+
+            <article class="action-card">
+              <div class="action-card-top">
+                <span class="action-card-label">DATA</span>
+                <div class="action-card-icon action-card-icon-green">
+                  <app-icon name="download" [size]="20" strokeWidth="2"></app-icon>
+                </div>
+              </div>
+              <h3 class="action-card-title">Backup local data</h3>
+              <p class="action-card-desc">Export your activities, routes, and settings to a JSON file.</p>
+              <div class="action-card-bottom">
+                <button class="btn btn-primary" type="button" [disabled]="syncInProgress" (click)="backupLocalData()">Backup</button>
+              </div>
+            </article>
+
+            <article class="action-card">
+              <div class="action-card-top">
+                <span class="action-card-label">DATA</span>
+                <div class="action-card-icon action-card-icon-green">
+                  <app-icon name="upload" [size]="20" strokeWidth="2"></app-icon>
+                </div>
+              </div>
+              <h3 class="action-card-title">Restore local data</h3>
+              <p class="action-card-desc">Restore activities, routes, and settings from a previous backup.</p>
+              <div class="action-card-bottom">
+                <button class="btn btn-primary" type="button" [disabled]="syncInProgress" (click)="restoreLocalData()">Restore</button>
+              </div>
+            </article>
+          </div>
+
+          <div class="history-card">
+            <div class="history-header">
+              <h2 class="history-title">Sync History</h2>
+              @if (syncHistory().length > 0) {
+                <button class="btn btn-danger" type="button" (click)="clearSyncHistory()">Clear sync history</button>
+              }
+            </div>
+            @if (syncHistory().length === 0) {
+              <p class="no-history">No syncs have been performed yet.</p>
+            } @else {
+              <table class="sync-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Trigger</th>
+                    <th>Status</th>
+                    <th>All Activities</th>
+                    <th>New Activities</th>
+                    <th>With routes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (entry of displayedHistory(); track entry.id) {
+                    <tr>
+                      <td>{{ formatDate(entry.completedAt) }}</td>
+                      <td>{{ formatTrigger(entry.trigger) }}</td>
+                      <td>
+                        <span class="status-dot status-dot-green"></span>{{ entry.status }}
+                      </td>
+                      <td>{{ entry.totalActivitiesAfter }}</td>
+                      <td>{{ entry.importedCount }}</td>
+                      <td>{{ entry.activitiesWithRoutesAfter }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+              @if (showViewFull()) {
+                <button class="view-full-btn" type="button" (click)="toggleFullHistory()">View full history ({{ syncHistory().length }} total)</button>
+              }
+              @if (expandedHistory()) {
+                <button class="view-full-btn" type="button" (click)="toggleFullHistory()">Show less</button>
+              }
+            }
+          </div>
+
+        </div>
+
+        <aside class="settings-sidebar">
+          <div class="privacy-card">
+            <h2 class="privacy-title">Privacy &amp; Data</h2>
+            <p class="privacy-subtitle">Your data is stored locally in this browser.</p>
+
+            <div class="privacy-highlight">
+              <app-icon name="shield" strokeWidth="2" [class]="'privacy-highlight-icon'"></app-icon>
+              <div>
+                <p class="privacy-highlight-title">Your data stays private</p>
+                <p class="privacy-highlight-text">All data is stored locally and never sent to our servers.</p>
+              </div>
+            </div>
+
+            <div class="privacy-row">
+              <app-icon name="database" strokeWidth="2" [class]="'privacy-row-icon'"></app-icon>
+              <p class="privacy-row-text">Imported tours and GPS routes are stored only in the browser's IndexedDB.</p>
+            </div>
+
+            <div class="privacy-row">
+              <app-icon name="eye" strokeWidth="2" [class]="'privacy-row-icon'"></app-icon>
+              <p class="privacy-row-text">No route or tour data is uploaded to TrailRoam servers.</p>
+            </div>
+
+            <div class="privacy-row">
+              <app-icon name="search" strokeWidth="2" [class]="'privacy-row-icon'"></app-icon>
+              <p class="privacy-row-text">Stored data can be inspected using browser developer tools.</p>
+            </div>
+
+            <div class="db-version-row">
+              <app-icon name="database" strokeWidth="2" [class]="'privacy-row-icon'"></app-icon>
+              <p class="privacy-row-text">Database schema: v{{ dbVersion }} / Latest: v{{ latestDbVersion }}{{ dbOutdated ? ' — update available' : '' }}</p>
+            </div>
+
+            <div class="tip-box">
+              <app-icon name="lightbulb" strokeWidth="2" [class]="'tip-icon'"></app-icon>
+              <div>
+                <p class="tip-title">Tip</p>
+                <p class="tip-text">Regularly back up your data to avoid accidental loss.</p>
+              </div>
+            </div>
+
+          </div>
+        </aside>
+
+      </div>
+    </div>

@@ -1,0 +1,77 @@
+<div class="activities-toolbar">
+  <div class="search-field">
+    <app-icon name="search" [size]="16" strokeWidth="2" [class]="'search-field__icon'"></app-icon>
+    <input
+      class="search-field__input"
+      type="text"
+      aria-label="Search activities"
+      placeholder="Search activities..."
+      [value]="nameSearch"
+      (input)="nameSearchChange.emit($any($event.target).value)"
+    />
+    @if (nameSearch) {
+      <button class="search-field__clear" type="button" (click)="nameSearchChange.emit('')" aria-label="Clear search">&times;</button>
+    }
+  </div>
+
+  <div class="toolbar-select" tabindex="0" (click)="toggleFilterMenu.emit()" (keydown.enter)="toggleFilterMenu.emit()" (blur)="closeFilterMenu.emit()" aria-label="Filter by activity type">
+    <span class="toolbar-select__trigger">
+      @if (sportTypeFilter; as sel) {
+        @if (sel.startsWith('__cat__')) {
+          <span class="cat-dot" [style.background]="CATEGORY_COLORS[sel.slice(7)]"></span>{{ formatCategory(sel.slice(7)) }}
+        } @else {
+          <span class="cat-dot" [style.background]="CATEGORY_COLORS[mapSportTypeToCategory(sel)]"></span>{{ formatSportType(sel) }}
+        }
+      } @else {
+        All Activities
+      }
+      <app-icon name="chevron-down" [size]="12" strokeWidth="2" [class]="'toolbar-select__arrow'"></app-icon>
+    </span>
+    @if (filterMenuOpen) {
+      <ul class="toolbar-select__options sport-type-filter" (mousedown)="$event.preventDefault()" (click)="$event.stopPropagation()">
+        <li role="option" (click)="sportTypeChange.emit('')" [class.active]="!sportTypeFilter">All Activities</li>
+        @for (group of sportTypeGroups; track group.category) {
+          <li class="sport-type-group-header" role="option" (click)="categoryFilterChange.emit($any(group.category))" [class.active]="sportTypeFilter === '__cat__' + group.category">
+            <span class="cat-dot" [style.background]="CATEGORY_COLORS[group.category]"></span>{{ formatCategory(group.category) }}
+          </li>
+          @for (st of group.sportTypes; track st) {
+            <li class="sport-type-option" role="option" (click)="sportTypeChange.emit(st)" [class.active]="sportTypeFilter === st">
+              <span class="sport-type-label">{{ formatSportType(st) }}</span>
+            </li>
+          }
+        }
+      </ul>
+    }
+  </div>
+
+  <div class="toolbar-select" tabindex="0" (click)="toggleDatePreset.emit()" (keydown.enter)="toggleDatePreset.emit()" (keydown.escape)="datePresetClose.emit()" aria-label="Filter by date range">
+    <span class="toolbar-select__trigger">
+      <app-icon name="calendar" [size]="14" strokeWidth="2"></app-icon>
+      {{ datePresetLabel }}
+      <app-icon name="chevron-down" [size]="12" strokeWidth="2" [class]="'toolbar-select__arrow'"></app-icon>
+    </span>
+  </div>
+
+  @if (datePresetOpen) {
+    <div class="drp-backdrop" (mousedown)="datePresetClose.emit()"></div>
+    <div class="drp-floating">
+      <app-date-range-picker
+        [appliedDateFrom]="dateFrom"
+        [appliedDateTo]="dateTo"
+        (applied)="rangeApplied.emit($event)"
+        (closed)="datePresetClose.emit()"
+      />
+    </div>
+  }
+  <button class="import-btn" type="button" (click)="importClick.emit()">
+    <app-icon name="upload" [size]="14" strokeWidth="2"></app-icon>
+    Import Activity
+  </button>
+  <input
+    #fileInput
+    type="file"
+    accept=".gpx,.fit,.tcx"
+    style="display:none"
+    (change)="fileSelected.emit($event)"
+  />
+</div>

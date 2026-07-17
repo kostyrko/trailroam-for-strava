@@ -168,15 +168,30 @@ Check that:
 
 ## Tests
 
+A task is not ready for review until it has tests at the layers the change touches. Trailroam has three test layers (see `docs/engineering-guide.md` → "Test Layers and When They Run"). A change should be covered at each layer that applies:
+
+- **Unit** (`npm test`): isolated functions, services, normalizers, repositories, and small component behavior. Required for every behavior change. Focused tests are mandatory for changes to shared formatters, storage validation, sync counters, route sync behavior, extension message handling, or Strava normalizers.
+- **Service integration**: repository/Dexie behavior, backup/restore round trips, route sync persistence, sync counters/failure states, and extension bridge message handling — run against fake IndexedDB and mocked Strava/Chrome APIs. Required when a change touches those areas.
+- **E2E smoke** (`npm run test:e2e`, run before PR merge/release): stable app flows only — app shell loads, navigation, empty states, import dialog opens, map page does not crash. E2E is a smoke layer; do not require pixel-perfect or real-Strava coverage, but do require it to pass for the affected flow before merge.
+
 Confirm:
 
 - typecheck passes (`npm run typecheck`)
-- relevant unit tests pass and were updated for changed behavior
-- focused tests were added for changes to shared formatters, storage validation, sync counters, route sync behavior, extension message handling, or Strava normalizers
+- tests exist at every layer the change touches (unit and integration for behavior; e2e smoke for the affected flow)
+- relevant unit and integration tests pass and were updated for changed behavior
+- e2e smoke for the affected flow passes (or is documented as deferred with a reason)
 - no tests were deleted or marked skipped to make the suite green
 - no failing test or typecheck failure was hidden
 
-If the PR claims "tests pass", ask for the exact command and output or the relevant CI evidence. A review should be based on evidence, not assumptions.
+If the PR claims "tests pass", ask for the exact command and output or the relevant CI evidence. A review should be based on evidence, not assumptions. If a relevant layer is missing or a relevant spec was not run, treat the task as not ready and ask for the missing coverage.
+
+## Definition of Ready
+
+A task is ready to merge only when, in addition to the rest of this guide:
+
+- unit tests exist and pass for the changed behavior
+- service integration tests exist and pass for any changed repository, sync, storage, or extension-bridge behavior
+- e2e smoke for the affected flow passes (or is explicitly deferred with a reason)
 
 ## Scope and Commit Hygiene
 
@@ -198,6 +213,7 @@ Check that:
 - sync counter that re-defines "success"
 - leftover debug log
 - deleted or skipped test
+- missing tests at a layer the change touches (unit / integration / e2e)
 - missing typecheck or missing relevant test run
 
 ## Reviewer Checklist
@@ -212,5 +228,7 @@ Before approving, confirm:
 - [ ] No duplicated formatting or display logic
 - [ ] No new routine logs; no leftover trace logs
 - [ ] `npm run typecheck` passes
-- [ ] Relevant unit tests pass and were updated or added
+- [ ] Unit tests exist and pass for changed behavior
+- [ ] Service integration tests exist and pass where the change touches repositories, sync, storage, or the extension bridge
+- [ ] E2E smoke for the affected flow passes (or is deferred with a reason)
 - [ ] Change is scoped to the task

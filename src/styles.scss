@@ -352,6 +352,37 @@ p {
   background: #15503b;
 }
 
+.map-search-btn {
+  align-items: center;
+  background: #ffffff;
+  border: 2px solid #1f6f50;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgb(20 33 27 / 18%);
+  color: #1f6f50;
+  cursor: pointer;
+  display: flex;
+  height: 30px;
+  justify-content: center;
+  margin-top: 8px;
+  padding: 0;
+  position: relative;
+  width: 48px;
+}
+
+.map-search-btn:hover,
+.map-search-btn.active {
+  background: #e6f7ef;
+  border-color: #15503b;
+  color: #15503b;
+}
+
+.map-search-popover {
+  position: absolute;
+  right: calc(100% + 8px);
+  top: 0;
+  z-index: 20;
+}
+
 .heatmap-legend {
   align-items: center;
   background: rgba(255, 255, 255, 0.92);

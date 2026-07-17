@@ -65,6 +65,14 @@
             <input #opacitySlider class="map-opacity-slider" type="range" min="0" max="100" [value]="opacitySliderValue()" (input)="onOpacityChange($any($event.target).value)" aria-label="Adjust layer opacity" />
           </div>
         }
+        <button class="map-search-btn" type="button" (click)="toggleSearchPanel()" [class.active]="searchPanelVisible()" data-tooltip="Search" aria-label="Search places or coordinates">
+          <app-icon name="search" [size]="18" strokeWidth="2"></app-icon>
+        </button>
+        @if (searchPanelVisible()) {
+          <div class="map-search-popover" (click)="$event.stopPropagation()">
+            <app-map-search-panel (searchSelected)="onSearchSelected($event)" />
+          </div>
+        }
       </div>
       </div>
     </div>

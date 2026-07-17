@@ -20,9 +20,10 @@ import type { RouteBounds } from '../storage/storage.models';
 import { MapLibreService } from './maplibre.service';
 import { RouteRendererService } from './route-renderer.service';
 import { IconComponent } from '../shared/icon.component';
+import { MapSearchPanelComponent, type SearchSelectedPayload } from './map-search-panel.component';
 
 @Component({
-  imports: [IconComponent],
+  imports: [IconComponent, MapSearchPanelComponent],
   selector: 'app-maplibre-map',
   templateUrl: './maplibre-map.component.html',
 })
@@ -80,6 +81,7 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
   private readonly heatmapOpacity = signal(100);
   protected readonly opacitySliderValue = signal(100);
   protected readonly sliderVisible = signal(false);
+  protected readonly searchPanelVisible = signal(false);
 
   protected toggleLayerMenu(): void {
     this.layerMenuOpen.update((v) => !v);
@@ -275,16 +277,61 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
     this.routeRendererService.fitToRoute(coordinates, bounds);
   }
 
+  /**
+   * Navigates the map to a single point. Used by Map Explorer search. When `bounds` are
+   * provided (a place with a known extent), fits to the bounds; otherwise flies to the
+   * center, ensuring the zoom reaches a useful street level even when zoomed far out.
+   */
+  flyTo(center: [number, number], bounds?: [number, number, number, number]): void {
+    const map = this.mapInstance;
+    if (!map) {
+      this.pendingReadyTasks.push(() => this.flyTo(center, bounds));
+      return;
+    }
+    const execute = () => {
+      if (bounds) {
+        map.fitBounds(bounds, { padding: 80, maxZoom: 15 });
+      } else {
+        map.flyTo({ center, zoom: Math.max(map.getZoom(), 13) });
+      }
+    };
+    if (map.isStyleLoaded()) {
+      execute();
+    } else {
+      map.once('style.load', execute);
+    }
+  }
 
   ngOnDestroy(): void {
     this.isDestroyed = true;
     this.pendingReadyTasks = [];
     this.mapInstance = null;
     document.removeEventListener('click', this.closeLayerMenu);
+    document.removeEventListener('click', this.closeSearchPanel);
   }
 
   protected toggleSliderVisibility(): void {
     this.sliderVisible.update((v) => !v);
+  }
+
+  protected toggleSearchPanel(): void {
+    const next = !this.searchPanelVisible();
+    this.searchPanelVisible.set(next);
+    if (next) {
+      setTimeout(() => document.addEventListener('click', this.closeSearchPanel));
+    } else {
+      document.removeEventListener('click', this.closeSearchPanel);
+    }
+  }
+
+  private readonly closeSearchPanel = (): void => {
+    this.searchPanelVisible.set(false);
+    document.removeEventListener('click', this.closeSearchPanel);
+  };
+
+  protected onSearchSelected(payload: SearchSelectedPayload): void {
+    const { result } = payload;
+    this.flyTo(result.center, result.bbox);
   }
 
   protected toggleHeatmap(): void {
@@ -329,6 +376,7 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
     }
     if (event.key === 'Escape') {
       this.layerMenuOpen.set(false);
+      this.searchPanelVisible.set(false);
       document.removeEventListener('click', this.closeLayerMenu);
     }
   }

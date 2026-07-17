@@ -35,7 +35,8 @@
   "host_permissions": [
     "https://www.strava.com/*",
     "https://strava.com/*",
-    "https://tiles.openfreemap.org/*"
+    "https://tiles.openfreemap.org/*",
+    "https://photon.komoot.io/*"
   ],
   "web_accessible_resources": [
     {

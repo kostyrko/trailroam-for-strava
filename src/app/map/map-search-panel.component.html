@@ -1,0 +1,70 @@
+<div class="map-search">
+  <div class="map-search__box">
+    <app-icon name="search" [size]="16" />
+    <input
+      type="text"
+      class="map-search__input"
+      placeholder="Search places or coordinates…"
+      [value]="query()"
+      (input)="onQueryInput($any($event.target).value)"
+      (keydown)="onKeydown($event)"
+      (keydown.enter)="onSubmit()"
+      aria-label="Search places or coordinates"
+      autocomplete="off"
+    />
+    @if (loading()) {
+      <span class="map-search__spinner" aria-hidden="true"></span>
+    }
+  </div>
+
+  <p class="map-search__hint">e.g. "Kraków", "50.0647, 19.9450"</p>
+
+  @if (error()) {
+    <p class="map-search__error" role="alert">{{ error() }}</p>
+  }
+
+  @if (suggestions().length > 0) {
+    <ul class="map-search__suggestions" role="listbox">
+      @for (suggestion of suggestions(); track suggestion.label) {
+        <li role="option">
+          <button
+            type="button"
+            class="map-search__suggestion"
+            (click)="onPickSuggestion(suggestion)"
+          >
+            <app-icon name="map-pin" [size]="14" />
+            <span class="map-search__suggestion-label">{{ suggestion.label }}</span>
+          </button>
+        </li>
+      }
+    </ul>
+  }
+
+  @if (recent().length > 0) {
+    <section class="map-search__recent" aria-label="Recent searches">
+      <h3 class="map-search__recent-title">Recent searches</h3>
+      <ul class="map-search__recent-list">
+        @for (entry of recent(); track entry.id) {
+          <li class="map-search__recent-item">
+            <button
+              type="button"
+              class="map-search__recent-button"
+              (click)="onRepeat(entry)"
+            >
+              <app-icon name="clock" [size]="14" />
+              <span class="map-search__recent-label">{{ entry.label }}</span>
+            </button>
+            <button
+              type="button"
+              class="map-search__remove"
+              (click)="onRemoveEntry(entry, $event)"
+              [attr.aria-label]="'Remove ' + entry.label"
+            >
+              <app-icon name="x" [size]="14" />
+            </button>
+          </li>
+        }
+      </ul>
+    </section>
+  }
+</div>

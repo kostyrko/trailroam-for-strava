@@ -1,0 +1,92 @@
+<div class="places-panel" [class.places-panel--compact]="compact()">
+  @if (!compact()) {
+    <div class="places-header">
+      <h2 class="places-title">
+        Places
+        <span class="places-count">({{ places().length }})</span>
+      </h2>
+    </div>
+
+    <div class="places-controls">
+      <div class="places-search-wrap">
+        <app-icon name="search" [size]="14" strokeWidth="2" [class]="'places-search-icon'"></app-icon>
+        <input
+          class="places-search-input"
+          type="search"
+          placeholder="Search saved places..."
+          [value]="searchQuery()"
+          (input)="onSearchInput($any($event.target).value)"
+          aria-label="Search saved places"
+        />
+        @if (searchQuery()) {
+          <button class="places-search-clear" type="button" (click)="clearSearch()" aria-label="Clear search">
+            <app-icon name="x" [size]="12" strokeWidth="2"></app-icon>
+          </button>
+        }
+      </div>
+    </div>
+  } @else {
+    <div class="places-section-title">Saved places</div>
+  }
+
+  <div class="places-list" [class.places-list--empty]="places().length === 0">
+    @if (places().length === 0) {
+      <div class="places-empty">
+        <p class="places-empty-title">No saved places yet</p>
+        <p class="places-empty-hint">Search the map and save places you want to return to.</p>
+      </div>
+    } @else if (filteredPlaces().length === 0) {
+      <div class="places-empty">
+        <p class="places-empty-hint">No places match your search.</p>
+      </div>
+    }
+
+    @for (place of filteredPlaces(); track place.id) {
+      <div class="place-row" [class.place-row--selected]="place.id === selectedPlaceId()">
+        <button
+          class="place-row__main"
+          type="button"
+          (click)="onSelectPlace(place)"
+          [attr.aria-label]="'Open saved place ' + place.name"
+        >
+          <span class="place-row__icon"><app-icon name="map-pin" [size]="16" strokeWidth="2"></app-icon></span>
+          <span class="place-row__body">
+            <span class="place-row__name">{{ place.name }}</span>
+            @if (place.secondaryLabel) {
+              <span class="place-row__secondary">{{ place.secondaryLabel }}</span>
+            }
+          </span>
+        </button>
+        <div class="place-row__menu">
+          <button
+            class="place-row__overflow"
+            type="button"
+            (click)="toggleMenu(place, $event)"
+            aria-haspopup="menu"
+            [attr.aria-expanded]="openMenuId() === place.id"
+            [attr.aria-label]="'Place actions'"
+            title="Place actions"
+          >
+            <app-icon name="more-horizontal" [size]="16" strokeWidth="2"></app-icon>
+          </button>
+          @if (openMenuId() === place.id) {
+            <ul class="place-dropdown" role="menu" (click)="$event.stopPropagation()">
+              <li role="none">
+                <button class="place-dropdown-item" role="menuitem" (click)="onEditPlace(place, $event)">
+                  <app-icon name="pencil" [size]="14" strokeWidth="2" [class]="'place-dd-icon'"></app-icon>
+                  Edit
+                </button>
+              </li>
+              <li role="none">
+                <button class="place-dropdown-item place-dropdown-item--danger" role="menuitem" (click)="onRemovePlace(place, $event)">
+                  <app-icon name="trash-2" [size]="14" strokeWidth="2" [class]="'place-dd-icon'"></app-icon>
+                  Delete
+                </button>
+              </li>
+            </ul>
+          }
+        </div>
+      </div>
+    }
+  </div>
+</div>

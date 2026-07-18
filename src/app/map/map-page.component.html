@@ -11,23 +11,66 @@
 
       @if (!hasBasemapError()) {
         @if (panelReady()) {
-          <app-map-activity-panel
-            #activityPanel
-            [routes]="filteredRoutes()"
-            [totalRoutes]="allRoutes().length"
-            [selectedActivityId]="selectedActivityId()"
-            [hoveredActivityId]="hoveredActivityId()"
-            [viewBounds]="panelViewportBounds()"
-            [isFullscreen]="mapFullscreen()"
-            [panelExpanded]="panelExpanded()"
-            [noTransition]="panelNoTransition()"
-            (panelExpandedChange)="onPanelExpandedChange($event)"
-            (selectRoute)="onPanelSelectRoute($event)"
-            (hoverRoute)="onPanelHoverRoute($event)"
-            (visibleOnMapChange)="onPanelVisibleOnMapChange($event)"
-            (downloadPanelGpx)="onDownloadPanelGpx($event)"
-            (sourceFilterChange)="onSourceFilterChange($event)"
-          />
+          <div class="map-panel-switcher" [class.map-panel-switcher--hidden]="!panelExpanded()">
+            <button
+              class="map-panel-switcher__btn"
+              type="button"
+              [class.active]="leftPanelView() === 'activities'"
+              (click)="leftPanelView.set('activities')"
+            >Activities</button>
+            <button
+              class="map-panel-switcher__btn"
+              type="button"
+              [class.active]="leftPanelView() === 'places'"
+              (click)="leftPanelView.set('places')"
+            >Places</button>
+            <button
+              class="map-panel-switcher__btn"
+              type="button"
+              [class.active]="leftPanelView() === 'all'"
+              (click)="leftPanelView.set('all')"
+            >All</button>
+          </div>
+
+          @if (leftPanelView() === 'activities') {
+            <app-map-activity-panel
+              #activityPanel
+              [routes]="filteredRoutes()"
+              [totalRoutes]="allRoutes().length"
+              [selectedActivityId]="selectedActivityId()"
+              [hoveredActivityId]="hoveredActivityId()"
+              [viewBounds]="panelViewportBounds()"
+              [isFullscreen]="mapFullscreen()"
+              [panelExpanded]="panelExpanded()"
+              [noTransition]="panelNoTransition()"
+              (panelExpandedChange)="onPanelExpandedChange($event)"
+              (selectRoute)="onPanelSelectRoute($event)"
+              (hoverRoute)="onPanelHoverRoute($event)"
+              (visibleOnMapChange)="onPanelVisibleOnMapChange($event)"
+              (downloadPanelGpx)="onDownloadPanelGpx($event)"
+              (sourceFilterChange)="onSourceFilterChange($event)"
+            />
+          } @else if (leftPanelView() === 'places') {
+            <app-map-places-panel
+              [places]="savedPlaces()"
+              [selectedPlaceId]="selectedPlaceId()"
+              (selectPlace)="onSelectPlace($event)"
+              (editPlace)="onEditPlace($event)"
+              (removePlace)="onRemovePlace($event)"
+            />
+          } @else {
+            <app-map-all-panel
+              [routes]="filteredRoutes()"
+              [places]="savedPlaces()"
+              [selectedActivityId]="selectedActivityId()"
+              [selectedPlaceId]="selectedPlaceId()"
+              (selectRoute)="onPanelSelectRoute($event)"
+              (hoverRoute)="onPanelHoverRoute($event)"
+              (selectPlace)="onSelectPlace($event)"
+              (editPlace)="onEditPlace($event)"
+              (removePlace)="onRemovePlace($event)"
+            />
+          }
         }
         <app-map-filter-overlay
           [sportTypeFilter]="sportTypeFilter()"
@@ -79,12 +122,16 @@
           <div class="map-content-main">
             <app-maplibre-map
               [fullscreenOverride]="mapFullscreen()"
+              [savedPlaces]="savedPlaces()"
               (basemapLoadFailed)="showBasemapError()"
               (routeSelected)="selectRoute($event)"
               (fullscreenChanged)="mapFullscreen.set($event)"
               (routesRendered)="onRoutesRendered()"
               (mapIdle)="onMapIdle()"
               (viewportChanged)="onViewportChanged($event)"
+              (placeSelected)="onSearchResultSelected($event)"
+              (savePlaceRequested)="onSavePlaceRequested($event)"
+              (removePlaceRequested)="onRemovePlace($event)"
             />
             @if (selectedRoute(); as route) {
               @if (!detailPanelOpen()) {

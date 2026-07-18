@@ -1,6 +1,7 @@
 import {
   Component,
   EventEmitter,
+  Input,
   OnDestroy,
   OnInit,
   Output,
@@ -44,8 +45,21 @@ export class MapSearchPanelComponent implements OnInit, OnDestroy {
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
   readonly recent = this.recentSearches.entries;
+  /** The most recently committed search result (kept so the Save action can target it). */
+  readonly selectedResult = signal<GeocodeResult | null>(null);
+
+  /** When true, the selected result is already a saved place — show "Saved" instead of "Save". */
+  @Input() set selectedResultSaved(value: boolean) {
+    this._selectedResultSaved = value;
+  }
+  get selectedResultSaved(): boolean {
+    return this._selectedResultSaved;
+  }
+  private _selectedResultSaved = false;
 
   @Output() readonly searchSelected = new EventEmitter<SearchSelectedPayload>();
+  /** Emitted when the user clicks "Save place" for the currently selected result. */
+  @Output() readonly saveRequested = new EventEmitter<GeocodeResult>();
 
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private activeSearch = 0;
@@ -149,10 +163,21 @@ export class MapSearchPanelComponent implements OnInit, OnDestroy {
     this.activeSearch++;
     this.searchSelected.emit({ result, kind });
     this.recentSearches.add(result, kind);
+    // Retain the result so the Save action (and the "Saved" state) can target it. Clearing the
+    // query/suggestions keeps the input tidy without dropping the selection.
+    this.selectedResult.set(result);
+    this._selectedResultSaved = false;
     this.query.set('');
     this.suggestions.set([]);
     this.error.set(null);
     this.loading.set(false);
+  }
+
+  /** Emits a save request for the currently selected result. */
+  protected requestSave(): void {
+    const result = this.selectedResult();
+    if (!result) { return; }
+    this.saveRequested.emit(result);
   }
 }
 

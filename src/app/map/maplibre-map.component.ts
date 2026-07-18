@@ -8,19 +8,25 @@ import {
   OnDestroy,
   Output,
   ViewChild,
+  effect,
   inject,
+  input,
   signal,
 } from '@angular/core';
-import { type Map } from 'maplibre-gl';
+import { type Map as MapLibreMap, type Marker, type Popup } from 'maplibre-gl';
 import { AVAILABLE_PROVIDERS, BasemapProviderService } from './basemap-provider.service';
 import { logger } from '../shared/logger';
 import { type BasemapProviderConfig } from './basemap-provider';
 import { type MapRouteFeature } from './mock-routes';
-import type { RouteBounds } from '../storage/storage.models';
+import type { RouteBounds, SavedPlaceRecord } from '../storage/storage.models';
 import { MapLibreService } from './maplibre.service';
 import { RouteRendererService } from './route-renderer.service';
 import { IconComponent } from '../shared/icon.component';
 import { MapSearchPanelComponent, type SearchSelectedPayload } from './map-search-panel.component';
+import type { GeocodeResult } from './geocoding.service';
+
+/** Pin color for saved-place markers — distinct from activity route colors. */
+const SAVED_PLACE_MARKER_COLOR = '#1f6f50';
 
 @Component({
   imports: [IconComponent, MapSearchPanelComponent],
@@ -55,6 +61,24 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
   @Output()
   readonly viewportChanged = new EventEmitter<[[number, number], [number, number]]>();
 
+  /** Saved places to render as persistent markers. Driven by MapPage from SavedPlacesService. */
+  readonly savedPlaces = input<SavedPlaceRecord[]>([]);
+
+  /** Emits when the user clicks "Remove place" inside a saved-marker popup. */
+  @Output()
+  readonly removePlaceRequested = new EventEmitter<SavedPlaceRecord>();
+
+  /** Emits the search result the user just selected (re-emitted from the search panel). */
+  @Output()
+  readonly placeSelected = new EventEmitter<SearchSelectedPayload>();
+
+  /** Emits when the user clicks "Save place" for the selected search result. */
+  @Output()
+  readonly savePlaceRequested = new EventEmitter<GeocodeResult>();
+
+  /** Drives the search panel's "Saved" badge: true when the selected result is already saved. */
+  readonly selectedResultSaved = signal(false);
+
   @ViewChild('mapContainer', { static: true })
   private readonly mapContainer!: ElementRef<HTMLElement>;
 
@@ -72,7 +96,20 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
   private isDestroyed = false;
   private pendingReadyTasks: (() => void)[] = [];
   protected readonly fullscreen = signal(false);
-  private mapInstance: Map | null = null;
+  private mapInstance: MapLibreMap | null = null;
+  /** Active saved-place markers, keyed by SavedPlaceRecord.id. Reconciled from the input. */
+  private savedPlaceMarkers = new Map<string, Marker>();
+
+  constructor() {
+    // Reconcile saved-place markers whenever the input changes. The map may not be ready yet on
+    // the first run; in that case the reconciliation is queued and re-run once the style loads.
+    // `reconcileSavedPlaceMarkers` always reads the *current* input value at execution time, so a
+    // stale closure array (e.g. an empty list captured before `load()` resolved) is never used.
+    effect(() => {
+      this.savedPlaces();
+      void this.reconcileSavedPlaceMarkers();
+    });
+  }
 
   protected readonly AVAILABLE_PROVIDERS = AVAILABLE_PROVIDERS;
   protected readonly activeProviderId = signal(this.basemapProviderService.getSelectedProvider().config.id);
@@ -109,6 +146,9 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
       this.routeRendererService.init(map);
       this.drainPendingTasks('selectLayer');
       this.rerenderRoutes();
+      // Markers are DOM overlays and normally survive a style change, but reconcile defensively
+      // so saved-place markers are always present after switching basemaps.
+      void this.reconcileSavedPlaceMarkers();
     });
     map.setStyle(config.styleUrl!);
   }
@@ -204,7 +244,7 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
   }
 
   async ngAfterViewInit(): Promise<void> {
-    let map: Map;
+    let map: MapLibreMap;
 
     try {
       const basemapProvider = this.basemapProviderService.getSelectedProvider();
@@ -258,6 +298,10 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
       } else {
         logger.trace('ngAfterViewInit render: no cached routes');
       }
+      // Reconcile saved-place markers explicitly once the map is ready. The signal `effect` may
+      // have run before the map existed (or before `SavedPlacesService.load()` resolved), so this
+      // guarantees loaded places render at startup, not only after a new place is saved.
+      void this.reconcileSavedPlaceMarkers();
     };
 
     if (map.isStyleLoaded()) {
@@ -302,9 +346,125 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
     }
   }
 
+  /**
+   * Pans/zooms the map to a saved place (used when selecting a place from the panel) and opens
+   * its marker popup. Idempotent if the marker does not exist yet (it will be created on reconcile).
+   */
+  focusSavedPlace(place: SavedPlaceRecord): void {
+    const center: [number, number] = [place.longitude, place.latitude];
+    this.flyTo(center);
+    const marker = this.savedPlaceMarkers.get(place.id);
+    if (marker) {
+      const popup = marker.getPopup();
+      if (popup) { marker.togglePopup(); }
+    }
+  }
+
+  /**
+   * Reconciles the rendered saved-place markers against the current `savedPlaces` input: adds
+   * markers for new places, removes markers for places no longer present, and updates names/popups
+   * for changed places. Reads the input fresh on every call so a queue/style-load callback always
+   * uses the latest data, never a stale closure array. Implemented with MapLibre `Marker`s (not
+   * sources/layers) so they stay independent of route rendering.
+   *
+   * If the map or its style is not ready yet, this schedules a short retry rather than relying on
+   * a single `style.load` one-shot (which can race and fire before the input is populated).
+   */
+  private async reconcileSavedPlaceMarkers(): Promise<void> {
+    if (this.isDestroyed) { return; }
+    const map = this.mapInstance;
+    if (!map || !map.isStyleLoaded()) {
+      // Poll briefly until the map and its style are ready, then reconcile with the latest input.
+      setTimeout(() => this.reconcileSavedPlaceMarkers(), 100);
+      return;
+    }
+
+    const places = this.savedPlaces();
+    const next = new Map(places.map((p) => [p.id, p]));
+
+    // Remove stale markers.
+    for (const [id, marker] of this.savedPlaceMarkers) {
+      if (!next.has(id)) {
+        marker.remove();
+        this.savedPlaceMarkers.delete(id);
+      }
+    }
+
+    // Add or update markers.
+    const maplibregl = (await import('maplibre-gl')).default;
+    for (const place of places) {
+      const existing = this.savedPlaceMarkers.get(place.id);
+      if (existing) {
+        existing.setLngLat([place.longitude, place.latitude]);
+        existing.setPopup(this.buildSavedPlacePopup(place, maplibregl.Popup));
+        this.applyMarkerAccessibility(existing, place);
+        continue;
+      }
+      const marker = new maplibregl.Marker({ color: SAVED_PLACE_MARKER_COLOR })
+        .setLngLat([place.longitude, place.latitude])
+        .setPopup(this.buildSavedPlacePopup(place, maplibregl.Popup))
+        .addTo(map);
+      this.applyMarkerAccessibility(marker, place);
+      this.savedPlaceMarkers.set(place.id, marker);
+    }
+  }
+
+  /**
+   * Marks a saved-place marker's DOM element as an accessible image with a stable label, so each
+   * marker is announced as representing a single saved place on the map. MapLibre markers are not
+   * labelled by default; without this they read as empty images to assistive tech.
+   */
+  private applyMarkerAccessibility(marker: Marker, place: SavedPlaceRecord): void {
+    const el = marker.getElement();
+    el.setAttribute('role', 'img');
+    el.setAttribute('aria-label', `Map marker for saved place ${place.name}`);
+  }
+
+  /**
+   * Builds the compact popup shown when a saved-place marker is clicked: the saved name,
+   * secondary location text, and a "Remove place" button. The Remove button is wired here so the
+   * click bubbles up to the container via `removePlaceRequested`.
+   */
+  private buildSavedPlacePopup(
+    place: SavedPlaceRecord,
+    PopupCtor: new (opts: { closeButton: boolean; closeOnClick: boolean }) => Popup,
+  ): Popup {
+    const container = document.createElement('div');
+    container.className = 'saved-place-popup';
+
+    const name = document.createElement('strong');
+    name.className = 'saved-place-popup__name';
+    name.textContent = place.name;
+    container.appendChild(name);
+
+    if (place.secondaryLabel) {
+      const secondary = document.createElement('span');
+      secondary.className = 'saved-place-popup__secondary';
+      secondary.textContent = place.secondaryLabel;
+      container.appendChild(secondary);
+    }
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'saved-place-popup__remove';
+    removeBtn.textContent = 'Remove place';
+    removeBtn.setAttribute('aria-label', `Remove saved place ${place.name}`);
+    // Run inside the Angular zone so change detection proceeds after the emit.
+    removeBtn.addEventListener('click', () => {
+      this.ngZone.run(() => this.removePlaceRequested.emit(place));
+    });
+    container.appendChild(removeBtn);
+
+    return new PopupCtor({ closeButton: false, closeOnClick: true }).setDOMContent(container);
+  }
+
   ngOnDestroy(): void {
     this.isDestroyed = true;
     this.pendingReadyTasks = [];
+    for (const marker of this.savedPlaceMarkers.values()) {
+      marker.remove();
+    }
+    this.savedPlaceMarkers.clear();
     this.mapInstance = null;
     document.removeEventListener('click', this.closeLayerMenu);
     document.removeEventListener('click', this.closeSearchPanel);
@@ -332,6 +492,14 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
   protected onSearchSelected(payload: SearchSelectedPayload): void {
     const { result } = payload;
     this.flyTo(result.center, result.bbox);
+    // Reset the saved badge for the new selection; the container recomputes it.
+    this.selectedResultSaved.set(false);
+    this.placeSelected.emit(payload);
+  }
+
+  /** Re-emits the save request from the search panel; the container opens the name dialog. */
+  protected onSavePlaceRequested(result: GeocodeResult): void {
+    this.savePlaceRequested.emit(result);
   }
 
   protected toggleHeatmap(): void {

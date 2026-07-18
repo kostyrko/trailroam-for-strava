@@ -7,6 +7,15 @@ export interface GeocodeResult {
   center: [number, number];
   /** [west, south, east, north] if the provider returned a bounding box. */
   bbox?: [number, number, number, number];
+  /**
+   * Stable provider-specific id (e.g. Photon `osm_type` + `osm_id`). Used by the saved-places
+   * flow to detect that a search result is already saved. Absent for coordinate-only results.
+   */
+  providerId?: string;
+  /** The provider's primary place name. Used as the default in the save-place name dialog. */
+  providerName?: string;
+  /** Secondary location text (region/country) shown under the name in lists and popups. */
+  secondaryLabel?: string;
 }
 
 /**
@@ -71,6 +80,8 @@ interface PhotonFeature {
     city?: string;
     state?: string;
     country?: string;
+    osm_id?: number;
+    osm_type?: string;
     extent?: [number, number, number, number];
   };
 }
@@ -99,19 +110,50 @@ function featureToResult(feature: PhotonFeature): GeocodeResult | null {
       result.bbox = [west, south, east, north];
     }
   }
+
+  const providerName = primaryName(props);
+  if (providerName) {
+    result.providerName = providerName;
+    const secondary = secondaryLabel(props, providerName);
+    if (secondary) { result.secondaryLabel = secondary; }
+  }
+  const providerId = deriveProviderId(props);
+  if (providerId) { result.providerId = providerId; }
   return result;
 }
 
-function buildLabel(props: {
-  name?: string;
-  city?: string;
-  state?: string;
-  country?: string;
-}): string {
-  const primary = props.name ?? props.city;
+/** Composite "Name, State, Country" label. The primary name is the OSM `name`, falling back to `city`. */
+function buildLabel(props: PhotonPlaceProperties): string {
+  const primary = primaryName(props);
   if (!primary) { return ''; }
   const parts = [primary];
   if (props.state && props.state !== primary) { parts.push(props.state); }
   if (props.country) { parts.push(props.country); }
   return parts.join(', ');
+}
+
+type PhotonPlaceProperties = {
+  name?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+};
+
+function primaryName(props: PhotonPlaceProperties): string | undefined {
+  return props.name ?? props.city;
+}
+
+/** Secondary location text: the label parts other than the primary name (state, country). */
+function secondaryLabel(props: PhotonPlaceProperties, primary: string): string | undefined {
+  const parts: string[] = [];
+  if (props.state && props.state !== primary) { parts.push(props.state); }
+  if (props.country) { parts.push(props.country); }
+  return parts.length > 0 ? parts.join(', ') : undefined;
+}
+
+/** Stable id from OSM element type + id, e.g. "N12345". Absent if Photon omitted OSM metadata. */
+function deriveProviderId(props: { osm_id?: number; osm_type?: string }): string | undefined {
+  if (typeof props.osm_id !== 'number' || !Number.isFinite(props.osm_id)) { return undefined; }
+  const type = typeof props.osm_type === 'string' && props.osm_type.length > 0 ? props.osm_type : 'X';
+  return `${type}${props.osm_id}`;
 }

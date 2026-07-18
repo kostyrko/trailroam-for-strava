@@ -375,3 +375,55 @@
       color: #63746a;
     }
 
+    /* Activities | Places | All segmented control above the left panel. */
+    .map-panel-switcher {
+      align-items: center;
+      background: #ffffff;
+      border-bottom: 1px solid #eef5f0;
+      border-right: 1px solid #dce6df;
+      box-shadow: 0 4px 16px rgb(20 33 27 / 8%);
+      box-sizing: border-box;
+      display: flex;
+      gap: 2px;
+      left: 0;
+      padding: 6px;
+      position: absolute;
+      top: 0;
+      width: 340px;
+      z-index: 150;
+    }
+
+    .map-panel-switcher--hidden {
+      display: none;
+    }
+
+    .map-panel-switcher__btn {
+      background: transparent;
+      border: 0;
+      border-radius: 8px;
+      color: #63746a;
+      cursor: pointer;
+      flex: 1;
+      font: inherit;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      height: 32px;
+      padding: 0;
+      transition: background 120ms ease, color 120ms ease;
+    }
+
+    .map-panel-switcher__btn:hover {
+      background: #f4f9f6;
+      color: #14211b;
+    }
+
+    .map-panel-switcher__btn.active {
+      background: #1f6f50;
+      color: #ffffff;
+    }
+
+    .map-panel-switcher__btn:focus-visible {
+      box-shadow: 0 0 0 2px rgb(31 111 80 / 40%);
+      outline: 0;
+    }
+

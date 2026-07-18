@@ -15,14 +15,36 @@ import { MapLibreMapComponent } from './maplibre-map.component';
 import { LoadingSpinnerComponent } from '../shared/loading-spinner.component';
 import { DateRangePickerComponent } from '../shared/date-range-picker.component';
 import { type MapRouteFeature } from './mock-routes';
-import { FiltersService, CATEGORY_COLORS, isAfterOrEqual, isBeforeOrEqual, type DatePreset } from '../shared/filters.service';
+import {
+  FiltersService,
+  CATEGORY_COLORS,
+  isAfterOrEqual,
+  isBeforeOrEqual,
+  type DatePreset,
+} from '../shared/filters.service';
 import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
 import { MatDialog } from '@angular/material/dialog';
 import { EditActivityDialog } from '../shared/edit-activity-dialog.component';
+import { SavePlaceDialog, type SavePlaceDialogData } from '../shared/save-place-dialog.component';
+import type { SearchSelectedPayload } from './map-search-panel.component';
+import type { GeocodeResult } from './geocoding.service';
 import { RouteRendererService } from './route-renderer.service';
 import { type ActivityCategory } from '../storage/storage.models';
-import { formatSportType, formatCategory, mapSportTypeToCategory } from '../shared/activity-category';
-import { formatDurationHours, formatDistance, formatElevation, computeSpeed, formatSpeed, formatDuration, formatDate, fmtDate } from '../shared/formatters';
+import {
+  formatSportType,
+  formatCategory,
+  mapSportTypeToCategory,
+} from '../shared/activity-category';
+import {
+  formatDurationHours,
+  formatDistance,
+  formatElevation,
+  computeSpeed,
+  formatSpeed,
+  formatDuration,
+  formatDate,
+  fmtDate,
+} from '../shared/formatters';
 import { ToastService } from '../shared/toast.service';
 import { DataRefreshService } from '../shared/data-refresh.service';
 import { GpxExportService } from '../shared/gpx-export.service';
@@ -33,6 +55,9 @@ import { ActivityDetailPanelComponent } from '../activities/activity-detail-pane
 import { MapActivityPanelComponent } from './map-activity-panel.component';
 import { MapNoticeBannersComponent } from './map-notice-banners.component';
 import { MapFilterOverlayComponent } from './map-filter-overlay.component';
+import { MapPlacesPanelComponent } from './map-places-panel.component';
+import { MapAllPanelComponent } from './map-all-panel.component';
+import { SavedPlacesService } from './saved-places.service';
 import { logger } from '../shared/logger';
 
 const ROUTES_WARN_THRESHOLD = 1_000;
@@ -40,7 +65,17 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
 
 @Component({
   selector: 'app-map-page',
-  imports: [MapLibreMapComponent, LoadingSpinnerComponent, ActivityCardComponent, ActivityDetailPanelComponent, MapActivityPanelComponent, MapNoticeBannersComponent, MapFilterOverlayComponent],
+  imports: [
+    MapLibreMapComponent,
+    LoadingSpinnerComponent,
+    ActivityCardComponent,
+    ActivityDetailPanelComponent,
+    MapActivityPanelComponent,
+    MapNoticeBannersComponent,
+    MapFilterOverlayComponent,
+    MapPlacesPanelComponent,
+    MapAllPanelComponent,
+  ],
   templateUrl: './map-page.component.html',
   styleUrl: './map-page.component.scss',
 })
@@ -56,6 +91,7 @@ export class MapPage implements AfterViewInit {
   private readonly dialog = inject(MatDialog);
   private readonly dataRefresh = inject(DataRefreshService);
   private readonly destroyRef = inject(DestroyRef);
+  protected readonly savedPlacesService = inject(SavedPlacesService);
 
   protected readonly CATEGORY_COLORS = CATEGORY_COLORS;
 
@@ -98,8 +134,16 @@ export class MapPage implements AfterViewInit {
 
   protected readonly sportTypeFilter = this.filtersService.sportTypeFilter;
   protected readonly hoveredActivityId = signal<string | null>(null);
+  /** Activities | Places | All segmented-control state for the left panel. */
+  protected readonly leftPanelView = signal<'activities' | 'places' | 'all'>('activities');
+  /** Id of the place currently focused on the map (for panel row highlight). */
+  protected readonly selectedPlaceId = signal<string | null>(null);
+  /** The search result the user just selected (drives the save flow + "Saved" badge). */
+  protected readonly selectedSearchResult = signal<GeocodeResult | null>(null);
   protected readonly panelVisibleOnMap = signal(false);
-  protected readonly panelViewportBounds = signal<[[number, number], [number, number]] | null>(null);
+  protected readonly panelViewportBounds = signal<[[number, number], [number, number]] | null>(
+    null,
+  );
   protected readonly panelExpanded = signal(true);
   protected readonly panelNoTransition = signal(true);
   protected readonly panelReady = signal(false);
@@ -121,7 +165,9 @@ export class MapPage implements AfterViewInit {
     if (preset === 'custom') {
       const routes = this.allRoutes();
       if (routes.length > 0) {
-        const dates = routes.map((r) => new Date(r.activity.startDate).getTime()).filter((t) => !isNaN(t));
+        const dates = routes
+          .map((r) => new Date(r.activity.startDate).getTime())
+          .filter((t) => !isNaN(t));
         if (dates.length > 0) {
           const minDate = new Date(Math.min(...dates));
           const maxDate = new Date(Math.max(...dates));
@@ -166,9 +212,12 @@ export class MapPage implements AfterViewInit {
     if (!dateFrom && !dateTo) return 'all';
     const now = new Date();
     const today = fmtDate(now);
-    const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
-    const sevenAgo = new Date(now); sevenAgo.setDate(sevenAgo.getDate() - 7);
-    const thirtyAgo = new Date(now); thirtyAgo.setDate(thirtyAgo.getDate() - 30);
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const sevenAgo = new Date(now);
+    sevenAgo.setDate(sevenAgo.getDate() - 7);
+    const thirtyAgo = new Date(now);
+    thirtyAgo.setDate(thirtyAgo.getDate() - 30);
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const yearStart = new Date(now.getFullYear(), 0, 1);
 
@@ -185,18 +234,32 @@ export class MapPage implements AfterViewInit {
     this.filtersService.setNameSearch(value);
   }
 
-  protected readonly sportTypeGroups = computed<{ category: ActivityCategory; sportTypes: string[] }[]>(() => {
+  protected readonly sportTypeGroups = computed<
+    { category: ActivityCategory; sportTypes: string[] }[]
+  >(() => {
     const routes = this.allRoutes();
     const seen = new Set<string>();
     const groups = new Map<ActivityCategory, Set<string>>();
     for (const r of routes) {
-      if (seen.has(r.activity.sportType)) { continue; }
+      if (seen.has(r.activity.sportType)) {
+        continue;
+      }
       seen.add(r.activity.sportType);
       const cat = mapSportTypeToCategory(r.activity.sportType);
-      if (!groups.has(cat)) { groups.set(cat, new Set()); }
+      if (!groups.has(cat)) {
+        groups.set(cat, new Set());
+      }
       groups.get(cat)!.add(r.activity.sportType);
     }
-    const order: ActivityCategory[] = ['ride', 'run', 'walk', 'water', 'paddling', 'winter', 'other'];
+    const order: ActivityCategory[] = [
+      'ride',
+      'run',
+      'walk',
+      'water',
+      'paddling',
+      'winter',
+      'other',
+    ];
     return order
       .filter((cat) => groups.has(cat))
       .map((cat) => ({ category: cat, sportTypes: [...groups.get(cat)!].sort() }));
@@ -213,22 +276,33 @@ export class MapPage implements AfterViewInit {
       if (srcFilter.size > 0) {
         const isStrava = r.activity.provider === 'strava';
         const isPlanned = r.activity.activityStatus === 'planned';
-        const matchesSource = (srcFilter.has('strava') && isStrava)
-          || (srcFilter.has('imported') && !isStrava && !isPlanned)
-          || (srcFilter.has('planned') && isPlanned);
+        const matchesSource =
+          (srcFilter.has('strava') && isStrava) ||
+          (srcFilter.has('imported') && !isStrava && !isPlanned) ||
+          (srcFilter.has('planned') && isPlanned);
         if (!matchesSource) return false;
       }
       if (sportFilter) {
         if (sportFilter.startsWith('__cat__')) {
           const cat = sportFilter.slice(7) as ActivityCategory;
-          if (mapSportTypeToCategory(r.activity.sportType) !== cat) { return false; }
+          if (mapSportTypeToCategory(r.activity.sportType) !== cat) {
+            return false;
+          }
         } else {
-          if (r.activity.sportType !== sportFilter) { return false; }
+          if (r.activity.sportType !== sportFilter) {
+            return false;
+          }
         }
       }
-      if (fromDate && r.activity.startDate && !isAfterOrEqual(r.activity.startDate, fromDate)) { return false; }
-      if (toDate && r.activity.startDate && !isBeforeOrEqual(r.activity.startDate, toDate)) { return false; }
-      if (search && !r.activity.name.toLowerCase().includes(search)) { return false; }
+      if (fromDate && r.activity.startDate && !isAfterOrEqual(r.activity.startDate, fromDate)) {
+        return false;
+      }
+      if (toDate && r.activity.startDate && !isBeforeOrEqual(r.activity.startDate, toDate)) {
+        return false;
+      }
+      if (search && !r.activity.name.toLowerCase().includes(search)) {
+        return false;
+      }
       return true;
     });
   });
@@ -246,15 +320,24 @@ export class MapPage implements AfterViewInit {
       totalDistanceMeters += r.activity.distanceMeters ?? 0;
       totalMovingSeconds += r.activity.movingTimeSeconds ?? 0;
       totalPoints += r.coordinates.length;
-      const speed = computeSpeed(r.activity.averageSpeedMetersPerSecond, r.activity.distanceMeters, r.activity.movingTimeSeconds);
-      if (speed !== undefined) { speedSum += speed; speedCount++; }
+      const speed = computeSpeed(
+        r.activity.averageSpeedMetersPerSecond,
+        r.activity.distanceMeters,
+        r.activity.movingTimeSeconds,
+      );
+      if (speed !== undefined) {
+        speedSum += speed;
+        speedCount++;
+      }
     }
     return { totalDistanceMeters, totalMovingSeconds, totalPoints, speedSum, speedCount };
   });
 
   protected readonly statDistance = computed(() => {
     const { totalDistanceMeters } = this.routeStats();
-    if (totalDistanceMeters === 0) { return '0 km'; }
+    if (totalDistanceMeters === 0) {
+      return '0 km';
+    }
     const d = totalDistanceMeters / 1000;
     return d >= 100 ? `${d.toFixed(0)} km` : `${d.toFixed(1)} km`;
   });
@@ -266,7 +349,9 @@ export class MapPage implements AfterViewInit {
 
   protected readonly statAvgSpeed = computed(() => {
     const { speedSum, speedCount } = this.routeStats();
-    if (speedCount === 0) { return '—'; }
+    if (speedCount === 0) {
+      return '—';
+    }
     return `${((speedSum / speedCount) * 3.6).toFixed(1)} km/h`;
   });
 
@@ -275,13 +360,19 @@ export class MapPage implements AfterViewInit {
   protected readonly autoFilterTriggered = signal(false);
 
   protected readonly autoFilterHintBanner = computed<string | null>(() => {
-    if (this.autoFilterHintDismissed()) { return null; }
-    if (!this.autoFilterTriggered()) { return null; }
+    if (this.autoFilterHintDismissed()) {
+      return null;
+    }
+    if (!this.autoFilterTriggered()) {
+      return null;
+    }
     return 'Filtered to "This year" for better performance. You can change the date range in the filter below.';
   });
 
   protected readonly performanceWarning = computed<string | null>(() => {
-    if (this.perfWarningDismissed()) { return null; }
+    if (this.perfWarningDismissed()) {
+      return null;
+    }
     const routes = this.visibleRouteCount();
     const points = this.visiblePointCount();
     if (routes >= ROUTES_WARN_THRESHOLD) {
@@ -293,15 +384,32 @@ export class MapPage implements AfterViewInit {
     return null;
   });
 
-  protected readonly selectedActivityId = computed(() => this.activityIdParam() ?? this.selectedMapRoute()?.activityId ?? null);
-  protected readonly hasBasemapError = computed(() => this.basemapErrorParam() || this.mapBasemapError());
+  protected readonly selectedActivityId = computed(
+    () => this.activityIdParam() ?? this.selectedMapRoute()?.activityId ?? null,
+  );
+  protected readonly hasBasemapError = computed(
+    () => this.basemapErrorParam() || this.mapBasemapError(),
+  );
 
-  protected readonly selectedRouteGeometry = signal<import('../storage/storage.models').RouteGeometryRecord | null>(null);
+  /** Saved places as exposed to templates/markers (newest-first, from the service signal). */
+  protected readonly savedPlaces = computed(() => this.savedPlacesService.places());
+  protected readonly selectedRouteGeometry = signal<
+    import('../storage/storage.models').RouteGeometryRecord | null
+  >(null);
 
-  protected readonly detailPanelRoute = computed<import('../storage/storage.models').ActivityRouteRecord & { coordinates: [number, number][]; elevations?: number[]; cumulativeDistances?: number[] } | null>(() => {
+  protected readonly detailPanelRoute = computed<
+    | (import('../storage/storage.models').ActivityRouteRecord & {
+        coordinates: [number, number][];
+        elevations?: number[];
+        cumulativeDistances?: number[];
+      })
+    | null
+  >(() => {
     const geom = this.selectedRouteGeometry();
     const route = this.selectedRoute()?.route;
-    if (!geom || !route) { return null; }
+    if (!geom || !route) {
+      return null;
+    }
     return {
       activityId: route.activityId,
       providerActivityId: route.providerActivityId,
@@ -357,7 +465,9 @@ export class MapPage implements AfterViewInit {
       return false;
     }
     if (!this.dataLoaded()) return false;
-    return this.allRoutes().length > 0 && !this.allRoutes().some((r) => r.activityId === activityId);
+    return (
+      this.allRoutes().length > 0 && !this.allRoutes().some((r) => r.activityId === activityId)
+    );
   });
 
   protected readonly noRouteActivityName = computed(() => {
@@ -367,8 +477,9 @@ export class MapPage implements AfterViewInit {
   constructor() {
     this.destroyRef.onDestroy(() => this.retryDestroyed.set(true));
     this.loadRoutes().then(() => this.restorePanelState());
+    void this.savedPlacesService.load();
     globalThis.addEventListener('click', (e) => {
-        const target = e.target as HTMLElement;
+      const target = e.target as HTMLElement;
       if (!target?.closest('.toolbar-select') && !target?.closest('app-date-range-picker')) {
         this.filterMenuOpen.set(false);
         this.datePresetOpen.set(false);
@@ -430,7 +541,8 @@ export class MapPage implements AfterViewInit {
         if (!activity || activity.routeSyncStatus !== 'route_synced') {
           continue;
         }
-        const coords = (routeRecord as any).simplifiedCoordinates ?? (routeRecord as any).coordinates ?? [];
+        const coords =
+          (routeRecord as any).simplifiedCoordinates ?? (routeRecord as any).coordinates ?? [];
         routes.push({
           activityId: routeRecord.activityId,
           activity,
@@ -445,7 +557,11 @@ export class MapPage implements AfterViewInit {
       this.dataLoaded.set(true);
 
       const totalPoints = routes.reduce((sum, r) => sum + (r.route.pointCount ?? 0), 0);
-      if (totalPoints > POINTS_WARN_THRESHOLD / 2 && this.filtersService.datePreset() === 'all' && !this.filtersService.userInteracted) {
+      if (
+        totalPoints > POINTS_WARN_THRESHOLD / 2 &&
+        this.filtersService.datePreset() === 'all' &&
+        !this.filtersService.userInteracted
+      ) {
         this.applyDatePreset('year');
         this.autoFilterHighlight.set(true);
         setTimeout(() => this.autoFilterHighlight.set(false), 6_500);
@@ -465,12 +581,20 @@ export class MapPage implements AfterViewInit {
 
   private tryRenderRoutes(source?: string): void {
     const src = source ?? 'unknown';
-    logger.trace(`tryRenderRoutes from ${src}: dataLoaded=${this.dataLoaded()}, mapReady=${this.mapReady()}, mapComp=${!!this.mapComponent}, filteredRoutes=${this.filteredRoutes().length}`);
-    if (!this.dataLoaded() || !this.mapReady()) { logger.trace(`tryRenderRoutes from ${src}: SKIP (not ready)`); return; }
+    logger.trace(
+      `tryRenderRoutes from ${src}: dataLoaded=${this.dataLoaded()}, mapReady=${this.mapReady()}, mapComp=${!!this.mapComponent}, filteredRoutes=${this.filteredRoutes().length}`,
+    );
+    if (!this.dataLoaded() || !this.mapReady()) {
+      logger.trace(`tryRenderRoutes from ${src}: SKIP (not ready)`);
+      return;
+    }
     const routes = this.filteredRoutes();
     const mapComp = this.mapComponent;
     const selectId = this.selectedActivityId();
-    if (!mapComp) { logger.trace(`tryRenderRoutes from ${src}: SKIP (no mapComp)`); return; }
+    if (!mapComp) {
+      logger.trace(`tryRenderRoutes from ${src}: SKIP (no mapComp)`);
+      return;
+    }
     mapComp.renderRouteFeatures(routes, selectId ?? undefined);
   }
 
@@ -483,21 +607,28 @@ export class MapPage implements AfterViewInit {
   }
 
   private scheduleRenderRetry(): void {
-    if (this.dataLoaded() && this.mapReady()) { return; }
-    if (this.renderRetryCount >= this.MAX_RENDER_RETRIES) { return; }
+    if (this.dataLoaded() && this.mapReady()) {
+      return;
+    }
+    if (this.renderRetryCount >= this.MAX_RENDER_RETRIES) {
+      return;
+    }
     this.renderRetryCount++;
     setTimeout(() => {
-      if (this.retryDestroyed()) { return; }
+      if (this.retryDestroyed()) {
+        return;
+      }
       if (this.dataLoaded() && this.mapReady()) {
         logger.trace('scheduleRenderRetry: condition met, calling tryRenderRoutes');
         this.tryRenderRoutes('retry');
       } else {
-        logger.trace(`scheduleRenderRetry: retry ${this.renderRetryCount}/${this.MAX_RENDER_RETRIES}, still waiting. dataLoaded=${this.dataLoaded()}, mapReady=${this.mapReady()}`);
+        logger.trace(
+          `scheduleRenderRetry: retry ${this.renderRetryCount}/${this.MAX_RENDER_RETRIES}, still waiting. dataLoaded=${this.dataLoaded()}, mapReady=${this.mapReady()}`,
+        );
         this.scheduleRenderRetry();
       }
     }, 100);
   }
-
 
   protected formatSportType = formatSportType;
   protected formatCategory = formatCategory;
@@ -545,7 +676,15 @@ export class MapPage implements AfterViewInit {
           const oldElevations = (route.route as any).elevations;
           const oldDistances = (route.route as any).cumulativeDistances;
           if (oldCoords && oldCoords.length > 0) {
-            this.selectedRouteGeometry.set({ activityId: route.fullGeometryId!, providerActivityId: '', coordinates: oldCoords, elevations: oldElevations, cumulativeDistances: oldDistances, syncedAt: '', updatedAt: '' });
+            this.selectedRouteGeometry.set({
+              activityId: route.fullGeometryId!,
+              providerActivityId: '',
+              coordinates: oldCoords,
+              elevations: oldElevations,
+              cumulativeDistances: oldDistances,
+              syncedAt: '',
+              updatedAt: '',
+            });
           } else {
             this.selectedRouteGeometry.set(null);
           }
@@ -600,14 +739,12 @@ export class MapPage implements AfterViewInit {
     }
   }
 
-
   protected async downloadDetailGpx(route: MapRouteFeature): Promise<void> {
     const result = await this.gpxExportService.exportActivity(route.activity);
     if (!result.success) {
       this.toastService.show(result.reason);
     }
   }
-
 
   protected navigateToMapDetail(route: MapRouteFeature): void {
     this.detailPanelOpen.set(true);
@@ -630,7 +767,12 @@ export class MapPage implements AfterViewInit {
     });
     const result = await ref.afterClosed().toPromise();
     if (!result) return;
-    if (result.name === a.name && result.sportType === a.sportType && result.activityStatus === (a.activityStatus ?? 'completed')) return;
+    if (
+      result.name === a.name &&
+      result.sportType === a.sportType &&
+      result.activityStatus === (a.activityStatus ?? 'completed')
+    )
+      return;
     await this.repositories.activities.updateMetadata(a.id, {
       name: result.name,
       sportType: result.sportType,
@@ -647,7 +789,10 @@ export class MapPage implements AfterViewInit {
     this.router.navigate(['/activities'], { queryParams: { focusActivityId: activity.id } });
   }
 
-  protected openOnStrava(event: MouseEvent, activity: import('../storage/storage.models').ActivityRecord): void {
+  protected openOnStrava(
+    event: MouseEvent,
+    activity: import('../storage/storage.models').ActivityRecord,
+  ): void {
     event.stopPropagation();
     const url = `https://www.strava.com/activities/${activity.providerActivityId}`;
     const c = (globalThis as any).chrome;
@@ -675,6 +820,120 @@ export class MapPage implements AfterViewInit {
     this.hoveredActivityId.set(route?.activityId ?? null);
   }
 
+  /** Centers the map on a saved place and opens its marker popup. */
+  protected onSelectPlace(place: import('../storage/storage.models').SavedPlaceRecord): void {
+    this.selectedPlaceId.set(place.id);
+    this.mapComponent?.focusSavedPlace(place);
+  }
+
+  /**
+   * Removes a saved place after a destructive confirmation. Triggered from the places-panel
+   * overflow menu and from a saved-marker popup. Preserves the current map position.
+   */
+  protected async onRemovePlace(
+    place: import('../storage/storage.models').SavedPlaceRecord,
+  ): Promise<void> {
+    const confirmed = await this.confirmService.confirm({
+      title: 'Remove saved place?',
+      message: `This will remove "${place.name}" from your saved places.`,
+      confirmLabel: 'Remove',
+      danger: true,
+    });
+    if (!confirmed) {
+      return;
+    }
+    await this.savedPlacesService.remove(place.id);
+    if (this.selectedPlaceId() === place.id) {
+      this.selectedPlaceId.set(null);
+    }
+  }
+
+  /** Stores the selected search result and surfaces whether it is already saved. */
+  protected async onSearchResultSelected(payload: SearchSelectedPayload): Promise<void> {
+    this.selectedSearchResult.set(payload.result);
+    const alreadySaved = await this.savedPlacesService.isAlreadySaved(payload.result);
+    this.mapComponent?.selectedResultSaved.set(alreadySaved);
+  }
+
+  /**
+   * Opens the save-place name dialog for the selected search result and, on confirmation,
+   * persists it. A duplicate (already-saved) result is surfaced as saved instead of re-created.
+   */
+  protected async onSavePlaceRequested(result: GeocodeResult): Promise<void> {
+    const alreadySaved = await this.savedPlacesService.findDuplicate({
+      providerId: result.providerId,
+      latitude: result.center[1],
+      longitude: result.center[0],
+    });
+    if (alreadySaved) {
+      this.mapComponent?.selectedResultSaved.set(true);
+      this.selectedPlaceId.set(alreadySaved.id);
+      this.mapComponent?.focusSavedPlace(alreadySaved);
+      return;
+    }
+
+    const data: SavePlaceDialogData = {
+      mode: 'create',
+      suggestedName: result.providerName ?? result.label,
+      secondaryLabel: result.secondaryLabel,
+    };
+    const ref = this.dialog.open(SavePlaceDialog, { data, disableClose: true });
+    const confirmed = await ref.afterClosed().toPromise();
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      // GeocodeResult.center is [lng, lat].
+      const saved = await this.savedPlacesService.save({
+        name: confirmed.name,
+        notes: confirmed.notes,
+        latitude: result.center[1],
+        longitude: result.center[0],
+        providerName: result.providerName,
+        secondaryLabel: result.secondaryLabel,
+        providerId: result.providerId,
+      });
+      if (saved) {
+        this.selectedPlaceId.set(saved.id);
+        this.mapComponent?.selectedResultSaved.set(true);
+      } else {
+        // A concurrent save produced a duplicate — surface the existing one.
+        this.mapComponent?.selectedResultSaved.set(true);
+      }
+    } catch {
+      this.toastService.show('Could not save place. Please try again.');
+    }
+  }
+
+  /**
+   * Opens the edit dialog for an existing saved place and persists the new name/notes. The map
+   * marker popup/secondary label update automatically via the shared `savedPlaces` signal.
+   */
+  protected async onEditPlace(
+    place: import('../storage/storage.models').SavedPlaceRecord,
+  ): Promise<void> {
+    const data: SavePlaceDialogData = {
+      mode: 'edit',
+      suggestedName: place.name,
+      suggestedNotes: place.notes,
+      secondaryLabel: place.secondaryLabel,
+    };
+    const ref = this.dialog.open(SavePlaceDialog, { data, disableClose: true });
+    const confirmed = await ref.afterClosed().toPromise();
+    if (!confirmed) {
+      return;
+    }
+    try {
+      await this.savedPlacesService.update(place.id, {
+        name: confirmed.name,
+        notes: confirmed.notes,
+      });
+    } catch {
+      this.toastService.show('Could not update place. Please try again.');
+    }
+  }
+
   protected onPanelExpandedChange(expanded: boolean): void {
     this.panelExpanded.set(expanded);
     this.persistPanelState(expanded);
@@ -682,8 +941,13 @@ export class MapPage implements AfterViewInit {
 
   protected async onDownloadPanelGpx(routes: MapRouteFeature[]): Promise<void> {
     const activities = routes.map((r) => r.activity);
-    if (activities.length === 0) { return; }
-    const count = await this.gpxExportService.buildZip(new (await import('jszip')).default(), activities);
+    if (activities.length === 0) {
+      return;
+    }
+    const count = await this.gpxExportService.buildZip(
+      new (await import('jszip')).default(),
+      activities,
+    );
     if (count.exported === 0) {
       this.toastService.show('No GPS routes available for the displayed activities.');
       return;
@@ -695,13 +959,17 @@ export class MapPage implements AfterViewInit {
         confirmLabel: 'Download',
         danger: false,
       });
-      if (!confirmed) { return; }
+      if (!confirmed) {
+        return;
+      }
     }
     await this.gpxExportService.exportActivitiesAsZip(activities);
   }
 
   private async restorePanelState(): Promise<void> {
-    if (this.panelLoaded) { return; }
+    if (this.panelLoaded) {
+      return;
+    }
     this.panelLoaded = true;
     const settings = await this.repositories.settings.getOrCreateDefault();
     this.panelExpanded.set(settings.mapExplorerPanelExpanded ?? true);
@@ -726,12 +994,16 @@ export class MapPage implements AfterViewInit {
   }
 
   private scheduleEmphasisUpdate(): void {
-    if (this.emphasisTimeout) { clearTimeout(this.emphasisTimeout); }
+    if (this.emphasisTimeout) {
+      clearTimeout(this.emphasisTimeout);
+    }
     this.emphasisTimeout = setTimeout(() => this.updateEmphasis(), 50);
   }
 
   private updateEmphasis(): void {
-    if (!this.dataLoaded()) { return; }
+    if (!this.dataLoaded()) {
+      return;
+    }
     const filtered = this.filteredRoutes();
     const selectedId = this.selectedRoute()?.activityId ?? null;
 

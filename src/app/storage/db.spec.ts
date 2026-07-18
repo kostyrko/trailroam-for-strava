@@ -8,6 +8,7 @@ import {
   ActivityRouteRecord,
   DATABASE_SCHEMA_VERSION,
   DEFAULT_RECORD_ID,
+  SavedPlaceRecord,
   SettingsRecord,
   SyncStateRecord,
 } from './storage.models';
@@ -34,6 +35,7 @@ describe('TrailroamDatabase', () => {
       'activities',
       'activity_routes',
       'route_geometry',
+      'saved_places',
       'settings',
       'sync_history',
       'sync_state',
@@ -399,5 +401,111 @@ describe('TrailroamDatabase', () => {
     await expect(
       createRepositories(db).settings.getOrCreateDefault(new Date('2026-05-26T11:00:00.000Z')),
     ).resolves.toEqual(settings);
+  });
+
+  describe('saved places repository', () => {
+    it('lists saved places newest-first and supports get/put/delete', async () => {
+      const repositories = createRepositories(db);
+      const base = {
+        name: 'Kraków',
+        latitude: 50.0614,
+        longitude: 19.9372,
+      };
+      const older: SavedPlaceRecord = {
+        ...base,
+        id: 'place:older',
+        createdAt: '2026-05-01T00:00:00.000Z',
+        updatedAt: '2026-05-01T00:00:00.000Z',
+      };
+      const newer: SavedPlaceRecord = {
+        ...base,
+        id: 'place:newer',
+        name: 'Zakopane',
+        latitude: 49.2992,
+        longitude: 19.9496,
+        createdAt: '2026-06-01T00:00:00.000Z',
+        updatedAt: '2026-06-01T00:00:00.000Z',
+      };
+      await repositories.savedPlaces.put(older);
+      await repositories.savedPlaces.put(newer);
+
+      const list = await repositories.savedPlaces.list();
+      expect(list.map((p) => p.id)).toEqual(['place:newer', 'place:older']);
+
+      expect((await repositories.savedPlaces.get('place:newer'))?.name).toBe('Zakopane');
+
+      await repositories.savedPlaces.delete('place:older');
+      expect(await repositories.savedPlaces.list()).toHaveLength(1);
+      expect(await repositories.savedPlaces.count()).toBe(1);
+    });
+
+    it('finds a duplicate by providerId and by 10m proximity', async () => {
+      const repositories = createRepositories(db);
+      const existing: SavedPlaceRecord = {
+        id: 'place:1',
+        name: 'Kraków',
+        latitude: 50.0614,
+        longitude: 19.9372,
+        providerId: 'R123456',
+        createdAt: '2026-05-01T00:00:00.000Z',
+        updatedAt: '2026-05-01T00:00:00.000Z',
+      };
+      await repositories.savedPlaces.put(existing);
+
+      expect(await repositories.savedPlaces.findByProviderId('R123456')).toBeDefined();
+      expect(await repositories.savedPlaces.findByProviderId('N999')).toBeUndefined();
+
+      // ~5m away — within the 10m duplicate radius.
+      const nearby = await repositories.savedPlaces.findWithinRadiusMeters(50.06143, 19.93723);
+      expect(nearby?.id).toBe('place:1');
+      // ~1km away — not a duplicate.
+      expect(await repositories.savedPlaces.findWithinRadiusMeters(50.07, 19.94)).toBeUndefined();
+    });
+  });
+
+  describe('schema upgrades', () => {
+    it('upgrades an existing v3 database to v5 with saved_places available and prior data intact', async () => {
+      const databaseName = `trailroam_upgrade_${Date.now()}_${Math.random()}`;
+
+      // Seed a database at v3 (no route_geometry, no saved_places) with an activity.
+      const legacy = new Dexie(databaseName);
+      legacy.version(3).stores({
+        activities: 'id, providerActivityId, startDate, sportType, activityCategory, hasRoute, routeSyncStatus',
+        activity_routes: 'activityId, providerActivityId, syncedAt, pointCount, simplifiedPointCount',
+        sync_state: 'id, status, lastSuccessfulSyncAt',
+        settings: 'id, mapProvider, updatedAt',
+        access_state: 'id, status, updatedAt',
+        sync_history: 'id, trigger, completedAt',
+      });
+      await legacy.open();
+      const now = '2026-07-01T00:00:00.000Z';
+      await legacy.table('activities').put({
+        id: 'strava:1', provider: 'strava', providerActivityId: '1', name: 'Legacy Ride',
+        sportType: 'Ride', activityCategory: 'ride', startDate: now, hasRoute: true,
+        routeSyncStatus: 'route_synced', importedAt: now, updatedAt: now,
+      });
+      legacy.close();
+
+      // Reopen with the current schema; Dexie must run the v4 + v5 upgrade steps.
+      const upgraded = new TrailroamDatabase(databaseName);
+      await upgraded.open();
+      expect(upgraded.verno).toBe(DATABASE_SCHEMA_VERSION);
+      expect(upgraded.tables.map((t) => t.name).sort()).toContain('saved_places');
+      expect(upgraded.tables.map((t) => t.name).sort()).toContain('route_geometry');
+
+      // Prior data survives the upgrade.
+      const surviving = await createRepositories(upgraded).activities.get('strava:1');
+      expect(surviving?.name).toBe('Legacy Ride');
+
+      // The new saved_places store is writable.
+      const place: SavedPlaceRecord = {
+        id: 'place:1', name: 'Kraków', latitude: 50.0614, longitude: 19.9372, createdAt: now, updatedAt: now,
+      };
+      await createRepositories(upgraded).savedPlaces.put(place);
+      expect(await createRepositories(upgraded).savedPlaces.list()).toHaveLength(1);
+
+      upgraded.close();
+      await upgraded.delete();
+    });
   });
 });

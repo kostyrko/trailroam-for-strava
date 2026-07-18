@@ -70,7 +70,11 @@
         </button>
         @if (searchPanelVisible()) {
           <div class="map-search-popover" (click)="$event.stopPropagation()">
-            <app-map-search-panel (searchSelected)="onSearchSelected($event)" />
+            <app-map-search-panel
+              [selectedResultSaved]="selectedResultSaved()"
+              (searchSelected)="onSearchSelected($event)"
+              (saveRequested)="onSavePlaceRequested($event)"
+            />
           </div>
         }
       </div>

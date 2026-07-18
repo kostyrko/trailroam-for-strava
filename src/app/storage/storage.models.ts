@@ -1,4 +1,4 @@
-export const DATABASE_SCHEMA_VERSION = 4;
+export const DATABASE_SCHEMA_VERSION = 5;
 export const DEFAULT_RECORD_ID = 'default';
 
 export type ActivityCategory =
@@ -143,5 +143,29 @@ export interface AccessStateRecord {
   maxVisibleActivities: number | null;
   accessCodeHash?: string;
   unlockedUntil?: string;
+  updatedAt: string;
+}
+
+/**
+ * A place the user saved from the Map Explorer (search result or map click). Stored locally
+ * only; never uploaded. Coordinates are `[latitude, longitude]` in decimal degrees.
+ */
+export interface SavedPlaceRecord {
+  id: string;
+  /** Confirmed or custom user-facing name. */
+  name: string;
+  /** Optional free-text notes the user attached to the place. */
+  notes?: string;
+  /** Original search-provider result name, when the place came from a search. */
+  providerName?: string;
+  latitude: number;
+  longitude: number;
+  /** Secondary location text (city/region/country) shown under the name. */
+  secondaryLabel?: string;
+  /** Stable provider id (e.g. Photon `osm_type`+`osm_id`); used for duplicate detection. */
+  providerId?: string;
+  /** ISO 8601 UTC timestamp. */
+  createdAt: string;
+  /** ISO 8601 UTC timestamp. */
   updatedAt: string;
 }

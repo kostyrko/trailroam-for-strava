@@ -48,6 +48,7 @@ describe('LocalDataService', () => {
       activities: { list: vi.fn().mockResolvedValue([{ id: 'strava:1', name: 'Morning Ride' }]) },
       activityRoutes: { list: vi.fn().mockResolvedValue([{ activityId: 'strava:1', coordinates: [] }]) },
       routeGeometry: { list: vi.fn().mockResolvedValue([]) },
+      savedPlaces: { list: vi.fn().mockResolvedValue([]) },
     } as unknown as TrailroamRepositories;
 
     TestBed.configureTestingModule({
@@ -132,6 +133,8 @@ describe('LocalDataService', () => {
       const activityRoutesPut = vi.fn().mockResolvedValue('strava:1');
 
       const syncHistoryClear = vi.fn().mockResolvedValue(undefined);
+      const savedPlacesClear = vi.fn().mockResolvedValue(undefined);
+      const savedPlacesPut = vi.fn().mockResolvedValue('place:1');
       const repositories = {
         settings: { clear: settingsClear, put: settingsPut },
         accessState: { clear: accessStateClear, put: accessStatePut },
@@ -140,6 +143,7 @@ describe('LocalDataService', () => {
         activities: { clear: activitiesClear, put: activitiesPut },
         activityRoutes: { clear: activityRoutesClear, put: activityRoutesPut },
         routeGeometry: { clear: routeGeometryClear },
+        savedPlaces: { clear: savedPlacesClear, put: savedPlacesPut },
       } as unknown as TrailroamRepositories;
 
       TestBed.configureTestingModule({
@@ -161,6 +165,7 @@ describe('LocalDataService', () => {
         syncState: [{ id: 'default', status: 'completed' }],
         activities: [{ id: 'strava:1', provider: 'strava', providerActivityId: '1', name: 'Morning Ride', sportType: 'Ride', activityCategory: 'ride', startDate: now, hasRoute: true, routeSyncStatus: 'route_synced', importedAt: now, updatedAt: now }],
         activityRoutes: [{ activityId: 'strava:1', providerActivityId: '1', simplifiedCoordinates: [[19.9, 50.05]], simplifiedPointCount: 1, pointCount: 1, syncedAt: '2025-01-01T00:00:00Z', updatedAt: '2025-01-01T00:00:00Z' }],
+        savedPlaces: [{ id: 'place:1', name: 'Kraków', latitude: 50.0614, longitude: 19.9372, createdAt: now, updatedAt: now }],
       };
 
       const result = await TestBed.inject(LocalDataService).restore(backup);
@@ -171,12 +176,14 @@ describe('LocalDataService', () => {
       expect(activitiesClear).toHaveBeenCalledOnce();
       expect(activityRoutesClear).toHaveBeenCalledOnce();
       expect(routeGeometryClear).toHaveBeenCalledOnce();
+      expect(savedPlacesClear).toHaveBeenCalledOnce();
 
       expect(settingsPut).toHaveBeenCalledOnce();
       expect(accessStatePut).toHaveBeenCalledOnce();
       expect(syncStatePut).toHaveBeenCalledOnce();
       expect(activitiesPut).toHaveBeenCalledOnce();
       expect(activityRoutesPut).toHaveBeenCalledOnce();
+      expect(savedPlacesPut).toHaveBeenCalledOnce();
 
       expect(result.settingsCount).toBe(1);
       expect(result.accessStateCount).toBe(1);
@@ -184,6 +191,7 @@ describe('LocalDataService', () => {
       expect(result.activitiesCount).toBe(1);
       expect(result.activityRoutesCount).toBe(1);
       expect(result.routeGeometryCount).toBe(0);
+      expect(result.savedPlacesCount).toBe(1);
     });
   });
 });

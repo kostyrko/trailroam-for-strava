@@ -4,6 +4,7 @@ import {
   type ActivityRecord,
   type ActivityRouteRecord,
   type RouteGeometryRecord,
+  type SavedPlaceRecord,
   DATABASE_SCHEMA_VERSION,
   type SettingsRecord,
   type SyncHistoryRecord,
@@ -20,14 +21,17 @@ export class TrailroamDatabase extends Dexie {
   settings!: Table<SettingsRecord, string>;
   access_state!: Table<AccessStateRecord, string>;
   sync_history!: Table<SyncHistoryRecord, string>;
+  saved_places!: Table<SavedPlaceRecord, string>;
 
   constructor(databaseName = DATABASE_NAME) {
     super(databaseName);
 
-    const activityRoutesSchema = 'activityId, providerActivityId, syncedAt, pointCount, simplifiedPointCount';
+    const activityRoutesSchema =
+      'activityId, providerActivityId, syncedAt, pointCount, simplifiedPointCount';
 
     this.version(1).stores({
-      activities: 'id, providerActivityId, startDate, sportType, activityCategory, hasRoute, routeSyncStatus',
+      activities:
+        'id, providerActivityId, startDate, sportType, activityCategory, hasRoute, routeSyncStatus',
       activity_routes: activityRoutesSchema,
       sync_state: 'id, status, lastSuccessfulSyncAt',
       settings: 'id, mapProvider, updatedAt',
@@ -35,7 +39,8 @@ export class TrailroamDatabase extends Dexie {
     });
 
     this.version(2).stores({
-      activities: 'id, providerActivityId, startDate, sportType, activityCategory, hasRoute, routeSyncStatus',
+      activities:
+        'id, providerActivityId, startDate, sportType, activityCategory, hasRoute, routeSyncStatus',
       activity_routes: activityRoutesSchema,
       sync_state: 'id, status, lastSuccessfulSyncAt',
       settings: 'id, mapProvider, updatedAt',
@@ -44,7 +49,8 @@ export class TrailroamDatabase extends Dexie {
     });
 
     this.version(3).stores({
-      activities: 'id, providerActivityId, startDate, sportType, activityCategory, hasRoute, routeSyncStatus',
+      activities:
+        'id, providerActivityId, startDate, sportType, activityCategory, hasRoute, routeSyncStatus',
       activity_routes: activityRoutesSchema,
       sync_state: 'id, status, lastSuccessfulSyncAt',
       settings: 'id, mapProvider, updatedAt',
@@ -52,14 +58,30 @@ export class TrailroamDatabase extends Dexie {
       sync_history: 'id, trigger, completedAt',
     });
 
-    this.version(DATABASE_SCHEMA_VERSION).stores({
-      activities: 'id, providerActivityId, startDate, sportType, activityCategory, hasRoute, routeSyncStatus',
+    // Versions must be declared contiguously — Dexie runs each upgrade step in order when an
+    // existing database is opened, and gaps cause silent migration failures. v4 adds the
+    // route_geometry store; v5 adds saved_places.
+    this.version(4).stores({
+      activities:
+        'id, providerActivityId, startDate, sportType, activityCategory, hasRoute, routeSyncStatus',
       activity_routes: activityRoutesSchema,
       route_geometry: 'activityId, providerActivityId, syncedAt',
       sync_state: 'id, status, lastSuccessfulSyncAt',
       settings: 'id, mapProvider, updatedAt',
       access_state: 'id, status, updatedAt',
       sync_history: 'id, trigger, completedAt',
+    });
+
+    this.version(DATABASE_SCHEMA_VERSION).stores({
+      activities:
+        'id, providerActivityId, startDate, sportType, activityCategory, hasRoute, routeSyncStatus',
+      activity_routes: activityRoutesSchema,
+      route_geometry: 'activityId, providerActivityId, syncedAt',
+      sync_state: 'id, status, lastSuccessfulSyncAt',
+      settings: 'id, mapProvider, updatedAt',
+      access_state: 'id, status, updatedAt',
+      sync_history: 'id, trigger, completedAt',
+      saved_places: 'id, providerId, createdAt',
     });
   }
 }

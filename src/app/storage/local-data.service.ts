@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { TRAILROAM_REPOSITORIES } from './repositories/repositories.token';
-import { DATABASE_SCHEMA_VERSION, type ActivityRecord, type ActivityRouteRecord, type RouteGeometryRecord, type SettingsRecord, type AccessStateRecord, type SyncStateRecord } from './storage.models';
+import { DATABASE_SCHEMA_VERSION, type ActivityRecord, type ActivityRouteRecord, type RouteGeometryRecord, type SavedPlaceRecord, type SettingsRecord, type AccessStateRecord, type SyncStateRecord } from './storage.models';
 
 export const BACKUP_SCHEMA_VERSION = 1;
 export const MIN_SUPPORTED_SCHEMA_VERSION = 1;
@@ -15,6 +15,7 @@ export interface TrailroamBackupFile {
   activities: unknown[];
   activityRoutes: unknown[];
   routeGeometry?: unknown[];
+  savedPlaces?: unknown[];
 }
 
 export interface RestoreResult {
@@ -24,6 +25,7 @@ export interface RestoreResult {
   activitiesCount: number;
   activityRoutesCount: number;
   routeGeometryCount: number;
+  savedPlacesCount: number;
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -108,6 +110,17 @@ function validateRouteGeometryRecord(value: unknown): value is RouteGeometryReco
   return true;
 }
 
+function validateSavedPlaceRecord(value: unknown): value is SavedPlaceRecord {
+  if (!isObject(value)) return false;
+  if (!isString(value['id'])) return false;
+  if (!isString(value['name'])) return false;
+  if (!isNumber(value['latitude'])) return false;
+  if (!isNumber(value['longitude'])) return false;
+  if (!isString(value['createdAt'])) return false;
+  if (!isString(value['updatedAt'])) return false;
+  return true;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -167,6 +180,7 @@ export class LocalDataService {
       this.repositories.activities.clear(),
       this.repositories.activityRoutes.clear(),
       this.repositories.routeGeometry.clear(),
+      this.repositories.savedPlaces.clear(),
     ]);
 
     const validSettings = this.filterValidRecords(backup.settings, validateSettingsRecord);
@@ -176,6 +190,9 @@ export class LocalDataService {
     const validActivityRoutes = this.filterValidRecords(backup.activityRoutes, validateActivityRouteRecord);
     const validRouteGeometry = backup.routeGeometry
       ? this.filterValidRecords(backup.routeGeometry, validateRouteGeometryRecord)
+      : [];
+    const validSavedPlaces = backup.savedPlaces
+      ? this.filterValidRecords(backup.savedPlaces, validateSavedPlaceRecord)
       : [];
 
     const settingsCount = await Promise.all(validSettings.map((s) => this.repositories.settings.put(s)))
@@ -192,18 +209,22 @@ export class LocalDataService {
     const routeGeometryCount = await Promise.all(
       validRouteGeometry.map((g) => this.repositories.routeGeometry.put(g)),
     ).then((r) => r.length);
+    const savedPlacesCount = await Promise.all(
+      validSavedPlaces.map((p) => this.repositories.savedPlaces.put(p)),
+    ).then((r) => r.length);
 
-    return { settingsCount, accessStateCount, syncStateCount, activitiesCount, activityRoutesCount, routeGeometryCount };
+    return { settingsCount, accessStateCount, syncStateCount, activitiesCount, activityRoutesCount, routeGeometryCount, savedPlacesCount };
   }
 
   async backup(): Promise<TrailroamBackupFile> {
-    const [settings, accessState, syncState, activities, activityRoutes, routeGeometry] = await Promise.all([
+    const [settings, accessState, syncState, activities, activityRoutes, routeGeometry, savedPlaces] = await Promise.all([
       this.repositories.settings.list(),
       this.repositories.accessState.list(),
       this.repositories.syncState.list(),
       this.repositories.activities.list(),
       this.repositories.activityRoutes.list(),
       this.repositories.routeGeometry.list(),
+      this.repositories.savedPlaces.list(),
     ]);
 
     return {
@@ -215,6 +236,7 @@ export class LocalDataService {
       activities,
       activityRoutes,
       routeGeometry,
+      savedPlaces,
     };
   }
 }

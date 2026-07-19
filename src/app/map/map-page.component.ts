@@ -793,7 +793,7 @@ export class MapPage implements AfterViewInit {
   }
 
   protected navigateToActivity(activity: import('../storage/storage.models').ActivityRecord): void {
-    this.router.navigate(['/activities'], { queryParams: { focusActivityId: activity.id } });
+    this.router.navigate(['/logbook'], { queryParams: { focusActivityId: activity.id } });
   }
 
   protected openOnStrava(

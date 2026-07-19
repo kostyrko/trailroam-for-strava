@@ -1,4 +1,15 @@
-import { Component, input, output, signal, effect, ElementRef, viewChild, inject, afterNextRender, computed } from '@angular/core';
+import {
+  Component,
+  input,
+  output,
+  signal,
+  effect,
+  ElementRef,
+  viewChild,
+  inject,
+  afterNextRender,
+  computed,
+} from '@angular/core';
 import { Router } from '@angular/router';
 import type { Map as MapLibreMap, GeoJSONSource, ExpressionSpecification } from 'maplibre-gl';
 import { ElevationProfileComponent } from '../map/elevation-profile.component';
@@ -15,14 +26,21 @@ import { type ActivityRecord, type ActivityRouteRecord } from '../storage/storag
 import { IconComponent } from '../shared/icon.component';
 import { EditActivityDialog } from '../shared/edit-activity-dialog.component';
 import { formatSportType } from '../shared/activity-category';
-import { formatDistance, formatDuration, formatSpeedKmh, formatElevation, formatDateWithTime } from '../shared/formatters';
-
+import {
+  formatDistance,
+  formatDuration,
+  formatSpeedKmh,
+  formatElevation,
+  formatDateWithTime,
+} from '../shared/formatters';
 
 function haversineDistance(lng1: number, lat1: number, lng2: number, lat2: number): number {
   const R = 6371000;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLng = (lng2 - lng1) * Math.PI / 180;
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
@@ -55,7 +73,14 @@ export class ActivityDetailPanelComponent {
   private readonly dataRefresh = inject(DataRefreshService);
 
   readonly activity = input<ActivityRecord | null>(null);
-  readonly route = input<ActivityRouteRecord & { coordinates: [number, number][]; elevations?: number[]; cumulativeDistances?: number[] } | null>(null);
+  readonly route = input<
+    | (ActivityRouteRecord & {
+        coordinates: [number, number][];
+        elevations?: number[];
+        cumulativeDistances?: number[];
+      })
+    | null
+  >(null);
   readonly pushMode = input(false);
   readonly showInActivities = input(false);
   readonly close = output<void>();
@@ -70,33 +95,51 @@ export class ActivityDetailPanelComponent {
   protected readonly activeLayerId = signal('openfreemap');
   protected readonly AVAILABLE_PROVIDERS = AVAILABLE_PROVIDERS;
 
-  protected readonly routeCoords = computed<[number, number][] | undefined>(() => this.route()?.coordinates ?? undefined);
-  protected readonly routeElevations = computed<number[] | undefined>(() => this.route()?.elevations);
-  protected readonly routeDistances = computed<number[] | undefined>(() => this.route()?.cumulativeDistances);
+  protected readonly routeCoords = computed<[number, number][] | undefined>(
+    () => this.route()?.coordinates ?? undefined,
+  );
+  protected readonly routeElevations = computed<number[] | undefined>(
+    () => this.route()?.elevations,
+  );
+  protected readonly routeDistances = computed<number[] | undefined>(
+    () => this.route()?.cumulativeDistances,
+  );
 
   protected readonly speedMs = computed(() => {
     const a = this.activity();
-    if (!a) { return undefined; }
-    if (a.averageSpeedMetersPerSecond) { return a.averageSpeedMetersPerSecond; }
-    if (a.distanceMeters && a.movingTimeSeconds) { return a.distanceMeters / a.movingTimeSeconds; }
+    if (!a) {
+      return undefined;
+    }
+    if (a.averageSpeedMetersPerSecond) {
+      return a.averageSpeedMetersPerSecond;
+    }
+    if (a.distanceMeters && a.movingTimeSeconds) {
+      return a.distanceMeters / a.movingTimeSeconds;
+    }
     return undefined;
   });
 
   protected readonly maxElevation = computed(() => {
     const el = this.routeElevations();
-    if (!el || el.length === 0) { return this.activity()?.totalElevationGainMeters; }
+    if (!el || el.length === 0) {
+      return this.activity()?.totalElevationGainMeters;
+    }
     return Math.max(...el);
   });
 
   protected readonly startElevation = computed(() => {
     const el = this.routeElevations();
-    if (!el || el.length === 0) { return undefined; }
+    if (!el || el.length === 0) {
+      return undefined;
+    }
     return el[0];
   });
 
   protected readonly calories = computed(() => {
     const a = this.activity();
-    if (!a) { return '—'; }
+    if (!a) {
+      return '—';
+    }
     return (a as any).calories ?? '—';
   });
 
@@ -150,11 +193,15 @@ export class ActivityDetailPanelComponent {
   protected readonly formatSportType = formatSportType;
 
   private initMap(): void {
-    if (this.mapInitialized()) { return; }
+    if (this.mapInitialized()) {
+      return;
+    }
     this.mapInitialized.set(true);
     this.routeLoading.set(true);
     const container = this.mapContainer()?.nativeElement;
-    if (!container) { return; }
+    if (!container) {
+      return;
+    }
     const provider = this.basemapProviderService.getDefaultProvider();
     this.mapLibreService.createMap(container, provider).then((map) => {
       this.mapInstance = map;
@@ -162,8 +209,12 @@ export class ActivityDetailPanelComponent {
       import('maplibre-gl').then((ml) => {
         const NavControl = (ml as any).NavigationControl ?? (ml as any).default?.NavigationControl;
         const ScaleControl = (ml as any).ScaleControl ?? (ml as any).default?.ScaleControl;
-        if (NavControl) { map.addControl(new NavControl({ showCompass: false }), 'top-left'); }
-        if (ScaleControl) { map.addControl(new ScaleControl({ unit: 'metric' }), 'bottom-left'); }
+        if (NavControl) {
+          map.addControl(new NavControl({ showCompass: false }), 'top-left');
+        }
+        if (ScaleControl) {
+          map.addControl(new ScaleControl({ unit: 'metric' }), 'bottom-left');
+        }
       });
       map.on('load', () => this.renderRouteOnMap());
     });
@@ -186,10 +237,16 @@ export class ActivityDetailPanelComponent {
 
     const existingLayers = [`${layerBaseId}-casing`, layerBaseId, 'detail-hover-point-layer'];
     for (const id of existingLayers) {
-      if (map.getLayer(id)) { map.removeLayer(id); }
+      if (map.getLayer(id)) {
+        map.removeLayer(id);
+      }
     }
-    if (map.getSource(sourceId)) { map.removeSource(sourceId); }
-    if (map.getSource('detail-hover-point')) { map.removeSource('detail-hover-point'); }
+    if (map.getSource(sourceId)) {
+      map.removeSource(sourceId);
+    }
+    if (map.getSource('detail-hover-point')) {
+      map.removeSource('detail-hover-point');
+    }
 
     const segFeatures = this.buildSpeedSegments(route.coordinates, route.cumulativeDistances);
     this.speedLegend.set(segFeatures.length > 0);
@@ -207,8 +264,12 @@ export class ActivityDetailPanelComponent {
       const scaled = minRatio + t * range;
       colorStops.push(scaled, sc.color);
     }
-    const interpolateExpr: ExpressionSpecification = ['interpolate', ['linear'], ['get', 'speedRatio'], ...colorStops];
-
+    const interpolateExpr: ExpressionSpecification = [
+      'interpolate',
+      ['linear'],
+      ['get', 'speedRatio'],
+      ...colorStops,
+    ];
 
     const routeData = { type: 'FeatureCollection' as const, features: segFeatures };
 
@@ -271,20 +332,25 @@ export class ActivityDetailPanelComponent {
     const coords = route.coordinates;
     const lngs = coords.map((c) => c[0]);
     const lats = coords.map((c) => c[1]);
-    map.fitBounds(
-      [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)],
-      { padding: 40, maxZoom: 15, duration: 0 },
-    );
+    map.fitBounds([Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)], {
+      padding: 40,
+      maxZoom: 15,
+      duration: 0,
+    });
   }
 
   private buildSpeedSegments(
     coords: [number, number][],
     cumulativeDistances?: number[],
   ): GeoJSON.Feature<GeoJSON.LineString>[] {
-    if (coords.length < 2) { return []; }
+    if (coords.length < 2) {
+      return [];
+    }
 
     const avgSpeedMs = this.speedMs();
-    if (!avgSpeedMs || avgSpeedMs <= 0) { return []; }
+    if (!avgSpeedMs || avgSpeedMs <= 0) {
+      return [];
+    }
 
     const spanMeters = Math.max(50, avgSpeedMs * SPAN_SECONDS);
 
@@ -303,7 +369,9 @@ export class ActivityDetailPanelComponent {
       }
     }
 
-    if (spans.length < 2) { return []; }
+    if (spans.length < 2) {
+      return [];
+    }
 
     const pointCounts = spans.map((s) => s.endIdx - s.startIdx + 1);
     const avgPoints = pointCounts.reduce((s, c) => s + c, 0) / pointCounts.length;
@@ -311,7 +379,9 @@ export class ActivityDetailPanelComponent {
     const features: GeoJSON.Feature<GeoJSON.LineString>[] = [];
     for (const span of spans) {
       const coordsInSpan = coords.slice(span.startIdx, span.endIdx + 1);
-      if (coordsInSpan.length < 2) { continue; }
+      if (coordsInSpan.length < 2) {
+        continue;
+      }
 
       const pointDensity = span.dist > 0 ? coordsInSpan.length / span.dist : 0;
       const normDensity = avgPoints > 0 ? pointDensity / (avgPoints / spanMeters) : 1;
@@ -350,7 +420,9 @@ export class ActivityDetailPanelComponent {
 
   protected selectLayer(config: BasemapProviderConfig): void {
     this.layerMenuOpen.set(false);
-    if (config.id === this.activeLayerId()) { return; }
+    if (config.id === this.activeLayerId()) {
+      return;
+    }
     this.activeLayerId.set(config.id);
     this.basemapProviderService.setProvider(config);
     const map = this.mapInstance;
@@ -373,13 +445,23 @@ export class ActivityDetailPanelComponent {
 
   protected onElevationHover(pos: { lng: number; lat: number } | null): void {
     const map = this.mapInstance;
-    if (!map) { return; }
+    if (!map) {
+      return;
+    }
     const source = map.getSource('detail-hover-point') as GeoJSONSource | undefined;
-    if (!source) { return; }
+    if (!source) {
+      return;
+    }
     if (pos) {
       source.setData({
         type: 'FeatureCollection',
-        features: [{ type: 'Feature', geometry: { type: 'Point', coordinates: [pos.lng, pos.lat] }, properties: {} }],
+        features: [
+          {
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [pos.lng, pos.lat] },
+            properties: {},
+          },
+        ],
       });
     } else {
       source.setData({ type: 'FeatureCollection', features: [] });
@@ -388,7 +470,9 @@ export class ActivityDetailPanelComponent {
 
   protected downloadGpx(): void {
     const a = this.activity();
-    if (!a) { return; }
+    if (!a) {
+      return;
+    }
     this.gpxExportService.exportActivity(a).then((result) => {
       if (!result.success) {
         this.toastService.show(result.reason);
@@ -398,15 +482,19 @@ export class ActivityDetailPanelComponent {
 
   protected showOnMapExplorer(): void {
     const a = this.activity();
-    if (!a) { return; }
+    if (!a) {
+      return;
+    }
     this.router.navigate(['/map'], { queryParams: { activityId: a.id } });
   }
 
   protected showOnActivitiesTable(): void {
     const a = this.activity();
-    if (!a) { return; }
+    if (!a) {
+      return;
+    }
     this.closePanel();
-    this.router.navigate(['/activities'], { queryParams: { focusActivityId: a.id } });
+    this.router.navigate(['/logbook'], { queryParams: { focusActivityId: a.id } });
   }
 
   protected toggleMenu(event: MouseEvent): void {
@@ -418,7 +506,9 @@ export class ActivityDetailPanelComponent {
     event.stopPropagation();
     this.menuOpen.set(false);
     const a = this.activity();
-    if (!a || !a.providerActivityId) { return; }
+    if (!a || !a.providerActivityId) {
+      return;
+    }
     const c = (globalThis as any).chrome;
     if (c?.tabs?.create) {
       c.tabs.create({ url: `https://www.strava.com/activities/${a.providerActivityId}` });
@@ -431,14 +521,18 @@ export class ActivityDetailPanelComponent {
     event.stopPropagation();
     this.menuOpen.set(false);
     const a = this.activity();
-    if (!a) { return; }
+    if (!a) {
+      return;
+    }
     const confirmed = await this.confirmService.confirm({
       title: 'Delete activity',
       message: `Remove "${a.name}" and its route from the local database?`,
       confirmLabel: 'Delete',
       danger: true,
     });
-    if (!confirmed) { return; }
+    if (!confirmed) {
+      return;
+    }
     this.close.emit();
     this.panelVisible.set(false);
     await this.repositories.activities.delete(a.id);
@@ -461,7 +555,12 @@ export class ActivityDetailPanelComponent {
     });
     const result = await ref.afterClosed().toPromise();
     if (!result) return;
-    if (result.name === a.name && result.sportType === a.sportType && result.activityStatus === (a.activityStatus ?? 'completed')) return;
+    if (
+      result.name === a.name &&
+      result.sportType === a.sportType &&
+      result.activityStatus === (a.activityStatus ?? 'completed')
+    )
+      return;
     await this.repositories.activities.updateMetadata(a.id, {
       name: result.name,
       sportType: result.sportType,

@@ -1,4 +1,13 @@
-import { Component, computed, effect, inject, signal, DestroyRef, ElementRef, viewChild } from '@angular/core';
+import {
+  Component,
+  computed,
+  effect,
+  inject,
+  signal,
+  DestroyRef,
+  ElementRef,
+  viewChild,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivityParserService } from '../shared/activity-parser.service';
 import { ImportActivityDialog } from '../shared/import-activity-dialog.component';
@@ -9,8 +18,27 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { map } from 'rxjs';
 import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
-import { FiltersService, CATEGORY_COLORS, isAfterOrEqual, isBeforeOrEqual, type DatePreset } from '../shared/filters.service';
-import { formatDistance, formatElevation, computeSpeed, formatSpeedKmh, formatSpeed, formatHeartrate, formatDurationHours, formatDuration, formatDate, formatDateInput, fmtDate } from '../shared/formatters';
+import {
+  FiltersService,
+  CATEGORY_COLORS,
+  isAfterOrEqual,
+  isBeforeOrEqual,
+  type DatePreset,
+} from '../shared/filters.service';
+import {
+  formatDistance,
+  formatElevation,
+  computeSpeed,
+  formatSpeedKmh,
+  formatSpeed,
+  formatHeartrate,
+  formatDurationHours,
+  formatDuration,
+  formatDate,
+  formatDateShort,
+  formatDateInput,
+  fmtDate,
+} from '../shared/formatters';
 import { ToastService } from '../shared/toast.service';
 import { DataRefreshService } from '../shared/data-refresh.service';
 import { ConfirmService } from '../shared/confirm.service';
@@ -26,13 +54,39 @@ import { ActivitiesSourceFilterComponent } from './activities-source-filter.comp
 import { ActivitiesSelectedActionsComponent } from './activities-selected-actions.component';
 import { RouteSparklineComponent } from './route-sparkline.component';
 import { ActivityDetailPanelComponent } from './activity-detail-panel.component';
-import { type ActivityCategory, type ActivityRecord, type ActivityRouteRecord, type RouteGeometryRecord } from '../storage/storage.models';
-import { formatSportType, formatCategory, mapSportTypeToCategory } from '../shared/activity-category';
+import {
+  type ActivityCategory,
+  type ActivityRecord,
+  type ActivityRouteRecord,
+  type RouteGeometryRecord,
+  type SavedPlaceRecord,
+} from '../storage/storage.models';
+import {
+  formatSportType,
+  formatCategory,
+  mapSportTypeToCategory,
+} from '../shared/activity-category';
 import { SPORT_TYPE_EMOJI, sportTypeEmoji } from '../shared/activity-display';
+import { SavedPlacesService } from '../map/saved-places.service';
+import { SavePlaceDialog, type SavePlaceDialogData } from '../shared/save-place-dialog.component';
 
 const PAGE_SIZE_OPTIONS = [5, 10, 25, 50, 100];
 
-export type SortColumn = 'date' | 'name' | 'source' | 'status' | 'type' | 'distance' | 'speed' | 'time' | 'route';
+/** A single row in the merged "All" tab. */
+export type AllLogbookRow =
+  | { kind: 'activity'; activity: ActivityRecord; ts: number }
+  | { kind: 'place'; place: SavedPlaceRecord; ts: number };
+
+export type SortColumn =
+  | 'date'
+  | 'name'
+  | 'source'
+  | 'status'
+  | 'type'
+  | 'distance'
+  | 'speed'
+  | 'time'
+  | 'route';
 
 function activitySourceSortValue(a: ActivityRecord): number {
   if (a.provider === 'strava') return 0;
@@ -47,33 +101,58 @@ function activityStatusSortValue(a: ActivityRecord): number {
 
 function routeSortValue(status: string): number {
   switch (status) {
-    case 'route_synced': return 0;
-    case 'no_route': return 1;
-    case 'empty_route': return 2;
-    case 'route_failed': return 3;
-    case 'invalid_coordinates': return 4;
-    case 'skipped': return 5;
-    case 'fetching': return 6;
-    default: return 7;
+    case 'route_synced':
+      return 0;
+    case 'no_route':
+      return 1;
+    case 'empty_route':
+      return 2;
+    case 'route_failed':
+      return 3;
+    case 'invalid_coordinates':
+      return 4;
+    case 'skipped':
+      return 5;
+    case 'fetching':
+      return 6;
+    default:
+      return 7;
   }
 }
 
 function routeStatusLabel(status: string): string {
   switch (status) {
-    case 'route_synced': return 'Route';
-    case 'no_route': return 'No route';
-    case 'empty_route': return 'Empty route';
-    case 'route_failed': return 'Failed';
-    case 'invalid_coordinates': return 'Invalid coords';
-    case 'skipped': return 'Skipped';
-    case 'fetching': return 'Fetching…';
-    default: return '—';
+    case 'route_synced':
+      return 'Route';
+    case 'no_route':
+      return 'No route';
+    case 'empty_route':
+      return 'Empty route';
+    case 'route_failed':
+      return 'Failed';
+    case 'invalid_coordinates':
+      return 'Invalid coords';
+    case 'skipped':
+      return 'Skipped';
+    case 'fetching':
+      return 'Fetching…';
+    default:
+      return '—';
   }
 }
 
 @Component({
   selector: 'app-activities-page',
-  imports: [LoadingSpinnerComponent, RouteSparklineComponent, ActivityDetailPanelComponent, IconComponent, ActivitiesToolbarComponent, ActivitiesStatsComponent, ActivitiesSourceFilterComponent, ActivitiesSelectedActionsComponent],
+  imports: [
+    LoadingSpinnerComponent,
+    RouteSparklineComponent,
+    ActivityDetailPanelComponent,
+    IconComponent,
+    ActivitiesToolbarComponent,
+    ActivitiesStatsComponent,
+    ActivitiesSourceFilterComponent,
+    ActivitiesSelectedActionsComponent,
+  ],
   templateUrl: './activities-page.component.html',
   styleUrl: './activities-page.component.scss',
 })
@@ -91,6 +170,101 @@ export class ActivitiesPageComponent {
   private readonly activatedRoute = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
 
+  /** Tabbed view state for the Logbook page. */
+  protected readonly logbookView = signal<'activities' | 'places' | 'all'>('activities');
+  protected readonly savedPlacesService = inject(SavedPlacesService);
+
+  /** Search query for the Places tab. */
+  protected readonly placesSearchQuery = signal('');
+  /** Sort state for the Places tab table. */
+  protected readonly placesSortColumn = signal<'date' | 'name'>('date');
+  protected readonly placesSortDirection = signal<-1 | 1>(-1);
+
+  /** Filtered and sorted places for the Places tab. */
+  protected readonly filteredPlaces = computed<SavedPlaceRecord[]>(() => {
+    const query = this.placesSearchQuery().toLowerCase().trim();
+    const places = this.savedPlacesService.places();
+    const filtered = query
+      ? places.filter(
+          (p) =>
+            p.name.toLowerCase().includes(query) ||
+            (p.secondaryLabel?.toLowerCase().includes(query) ?? false),
+        )
+      : places;
+    const col = this.placesSortColumn();
+    const dir = this.placesSortDirection();
+    return [...filtered].sort((a, b) => {
+      const cmp =
+        col === 'name'
+          ? a.name.localeCompare(b.name)
+          : new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      return dir * cmp;
+    });
+  });
+
+  protected onPlacesSort(column: 'date' | 'name'): void {
+    if (this.placesSortColumn() === column) {
+      this.placesSortDirection.set(this.placesSortDirection() === 1 ? -1 : 1);
+    } else {
+      this.placesSortColumn.set(column);
+      this.placesSortDirection.set(column === 'date' ? -1 : 1);
+    }
+  }
+
+  protected placesSortIndicator(column: 'date' | 'name'): string {
+    if (this.placesSortColumn() !== column) {
+      return '';
+    }
+    return this.placesSortDirection() === 1 ? ' ▲' : ' ▼';
+  }
+
+  /** Sort state for the All tab table. */
+  protected readonly allSortColumn = signal<'date' | 'name'>('date');
+  protected readonly allSortDirection = signal<-1 | 1>(-1);
+
+  /** Merged, date-sorted rows for the All tab. */
+  protected readonly allRows = computed<AllLogbookRow[]>(() => {
+    const activities = this.allFiltered();
+    const places = this.savedPlacesService.places();
+    const activityRows = activities.map((a) => ({
+      kind: 'activity' as const,
+      activity: a,
+      ts: new Date(a.startDate).getTime(),
+    }));
+    const placeRows = places.map((p) => ({
+      kind: 'place' as const,
+      place: p,
+      ts: new Date(p.createdAt).getTime(),
+    }));
+    const merged = [...activityRows, ...placeRows];
+    const col = this.allSortColumn();
+    const dir = this.allSortDirection();
+    return merged.sort((a, b) => {
+      if (col === 'date') {
+        return dir * (a.ts - b.ts);
+      }
+      const nameA = a.kind === 'activity' ? a.activity.name : a.place.name;
+      const nameB = b.kind === 'activity' ? b.activity.name : b.place.name;
+      return dir * nameA.localeCompare(nameB);
+    });
+  });
+
+  protected onAllSort(column: 'date' | 'name'): void {
+    if (this.allSortColumn() === column) {
+      this.allSortDirection.set(this.allSortDirection() === 1 ? -1 : 1);
+    } else {
+      this.allSortColumn.set(column);
+      this.allSortDirection.set(column === 'date' ? -1 : 1);
+    }
+  }
+
+  protected allSortIndicator(column: 'date' | 'name'): string {
+    if (this.allSortColumn() !== column) {
+      return '';
+    }
+    return this.allSortDirection() === 1 ? ' ▲' : ' ▼';
+  }
+
   private readonly focusActivityId = toSignal(
     this.activatedRoute.queryParamMap.pipe(map((params) => params.get('focusActivityId'))),
     { initialValue: null },
@@ -105,7 +279,16 @@ export class ActivitiesPageComponent {
   protected readonly pageSize = signal(50);
   protected readonly CATEGORY_COLORS = CATEGORY_COLORS;
   protected readonly SPORT_TYPE_EMOJI = SPORT_TYPE_EMOJI;
-  protected readonly legendCategories: ActivityCategory[] = ['ride', 'run', 'walk', 'hike', 'water', 'paddling', 'winter', 'other'];
+  protected readonly legendCategories: ActivityCategory[] = [
+    'ride',
+    'run',
+    'walk',
+    'hike',
+    'water',
+    'paddling',
+    'winter',
+    'other',
+  ];
   protected readonly dragOver = signal(false);
 
   protected readonly fileInput = viewChild<ElementRef<HTMLInputElement>>('fileInput');
@@ -121,7 +304,14 @@ export class ActivitiesPageComponent {
   private readonly routesCache = new Map<string, [number, number][]>();
   protected readonly routesCacheFilled = signal(false);
   protected readonly selectedActivity = signal<ActivityRecord | null>(null);
-  protected readonly selectedRoute = signal<(ActivityRouteRecord & { coordinates: [number, number][]; elevations?: number[]; cumulativeDistances?: number[] }) | null>(null);
+  protected readonly selectedRoute = signal<
+    | (ActivityRouteRecord & {
+        coordinates: [number, number][];
+        elevations?: number[];
+        cumulativeDistances?: number[];
+      })
+    | null
+  >(null);
 
   private async initLocalNotice(): Promise<void> {
     const settings = await this.repositories.settings.get();
@@ -133,8 +323,17 @@ export class ActivitiesPageComponent {
   protected async dismissLocalNotice(): Promise<void> {
     this.showLocalNotice.set(false);
     const now = new Date().toISOString();
-    const existing = await this.repositories.settings.get() ?? { id: 'default', mapProvider: 'openfreemap', createdAt: now, updatedAt: now };
-    await this.repositories.settings.put({ ...existing, dismissedLocalDataNoticeAt: now, updatedAt: now });
+    const existing = (await this.repositories.settings.get()) ?? {
+      id: 'default',
+      mapProvider: 'openfreemap',
+      createdAt: now,
+      updatedAt: now,
+    };
+    await this.repositories.settings.put({
+      ...existing,
+      dismissedLocalDataNoticeAt: now,
+      updatedAt: now,
+    });
   }
 
   private readonly filtersService = inject(FiltersService);
@@ -185,8 +384,12 @@ export class ActivitiesPageComponent {
   protected readonly dateTo = this.filtersService.dateTo;
   protected readonly nameSearch = this.filtersService.nameSearch;
   protected readonly datePresetLabel = this.filtersService.datePresetLabel;
-  protected readonly sourceFilter = signal<Set<'strava' | 'imported-completed' | 'imported-planned'>>(new Set());
-  protected readonly sourceFilterExpanded = signal(localStorage.getItem('trailroam_activities_source_filter_expanded') !== 'false');
+  protected readonly sourceFilter = signal<
+    Set<'strava' | 'imported-completed' | 'imported-planned'>
+  >(new Set());
+  protected readonly sourceFilterExpanded = signal(
+    localStorage.getItem('trailroam_activities_source_filter_expanded') !== 'false',
+  );
 
   protected resetSourceFilter(): void {
     this.sourceFilter.set(new Set());
@@ -194,7 +397,10 @@ export class ActivitiesPageComponent {
 
   protected toggleSourceFilterExpanded(): void {
     this.sourceFilterExpanded.update((v) => !v);
-    localStorage.setItem('trailroam_activities_source_filter_expanded', String(this.sourceFilterExpanded()));
+    localStorage.setItem(
+      'trailroam_activities_source_filter_expanded',
+      String(this.sourceFilterExpanded()),
+    );
   }
 
   protected toggleSourceFilter(value: 'strava' | 'imported-completed' | 'imported-planned'): void {
@@ -205,7 +411,9 @@ export class ActivitiesPageComponent {
     this.sourceFilter.set(next);
   }
 
-  protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.totalFilteredCount() / this.pageSize())));
+  protected readonly totalPages = computed(() =>
+    Math.max(1, Math.ceil(this.totalFilteredCount() / this.pageSize())),
+  );
 
   protected readonly pageNumbers = computed<(number | '…')[]>(() => {
     const total = this.totalPages();
@@ -215,28 +423,50 @@ export class ActivitiesPageComponent {
     }
     const pages: (number | '…')[] = [];
     pages.push(1);
-    if (cur > 3) { pages.push('…'); }
+    if (cur > 3) {
+      pages.push('…');
+    }
     const start = Math.max(2, cur - 1);
     const end = Math.min(total - 1, cur + 1);
-    for (let i = start; i <= end; i++) { pages.push(i); }
-    if (cur < total - 2) { pages.push('…'); }
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    if (cur < total - 2) {
+      pages.push('…');
+    }
     pages.push(total);
     return pages;
   });
 
-  protected readonly sportTypeGroups = computed<{ category: ActivityCategory; sportTypes: string[] }[]>(() => {
+  protected readonly sportTypeGroups = computed<
+    { category: ActivityCategory; sportTypes: string[] }[]
+  >(() => {
     const items = this.activities();
-    if (!items) { return []; }
+    if (!items) {
+      return [];
+    }
     const seen = new Set<string>();
     const groups = new Map<ActivityCategory, Set<string>>();
     for (const a of items) {
-      if (seen.has(a.sportType)) { continue; }
+      if (seen.has(a.sportType)) {
+        continue;
+      }
       seen.add(a.sportType);
       const cat = mapSportTypeToCategory(a.sportType);
-      if (!groups.has(cat)) { groups.set(cat, new Set()); }
+      if (!groups.has(cat)) {
+        groups.set(cat, new Set());
+      }
       groups.get(cat)!.add(a.sportType);
     }
-    const order: ActivityCategory[] = ['ride', 'run', 'walk', 'water', 'paddling', 'winter', 'other'];
+    const order: ActivityCategory[] = [
+      'ride',
+      'run',
+      'walk',
+      'water',
+      'paddling',
+      'winter',
+      'other',
+    ];
     return order
       .filter((cat) => groups.has(cat))
       .map((cat) => ({ category: cat, sportTypes: [...groups.get(cat)!].sort() }));
@@ -244,7 +474,9 @@ export class ActivitiesPageComponent {
 
   protected readonly allFiltered = computed<ActivityRecord[]>(() => {
     const items = this.activities();
-    if (!items) { return []; }
+    if (!items) {
+      return [];
+    }
     const sportFilter = this.sportTypeFilter();
     const fromDate = this.dateFrom();
     const toDate = this.dateTo();
@@ -254,22 +486,33 @@ export class ActivitiesPageComponent {
       if (srcFilter.size > 0) {
         const isStrava = a.provider === 'strava';
         const isPlanned = a.activityStatus === 'planned';
-        const matchesAny = (srcFilter.has('strava') && isStrava)
-          || (srcFilter.has('imported-completed') && !isStrava && !isPlanned)
-          || (srcFilter.has('imported-planned') && isPlanned);
+        const matchesAny =
+          (srcFilter.has('strava') && isStrava) ||
+          (srcFilter.has('imported-completed') && !isStrava && !isPlanned) ||
+          (srcFilter.has('imported-planned') && isPlanned);
         if (!matchesAny) return false;
       }
       if (sportFilter) {
         if (sportFilter.startsWith('__cat__')) {
           const cat = sportFilter.slice(7) as ActivityCategory;
-          if (mapSportTypeToCategory(a.sportType) !== cat) { return false; }
+          if (mapSportTypeToCategory(a.sportType) !== cat) {
+            return false;
+          }
         } else {
-          if (a.sportType !== sportFilter) { return false; }
+          if (a.sportType !== sportFilter) {
+            return false;
+          }
         }
       }
-      if (fromDate && a.startDate && !isAfterOrEqual(a.startDate, fromDate)) { return false; }
-      if (toDate && a.startDate && !isBeforeOrEqual(a.startDate, toDate)) { return false; }
-      if (search && !a.name.toLowerCase().includes(search)) { return false; }
+      if (fromDate && a.startDate && !isAfterOrEqual(a.startDate, fromDate)) {
+        return false;
+      }
+      if (toDate && a.startDate && !isBeforeOrEqual(a.startDate, toDate)) {
+        return false;
+      }
+      if (search && !a.name.toLowerCase().includes(search)) {
+        return false;
+      }
       return true;
     });
 
@@ -280,8 +523,12 @@ export class ActivitiesPageComponent {
 
   protected readonly filteredActivities = computed<ActivityRecord[] | null>(() => {
     const all = this.allFiltered();
-    if (all.length === 0 && this.activities() !== null) { return []; }
-    if (all.length === 0) { return null; }
+    if (all.length === 0 && this.activities() !== null) {
+      return [];
+    }
+    if (all.length === 0) {
+      return null;
+    }
     const page = this.currentPage();
     const size = this.pageSize();
     const start = (page - 1) * size;
@@ -309,14 +556,18 @@ export class ActivitiesPageComponent {
 
   protected readonly allPageSelected = computed(() => {
     const page = this.filteredActivities();
-    if (!page || page.length === 0) { return false; }
+    if (!page || page.length === 0) {
+      return false;
+    }
     const ids = this.selectedIds();
     return page.every((a) => ids.has(a.id));
   });
 
   protected readonly statCount = computed(() => {
     const c = this.allFiltered().length;
-    if (c === 0 && this.status() === 'empty') { return '—'; }
+    if (c === 0 && this.status() === 'empty') {
+      return '—';
+    }
     return `${c}`;
   });
 
@@ -324,29 +575,43 @@ export class ActivitiesPageComponent {
     const all = this.allFiltered();
     const totalDistanceMeters = all.reduce((s, a) => s + (a.distanceMeters ?? 0), 0);
     const distanceKm = totalDistanceMeters / 1000;
-    if (totalDistanceMeters === 0) { return this.status() === 'empty' ? '—' : '0 km'; }
+    if (totalDistanceMeters === 0) {
+      return this.status() === 'empty' ? '—' : '0 km';
+    }
     return distanceKm >= 100 ? `${distanceKm.toFixed(0)} km` : `${distanceKm.toFixed(1)} km`;
   });
 
   protected readonly statMovingTime = computed(() => {
     const all = this.allFiltered();
     const totalMovingSeconds = all.reduce((s, a) => s + (a.movingTimeSeconds ?? 0), 0);
-    if (totalMovingSeconds === 0) { return this.status() === 'empty' ? '—' : '0h 0m'; }
+    if (totalMovingSeconds === 0) {
+      return this.status() === 'empty' ? '—' : '0h 0m';
+    }
     return formatDurationHours(totalMovingSeconds);
   });
 
   protected readonly statAvgSpeed = computed(() => {
     const all = this.allFiltered();
-    const activitiesWithSpeed = all.filter((a) => computeSpeed(a.averageSpeedMetersPerSecond, a.distanceMeters, a.movingTimeSeconds) !== undefined);
-    if (activitiesWithSpeed.length === 0) { return '—'; }
-    const speedsMs = activitiesWithSpeed.map((a) => computeSpeed(a.averageSpeedMetersPerSecond, a.distanceMeters, a.movingTimeSeconds)!);
+    const activitiesWithSpeed = all.filter(
+      (a) =>
+        computeSpeed(a.averageSpeedMetersPerSecond, a.distanceMeters, a.movingTimeSeconds) !==
+        undefined,
+    );
+    if (activitiesWithSpeed.length === 0) {
+      return '—';
+    }
+    const speedsMs = activitiesWithSpeed.map(
+      (a) => computeSpeed(a.averageSpeedMetersPerSecond, a.distanceMeters, a.movingTimeSeconds)!,
+    );
     const avgMs = speedsMs.reduce((s, v) => s + v, 0) / speedsMs.length;
     return `${(avgMs * 3.6).toFixed(1)} km/h`;
   });
 
   protected readonly summaryText = computed(() => {
     const all = this.allFiltered();
-    if (all.length === 0) { return '0 activities'; }
+    if (all.length === 0) {
+      return '0 activities';
+    }
 
     const count = all.length;
 
@@ -356,12 +621,20 @@ export class ActivitiesPageComponent {
     const totalMovingSeconds = all.reduce((sum, a) => sum + (a.movingTimeSeconds ?? 0), 0);
 
     const activitiesWithSpeed = all.filter((a) => {
-      const speed = computeSpeed(a.averageSpeedMetersPerSecond, a.distanceMeters, a.movingTimeSeconds);
+      const speed = computeSpeed(
+        a.averageSpeedMetersPerSecond,
+        a.distanceMeters,
+        a.movingTimeSeconds,
+      );
       return speed !== undefined;
     });
     const avgSpeedKmh = (() => {
-      if (activitiesWithSpeed.length === 0) { return null; }
-      const speedsMs = activitiesWithSpeed.map((a) => computeSpeed(a.averageSpeedMetersPerSecond, a.distanceMeters, a.movingTimeSeconds)!);
+      if (activitiesWithSpeed.length === 0) {
+        return null;
+      }
+      const speedsMs = activitiesWithSpeed.map(
+        (a) => computeSpeed(a.averageSpeedMetersPerSecond, a.distanceMeters, a.movingTimeSeconds)!,
+      );
       const avgMs = speedsMs.reduce((s, v) => s + v, 0) / speedsMs.length;
       return avgMs * 3.6;
     })();
@@ -391,13 +664,16 @@ export class ActivitiesPageComponent {
   constructor() {
     this.loadPage(1);
     this.initLocalNotice();
+    this.savedPlacesService.load();
     globalThis.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
       if (!target?.closest('.toolbar-select') && !target?.closest('.drp-overlay')) {
         this.closeAllMenus();
       }
     });
-    this.dataRefresh.refresh$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.loadPage(1));
+    this.dataRefresh.refresh$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.loadPage(1));
     effect(() => {
       const focusId = this.focusActivityId();
       const items = this.activities();
@@ -420,19 +696,29 @@ export class ActivitiesPageComponent {
   protected toggleSelection(id: string): void {
     this.selectedIds.update((ids) => {
       const next = new Set(ids);
-      if (next.has(id)) { next.delete(id); } else { next.add(id); }
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
   }
 
   protected toggleSelectAllPage(): void {
     const page = this.filteredActivities();
-    if (!page) { return; }
+    if (!page) {
+      return;
+    }
     const allSelected = this.allPageSelected();
     this.selectedIds.update((ids) => {
       const next = new Set(ids);
       for (const a of page) {
-        if (allSelected) { next.delete(a.id); } else { next.add(a.id); }
+        if (allSelected) {
+          next.delete(a.id);
+        } else {
+          next.add(a.id);
+        }
       }
       return next;
     });
@@ -442,8 +728,13 @@ export class ActivitiesPageComponent {
     const ids = this.selectedIds();
     const all = this.allFiltered();
     const selected = all.filter((a) => ids.has(a.id));
-    if (selected.length === 0) { return; }
-    const count = await this.gpxExportService.buildZip(new (await import('jszip')).default(), selected);
+    if (selected.length === 0) {
+      return;
+    }
+    const count = await this.gpxExportService.buildZip(
+      new (await import('jszip')).default(),
+      selected,
+    );
     if (count.exported === 0) {
       this.toastService.show('No GPS routes available for the selected activities.');
       return;
@@ -455,23 +746,31 @@ export class ActivitiesPageComponent {
         confirmLabel: 'Download',
         danger: false,
       });
-      if (!confirmed) { return; }
+      if (!confirmed) {
+        return;
+      }
     }
     const result = await this.gpxExportService.exportActivitiesAsZip(selected);
     this.clearSelection();
-    this.toastService.show(`Downloaded ${result.exported} GPX ${result.exported === 1 ? 'file' : 'files'} as zip.`);
+    this.toastService.show(
+      `Downloaded ${result.exported} GPX ${result.exported === 1 ? 'file' : 'files'} as zip.`,
+    );
   }
 
   protected async deleteSelected(): Promise<void> {
     const count = this.selectionCount();
-    if (count === 0) { return; }
+    if (count === 0) {
+      return;
+    }
     const confirmed = await this.confirmService.confirm({
       title: `Delete ${count} selected ${count === 1 ? 'activity' : 'activities'}?`,
       message: `${count} ${count === 1 ? 'activity has' : 'activities have'} been selected for deletion. This will remove all selected activities and their GPS routes from the local database. Strava data is not affected.`,
       confirmLabel: `Delete ${count} ${count === 1 ? 'activity' : 'activities'}`,
       danger: true,
     });
-    if (!confirmed) { return; }
+    if (!confirmed) {
+      return;
+    }
     const ids = this.selectedIds();
     await Promise.all([
       ...Array.from(ids).map((id) => this.repositories.activities.delete(id)),
@@ -513,12 +812,16 @@ export class ActivitiesPageComponent {
   }
 
   protected sortIndicator(column: SortColumn): string {
-    if (this.sortColumn() !== column) { return ''; }
+    if (this.sortColumn() !== column) {
+      return '';
+    }
     return this.sortDirection() === 1 ? ' ▲' : ' ▼';
   }
 
   protected goToPage(page: number): void {
-    if (page < 1 || page > this.totalPages()) { return; }
+    if (page < 1 || page > this.totalPages()) {
+      return;
+    }
     this.currentPage.set(page);
     this.loadPage(page);
     this.clearSelection();
@@ -543,11 +846,21 @@ export class ActivitiesPageComponent {
         this.repositories.routeGeometry.get(activity.id),
       ]).then(([route, geometry]) => {
         if (route && geometry) {
-          this.selectedRoute.set({ ...route, coordinates: geometry.coordinates, elevations: geometry.elevations, cumulativeDistances: geometry.cumulativeDistances });
+          this.selectedRoute.set({
+            ...route,
+            coordinates: geometry.coordinates,
+            elevations: geometry.elevations,
+            cumulativeDistances: geometry.cumulativeDistances,
+          });
         } else if (route) {
           const oldCoords = (route as any).coordinates;
           if (oldCoords && oldCoords.length > 0) {
-            this.selectedRoute.set({ ...route, coordinates: oldCoords, elevations: (route as any).elevations, cumulativeDistances: (route as any).cumulativeDistances });
+            this.selectedRoute.set({
+              ...route,
+              coordinates: oldCoords,
+              elevations: (route as any).elevations,
+              cumulativeDistances: (route as any).cumulativeDistances,
+            });
           } else {
             this.selectedRoute.set(null);
           }
@@ -583,12 +896,49 @@ export class ActivitiesPageComponent {
       const menuHeight = 160;
       const spaceBelow = window.innerHeight - rect.bottom;
       if (spaceBelow >= menuHeight) {
-        this.menuStyle.set({ position: 'fixed', top: rect.bottom + 'px', right: window.innerWidth - rect.right + 12 + 'px', bottom: 'auto' });
+        this.menuStyle.set({
+          position: 'fixed',
+          top: rect.bottom + 'px',
+          right: window.innerWidth - rect.right + 12 + 'px',
+          bottom: 'auto',
+        });
       } else {
-        this.menuStyle.set({ position: 'fixed', top: 'auto', right: window.innerWidth - rect.right + 12 + 'px', bottom: window.innerHeight - rect.top + 'px' });
+        this.menuStyle.set({
+          position: 'fixed',
+          top: 'auto',
+          right: window.innerWidth - rect.right + 12 + 'px',
+          bottom: window.innerHeight - rect.top + 'px',
+        });
       }
     }
     this.openMenuId.set(opening ? activityId : null);
+  }
+
+  protected togglePlaceMenu(event: MouseEvent, placeId: string): void {
+    event.stopPropagation();
+    const opening = this.openMenuId() !== placeId;
+    if (opening) {
+      const btn = event.currentTarget as HTMLElement;
+      const rect = btn.getBoundingClientRect();
+      const menuHeight = 160;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      if (spaceBelow >= menuHeight) {
+        this.menuStyle.set({
+          position: 'fixed',
+          top: rect.bottom + 'px',
+          right: window.innerWidth - rect.right + 12 + 'px',
+          bottom: 'auto',
+        });
+      } else {
+        this.menuStyle.set({
+          position: 'fixed',
+          top: 'auto',
+          right: window.innerWidth - rect.right + 12 + 'px',
+          bottom: window.innerHeight - rect.top + 'px',
+        });
+      }
+    }
+    this.openMenuId.set(opening ? placeId : null);
   }
 
   protected closeAllMenus(): void {
@@ -631,7 +981,12 @@ export class ActivitiesPageComponent {
     });
     const result = await ref.afterClosed().toPromise();
     if (!result) return;
-    if (result.name === activity.name && result.sportType === activity.sportType && result.activityStatus === (activity.activityStatus ?? 'completed')) return;
+    if (
+      result.name === activity.name &&
+      result.sportType === activity.sportType &&
+      result.activityStatus === (activity.activityStatus ?? 'completed')
+    )
+      return;
     await this.repositories.activities.updateMetadata(activity.id, {
       name: result.name,
       sportType: result.sportType,
@@ -650,6 +1005,56 @@ export class ActivitiesPageComponent {
     this.activities.update((items) => items?.filter((a) => a.id !== activity.id) ?? null);
     this.totalCount.update((c) => Math.max(0, c - 1));
     this.toastService.show(`"${activity.name}" was deleted from local database.`);
+  }
+
+  protected onSelectPlace(place: SavedPlaceRecord, source: 'places' | 'all' = 'places'): void {
+    console.log('[Trailroam] onSelectPlace', {
+      name: place.name,
+      id: place.id,
+      lat: place.latitude,
+      lng: place.longitude,
+      source,
+    });
+    this.router.navigate(['/map'], { queryParams: { placeId: place.id, from: source } });
+  }
+
+  protected async onEditPlace(place: SavedPlaceRecord): Promise<void> {
+    const data: SavePlaceDialogData = {
+      mode: 'edit',
+      suggestedName: place.name,
+      suggestedNotes: place.notes,
+      secondaryLabel: place.secondaryLabel,
+    };
+    const ref = this.dialog.open(SavePlaceDialog, { data, disableClose: true });
+    const confirmed = await ref.afterClosed().toPromise();
+    if (!confirmed) {
+      return;
+    }
+    try {
+      await this.savedPlacesService.update(place.id, {
+        name: confirmed.name,
+        notes: confirmed.notes,
+      });
+    } catch {
+      this.toastService.show('Could not update place. Please try again.');
+    }
+  }
+
+  protected async onRemovePlace(place: SavedPlaceRecord): Promise<void> {
+    const confirmed = await this.confirmService.confirm({
+      title: 'Remove saved place?',
+      message: `This will remove "${place.name}" from your saved places.`,
+      confirmLabel: 'Remove',
+      danger: true,
+    });
+    if (!confirmed) {
+      return;
+    }
+    try {
+      await this.savedPlacesService.remove(place.id);
+    } catch {
+      this.toastService.show('Could not remove place. Please try again.');
+    }
   }
 
   protected showImportOverlay(): void {
@@ -728,7 +1133,9 @@ export class ActivitiesPageComponent {
       disableClose: true,
     });
 
-    const result: { name: string; sportType: string; activityStatus: 'completed' | 'planned' } | undefined = await ref.afterClosed().toPromise();
+    const result:
+      | { name: string; sportType: string; activityStatus: 'completed' | 'planned' }
+      | undefined = await ref.afterClosed().toPromise();
     if (!result) return;
 
     const id = generateId();
@@ -787,7 +1194,9 @@ export class ActivitiesPageComponent {
   private focusRowAndHighlight(rowId: string): void {
     const all = this.allFiltered();
     const idx = all.findIndex((a) => a.id === rowId);
-    if (idx < 0) { return; }
+    if (idx < 0) {
+      return;
+    }
     const page = Math.floor(idx / this.pageSize()) + 1;
     this.currentPage.set(page);
     this.highlightActivityId.set(rowId);
@@ -801,32 +1210,62 @@ export class ActivitiesPageComponent {
   protected async retrySyncRoute(event: MouseEvent, activity: ActivityRecord): Promise<void> {
     event.stopPropagation();
     this.openMenuId.set(null);
-    const fetchResult = await this.stravaSessionService.fetchActivityRoute(Number(activity.providerActivityId));
+    const fetchResult = await this.stravaSessionService.fetchActivityRoute(
+      Number(activity.providerActivityId),
+    );
     if (fetchResult.success) {
-      const normalized = this.routeNormalizer.normalize(activity.id, activity.providerActivityId, fetchResult);
+      const normalized = this.routeNormalizer.normalize(
+        activity.id,
+        activity.providerActivityId,
+        fetchResult,
+      );
       if (normalized.success) {
         const now = new Date().toISOString();
         await this.repositories.activityRoutes.upsert(normalized.route);
         await this.repositories.activities.updateRouteSyncStatus(activity.id, true, 'route_synced');
-        this.activities.update((items) =>
-          items?.map((a) => a.id === activity.id ? { ...a, hasRoute: true, routeSyncStatus: 'route_synced' as const, updatedAt: now } : a) ?? null,
+        this.activities.update(
+          (items) =>
+            items?.map((a) =>
+              a.id === activity.id
+                ? { ...a, hasRoute: true, routeSyncStatus: 'route_synced' as const, updatedAt: now }
+                : a,
+            ) ?? null,
         );
         this.toastService.show(`Route synced for "${activity.name}".`);
       } else {
-        const status = normalized.errorCode === 'NO_GPS_ROUTE' ? 'no_route' as const : 'route_failed' as const;
+        const status =
+          normalized.errorCode === 'NO_GPS_ROUTE'
+            ? ('no_route' as const)
+            : ('route_failed' as const);
         await this.repositories.activities.updateRouteSyncStatus(activity.id, false, status);
-        this.activities.update((items) =>
-          items?.map((a) => a.id === activity.id ? { ...a, routeSyncStatus: status, updatedAt: new Date().toISOString() } : a) ?? null,
+        this.activities.update(
+          (items) =>
+            items?.map((a) =>
+              a.id === activity.id
+                ? { ...a, routeSyncStatus: status, updatedAt: new Date().toISOString() }
+                : a,
+            ) ?? null,
         );
         this.toastService.show(`No GPS route available for "${activity.name}".`);
       }
     } else {
-      const status = fetchResult.errorCode === 'NO_GPS_ROUTE' ? 'no_route' as const : 'route_failed' as const;
+      const status =
+        fetchResult.errorCode === 'NO_GPS_ROUTE'
+          ? ('no_route' as const)
+          : ('route_failed' as const);
       await this.repositories.activities.updateRouteSyncStatus(activity.id, false, status);
-      this.activities.update((items) =>
-        items?.map((a) => a.id === activity.id ? { ...a, routeSyncStatus: status, updatedAt: new Date().toISOString() } : a) ?? null,
+      this.activities.update(
+        (items) =>
+          items?.map((a) =>
+            a.id === activity.id
+              ? { ...a, routeSyncStatus: status, updatedAt: new Date().toISOString() }
+              : a,
+          ) ?? null,
       );
-      const msg = fetchResult.errorCode === 'STRAVA_LOGIN_REQUIRED' ? 'Log into Strava first to sync routes.' : `No GPS route available for "${activity.name}".`;
+      const msg =
+        fetchResult.errorCode === 'STRAVA_LOGIN_REQUIRED'
+          ? 'Log into Strava first to sync routes.'
+          : `No GPS route available for "${activity.name}".`;
       this.toastService.show(msg);
     }
   }
@@ -845,6 +1284,7 @@ export class ActivitiesPageComponent {
   protected readonly formatDurationHours = formatDurationHours;
   protected readonly formatSpeedKmh = formatSpeedKmh;
   protected readonly formatDate = formatDate;
+  protected readonly formatDateShort = formatDateShort;
   protected readonly routeStatusLabel = routeStatusLabel;
   protected readonly formatDateInput = formatDateInput;
   protected readonly formatSportType = formatSportType;
@@ -861,8 +1301,14 @@ export class ActivitiesPageComponent {
     const c = CATEGORY_COLORS[cat as keyof typeof CATEGORY_COLORS];
     return c ?? '#314b3f';
   };
-  protected onDateFromChange = (v: string) => { this.filtersService.setDateFrom(v); this.clearSelection(); };
-  protected onDateToChange = (v: string) => { this.filtersService.setDateTo(v); this.clearSelection(); };
+  protected onDateFromChange = (v: string) => {
+    this.filtersService.setDateFrom(v);
+    this.clearSelection();
+  };
+  protected onDateToChange = (v: string) => {
+    this.filtersService.setDateTo(v);
+    this.clearSelection();
+  };
   protected onRangeApplied(range: { dateFrom: string; dateTo: string }): void {
     if (range.dateFrom && range.dateTo) {
       const preset = this.matchPreset(range.dateFrom, range.dateTo);
@@ -881,9 +1327,12 @@ export class ActivitiesPageComponent {
     if (!dateFrom && !dateTo) return 'all';
     const now = new Date();
     const today = fmtDate(now);
-    const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
-    const sevenAgo = new Date(now); sevenAgo.setDate(sevenAgo.getDate() - 7);
-    const thirtyAgo = new Date(now); thirtyAgo.setDate(thirtyAgo.getDate() - 30);
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const sevenAgo = new Date(now);
+    sevenAgo.setDate(sevenAgo.getDate() - 7);
+    const thirtyAgo = new Date(now);
+    thirtyAgo.setDate(thirtyAgo.getDate() - 30);
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const yearStart = new Date(now.getFullYear(), 0, 1);
     if (dateFrom === today && dateTo === today) return 'today';
@@ -894,7 +1343,10 @@ export class ActivitiesPageComponent {
     if (dateFrom === fmtDate(yearStart) && dateTo === today) return 'year';
     return 'custom';
   }
-  protected onNameSearchChange = (v: string) => { this.filtersService.setNameSearch(v); this.clearSelection(); };
+  protected onNameSearchChange = (v: string) => {
+    this.filtersService.setNameSearch(v);
+    this.clearSelection();
+  };
 
   private async loadPage(page: number): Promise<void> {
     this.status.set('loading');
@@ -909,12 +1361,19 @@ export class ActivitiesPageComponent {
       this.activities.set(items);
       this.status.set(items.length === 0 ? 'empty' : 'loaded');
 
-      const routeIds = items.filter((a) => a.hasRoute && !this.routesCache.has(a.id)).map((a) => a.id);
+      const routeIds = items
+        .filter((a) => a.hasRoute && !this.routesCache.has(a.id))
+        .map((a) => a.id);
       if (routeIds.length > 0) {
-        const routes = await Promise.all(routeIds.map((id) => this.repositories.activityRoutes.get(id)));
+        const routes = await Promise.all(
+          routeIds.map((id) => this.repositories.activityRoutes.get(id)),
+        );
         for (const route of routes) {
           if (route) {
-            this.routesCache.set(route.activityId, (route as any).simplifiedCoordinates ?? (route as any).coordinates ?? []);
+            this.routesCache.set(
+              route.activityId,
+              (route as any).simplifiedCoordinates ?? (route as any).coordinates ?? [],
+            );
           }
         }
       }
@@ -927,11 +1386,15 @@ export class ActivitiesPageComponent {
   private lastFocusedId: string | null = null;
 
   private handleFocusActivity(focusId: string): void {
-    if (focusId === this.lastFocusedId) { return; }
+    if (focusId === this.lastFocusedId) {
+      return;
+    }
     this.lastFocusedId = focusId;
     const all = this.allFiltered();
     const idx = all.findIndex((a) => a.id === focusId);
-    if (idx < 0) { return; }
+    if (idx < 0) {
+      return;
+    }
     const page = Math.floor(idx / this.pageSize()) + 1;
     this.currentPage.set(page);
     this.highlightActivityId.set(focusId);
@@ -962,7 +1425,10 @@ function compareActivities(a: ActivityRecord, b: ActivityRecord, column: SortCol
     case 'distance':
       return (a.distanceMeters ?? 0) - (b.distanceMeters ?? 0);
     case 'speed':
-      return (computeSpeed(a.averageSpeedMetersPerSecond, a.distanceMeters, a.movingTimeSeconds) ?? 0) - (computeSpeed(b.averageSpeedMetersPerSecond, b.distanceMeters, b.movingTimeSeconds) ?? 0);
+      return (
+        (computeSpeed(a.averageSpeedMetersPerSecond, a.distanceMeters, a.movingTimeSeconds) ?? 0) -
+        (computeSpeed(b.averageSpeedMetersPerSecond, b.distanceMeters, b.movingTimeSeconds) ?? 0)
+      );
     case 'time':
       return (a.movingTimeSeconds ?? 0) - (b.movingTimeSeconds ?? 0);
     case 'route':

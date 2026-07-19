@@ -429,18 +429,38 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
 
   /**
    * Pans/zooms the map to a saved place (used when selecting a place from the panel) and opens
-   * its marker popup. Idempotent if the marker does not exist yet (it will be created on reconcile).
+   * its marker popup. If the marker does not exist yet (markers reconcile asynchronously after the
+   * map style loads), retries opening the popup for up to 2 seconds.
    */
   focusSavedPlace(place: SavedPlaceRecord): void {
     const center: [number, number] = [place.longitude, place.latitude];
+    console.log('[Trailroam] focusSavedPlace called', {
+      name: place.name,
+      center,
+      hasMap: !!this.mapInstance,
+      markerCount: this.savedPlaceMarkers.size,
+      hasMarker: this.savedPlaceMarkers.has(place.id),
+    });
     this.flyTo(center);
-    const marker = this.savedPlaceMarkers.get(place.id);
+    this.pinnedPlaceId.set(place.id);
+    this.openMarkerPopup(place.id);
+  }
+
+  /** Opens the popup for a saved-place marker, polling up to 10×200ms if not yet created. */
+  private openMarkerPopup(placeId: string, attempt = 0): void {
+    const marker = this.savedPlaceMarkers.get(placeId);
     if (marker) {
       const popup = marker.getPopup();
       if (popup && !popup.isOpen()) {
         marker.togglePopup();
       }
-      this.pinnedPlaceId.set(place.id);
+      return;
+    }
+    if (this.isDestroyed) {
+      return;
+    }
+    if (attempt < 10) {
+      setTimeout(() => this.openMarkerPopup(placeId, attempt + 1), 200);
     }
   }
 

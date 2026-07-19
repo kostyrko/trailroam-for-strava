@@ -104,6 +104,14 @@ export class MapPage implements AfterViewInit {
     this.route.queryParamMap.pipe(map((params) => params.get('activityId'))),
     { initialValue: null },
   );
+  private readonly placeIdParam = toSignal(
+    this.route.queryParamMap.pipe(map((params) => params.get('placeId'))),
+    { initialValue: null },
+  );
+  private readonly fromParam = toSignal(
+    this.route.queryParamMap.pipe(map((params) => params.get('from') as 'places' | 'all' | null)),
+    { initialValue: null },
+  );
   private readonly basemapErrorParam = toSignal(
     this.route.queryParamMap.pipe(map((params) => params.get('basemapError') === 'true')),
     { initialValue: false },
@@ -134,6 +142,12 @@ export class MapPage implements AfterViewInit {
 
   protected readonly sportTypeFilter = this.filtersService.sportTypeFilter;
   protected readonly hoveredActivityId = signal<string | null>(null);
+  /** Persisted placeId target from URL params — survives param cleanup so the effect works across map-ready state changes. */
+  protected readonly pendingPlaceId = signal<string | null>(null);
+  private readonly pendingPlaceSource = signal<'places' | 'all' | null>(null);
+  /** When true, the routes-loading spinner is suppressed (used when navigating to focus a place, not routes). */
+  protected readonly placeNavigationActive = signal(false);
+
   /** Activities | Places | All segmented-control state for the left panel. */
   protected readonly leftPanelView = signal<'activities' | 'places' | 'all'>('activities');
   /** Id of the place currently focused on the map (for panel row highlight). */
@@ -516,6 +530,59 @@ export class MapPage implements AfterViewInit {
       const route = this.selectedRoute();
       if (route && !this.selectedRouteGeometry()) {
         this.fetchFullGeometryForRoute(route);
+      }
+    });
+    // Capture placeId/from from URL into pending signals so they survive param cleanup
+    effect(() => {
+      const placeId = this.placeIdParam();
+      const from = this.fromParam();
+      if (placeId) {
+        console.log('[Trailroam] Captured placeId from URL:', placeId, 'from:', from);
+        this.placeNavigationActive.set(true);
+        this.pendingPlaceId.set(placeId);
+        this.pendingPlaceSource.set(from);
+        // Clear URL params immediately so bookmarking doesn't keep stale IDs
+        this.router.navigate(['/map'], { queryParams: {}, replaceUrl: true });
+      }
+    });
+    // Drive the fly-to logic from pending signals so it works regardless of URL state
+    effect(() => {
+      const placeId = this.pendingPlaceId();
+      const from = this.pendingPlaceSource();
+      const places = this.savedPlacesService.places();
+      const ready = this.mapReady();
+      console.log('[Trailroam] placeId fly effect', {
+        placeId,
+        from,
+        placesCount: places.length,
+        mapReady: ready,
+      });
+      if (!placeId) return;
+      const found = places.find((p) => p.id === placeId);
+      console.log('[Trailroam] placeId fly effect — found:', !!found, 'ready:', ready);
+      if (found && ready) {
+        console.log(
+          '[Trailroam] Executing focusSavedPlace for',
+          found.name,
+          'at',
+          found.latitude,
+          found.longitude,
+          'mapComponent:',
+          !!this.mapComponent,
+        );
+        this.selectedPlaceId.set(found.id);
+        this.leftPanelView.set(from === 'all' ? 'all' : 'places');
+        // Use setTimeout to ensure the map component's async init (createMap) completes first,
+        // so that this.mapInstance and saved-place markers are available.
+        setTimeout(() => {
+          if (this.mapComponent) {
+            console.log('[Trailroam] setTimeout focusSavedPlace');
+            this.mapComponent.focusSavedPlace(found);
+          }
+        }, 600);
+        // Clear pending so we don't re-fly on every signal change
+        this.pendingPlaceId.set(null);
+        this.pendingPlaceSource.set(null);
       }
     });
   }

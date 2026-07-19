@@ -100,7 +100,10 @@
       (rangeApplied)="onRangeApplied($event)"
     />
 
-    @if (routesLoading() || filterLoading() || (allRoutes().length > 0 && !routesRendered())) {
+    @if (
+      !placeNavigationActive() &&
+      (routesLoading() || filterLoading() || (allRoutes().length > 0 && !routesRendered()))
+    ) {
       <div class="map-loading-overlay">
         <app-loading-spinner />
       </div>

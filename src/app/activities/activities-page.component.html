@@ -1,16 +1,52 @@
-    <section class="route-page" aria-labelledby="activities-title" [class.route-page--empty]="status() === 'empty'">
-
-      <div class="activities-header">
-        <div class="activities-header__title-row">
-          <h1 id="activities-title">Activities</h1>
-          <div class="local-storage-indicator" title="Activity data is stored locally in this browser">
-            <app-icon name="lock" [size]="14" strokeWidth="2" [class]="'ls-icon'"></app-icon>
-            <span>Stored locally in this browser</span>
-            <app-icon name="info" [size]="14" strokeWidth="2" [class]="'ls-info-icon'"></app-icon>
-          </div>
-        </div>
+<section
+  class="route-page"
+  aria-labelledby="activities-title"
+  [class.route-page--empty]="status() === 'empty'"
+>
+  <div class="activities-header">
+    <div class="activities-header__title-row">
+      <h1 id="activities-title">Logbook</h1>
+      <div class="local-storage-indicator" title="Activity data is stored locally in this browser">
+        <app-icon name="lock" [size]="14" strokeWidth="2" [class]="'ls-icon'"></app-icon>
+        <span>Stored locally in this browser</span>
+        <app-icon name="info" [size]="14" strokeWidth="2" [class]="'ls-info-icon'"></app-icon>
       </div>
+    </div>
+  </div>
 
+  <!-- Tab switcher -->
+  <div class="logbook-tabs" role="tablist" aria-label="Logbook views">
+    <button
+      class="logbook-tab"
+      [class.logbook-tab--active]="logbookView() === 'activities'"
+      role="tab"
+      aria-selected="logbookView() === 'activities'"
+      (click)="logbookView.set('activities')"
+    >
+      Activities
+    </button>
+    <button
+      class="logbook-tab"
+      [class.logbook-tab--active]="logbookView() === 'places'"
+      role="tab"
+      aria-selected="logbookView() === 'places'"
+      (click)="logbookView.set('places')"
+    >
+      Places
+    </button>
+    <button
+      class="logbook-tab"
+      [class.logbook-tab--active]="logbookView() === 'all'"
+      role="tab"
+      aria-selected="logbookView() === 'all'"
+      (click)="logbookView.set('all')"
+    >
+      All
+    </button>
+  </div>
+
+  @switch (logbookView()) {
+    @case ('activities') {
       @if (status() === 'loading') {
         <div class="loading-state" aria-label="Loading activities">
           <app-loading-spinner />
@@ -18,12 +54,24 @@
       } @else {
         @if (showLocalNotice()) {
           <div class="local-data-notice" role="status">
-            <app-icon name="lock" [size]="18" strokeWidth="2" [class]="'local-data-notice__icon'"></app-icon>
+            <app-icon
+              name="lock"
+              [size]="18"
+              strokeWidth="2"
+              [class]="'local-data-notice__icon'"
+            ></app-icon>
             <div class="local-data-notice__content">
               <strong>All your activity data is stored locally in your browser.</strong>
-              <span>No data is sent to any server. Use Sync with Strava to import new activities.</span>
+              <span
+                >No data is sent to any server. Use Sync with Strava to import new activities.</span
+              >
             </div>
-            <button class="local-data-notice__dismiss" type="button" (click)="dismissLocalNotice()" aria-label="Dismiss local storage notice">
+            <button
+              class="local-data-notice__dismiss"
+              type="button"
+              (click)="dismissLocalNotice()"
+              aria-label="Dismiss local storage notice"
+            >
               <app-icon name="x" [size]="16" strokeWidth="2"></app-icon>
             </button>
           </div>
@@ -78,19 +126,38 @@
         />
 
         @if (status() !== 'empty') {
-        <p class="activities-count">
-          @if (totalFilteredCount() > pageSize()) {
-            Showing page {{ currentPage() }} of {{ totalPages() }} · {{ totalFilteredCount() }} activities
-          } @else {
-            {{ totalFilteredCount() }} activities
-          }
-        </p>
+          <p class="activities-count">
+            @if (totalFilteredCount() > pageSize()) {
+              Showing page {{ currentPage() }} of {{ totalPages() }} ·
+              {{ totalFilteredCount() }} activities
+            } @else {
+              {{ totalFilteredCount() }} activities
+            }
+          </p>
         }
 
         @if (dragOver()) {
-          <div class="import-drop-overlay" (click)="dismissImportOverlay()" (dragleave)="onDragLeave($event)" (drop)="onDrop($event)" (dragover)="onDragOver($event)">
-            <div class="import-drop-card" (click)="openFilePicker(); $event.stopPropagation()" role="button" tabindex="0" (keydown.enter)="openFilePicker()" aria-label="Open file picker">
-              <button class="import-drop-close" type="button" (click)="dismissImportOverlay(); $event.stopPropagation()" aria-label="Close import panel">
+          <div
+            class="import-drop-overlay"
+            (click)="dismissImportOverlay()"
+            (dragleave)="onDragLeave($event)"
+            (drop)="onDrop($event)"
+            (dragover)="onDragOver($event)"
+          >
+            <div
+              class="import-drop-card"
+              (click)="openFilePicker(); $event.stopPropagation()"
+              role="button"
+              tabindex="0"
+              (keydown.enter)="openFilePicker()"
+              aria-label="Open file picker"
+            >
+              <button
+                class="import-drop-close"
+                type="button"
+                (click)="dismissImportOverlay(); $event.stopPropagation()"
+                aria-label="Close import panel"
+              >
                 <app-icon name="x" [size]="14" strokeWidth="2"></app-icon>
               </button>
               <span class="import-drop-icon">&#11014;</span>
@@ -103,12 +170,17 @@
             #fileInput
             type="file"
             accept=".gpx,.fit,.tcx"
-            style="display:none"
+            style="display: none"
             (change)="onFileSelected($event)"
           />
         }
 
-        <div class="activities-table-wrap" (dragover)="onDragOver($event)" (dragleave)="onDragLeave($event)" (drop)="onDrop($event)">
+        <div
+          class="activities-table-wrap"
+          (dragover)="onDragOver($event)"
+          (dragleave)="onDragLeave($event)"
+          (drop)="onDrop($event)"
+        >
           <table class="activities-table" aria-label="Imported activities">
             <thead>
               <tr>
@@ -121,22 +193,49 @@
                     aria-label="Select all visible activities"
                   />
                 </th>
-                <th scope="col" class="sortable" (click)="onSort('date')">Date{{ sortIndicator('date') }}</th>
+                <th scope="col" class="sortable" (click)="onSort('date')">
+                  Date{{ sortIndicator('date') }}
+                </th>
                 <th scope="col" class="col-sparkline"></th>
-                <th scope="col" class="sortable" (click)="onSort('name')">Name{{ sortIndicator('name') }}</th>
-                <th scope="col" class="sortable" (click)="onSort('source')">Source{{ sortIndicator('source') }}</th>
-                <th scope="col" class="sortable" (click)="onSort('status')">Status{{ sortIndicator('status') }}</th>
-                <th scope="col" class="sortable" (click)="onSort('type')">Type{{ sortIndicator('type') }}</th>
-                <th scope="col" class="sortable" (click)="onSort('distance')">Distance{{ sortIndicator('distance') }}</th>
-                <th scope="col" class="sortable" (click)="onSort('speed')">Speed{{ sortIndicator('speed') }}</th>
-                <th scope="col" class="sortable" (click)="onSort('time')">Time{{ sortIndicator('time') }}</th>
-                <th scope="col" class="sortable" (click)="onSort('route')">Route{{ sortIndicator('route') }}</th>
+                <th scope="col" class="sortable" (click)="onSort('name')">
+                  Name{{ sortIndicator('name') }}
+                </th>
+                <th scope="col" class="sortable" (click)="onSort('source')">
+                  Source{{ sortIndicator('source') }}
+                </th>
+                <th scope="col" class="sortable" (click)="onSort('status')">
+                  Status{{ sortIndicator('status') }}
+                </th>
+                <th scope="col" class="sortable" (click)="onSort('type')">
+                  Type{{ sortIndicator('type') }}
+                </th>
+                <th scope="col" class="sortable" (click)="onSort('distance')">
+                  Distance{{ sortIndicator('distance') }}
+                </th>
+                <th scope="col" class="sortable" (click)="onSort('speed')">
+                  Speed{{ sortIndicator('speed') }}
+                </th>
+                <th scope="col" class="sortable" (click)="onSort('time')">
+                  Time{{ sortIndicator('time') }}
+                </th>
+                <th scope="col" class="sortable" (click)="onSort('route')">
+                  Route{{ sortIndicator('route') }}
+                </th>
                 <th scope="col" class="col-actions-header"></th>
               </tr>
             </thead>
             <tbody>
               @for (activity of filteredActivities(); track activity.id) {
-                <tr class="activity-row" [class.clickable]="activity.hasRoute" [class.no-route]="!activity.hasRoute" [class.focus-highlight]="highlightActivityId() === activity.id" [class.row-selected]="selectedIds().has(activity.id)" [class.panel-open]="selectedActivity()?.id === activity.id" [attr.data-activity-id]="activity.id" (click)="navigateToActivity(activity)">
+                <tr
+                  class="activity-row"
+                  [class.clickable]="activity.hasRoute"
+                  [class.no-route]="!activity.hasRoute"
+                  [class.focus-highlight]="highlightActivityId() === activity.id"
+                  [class.row-selected]="selectedIds().has(activity.id)"
+                  [class.panel-open]="selectedActivity()?.id === activity.id"
+                  [attr.data-activity-id]="activity.id"
+                  (click)="navigateToActivity(activity)"
+                >
                   <td class="cell-checkbox" (click)="$event.stopPropagation()">
                     <input
                       type="checkbox"
@@ -145,7 +244,9 @@
                       [attr.aria-label]="'Select ' + activity.name"
                     />
                   </td>
-                  <td class="cell-date cell-date-secondary">{{ formatDate(activity.startDate) }}</td>
+                  <td class="cell-date cell-date-secondary">
+                    {{ formatDate(activity.startDate) }}
+                  </td>
                   <td class="cell-sparkline" (click)="$event.stopPropagation()">
                     @if (!routesCacheFilled() && activity.hasRoute) {
                       <span class="sparkline-loading" aria-label="Loading route preview"></span>
@@ -168,13 +269,36 @@
                       <span class="status-badge status-badge--planned">◌ Planned</span>
                     }
                   </td>
-                  <td><span class="category-tag" [style.background]="categoryTagBg(activity.activityCategory)" [style.color]="categoryTagFg(activity.activityCategory)"><span class="cat-emoji">{{ sportTypeEmoji(activity) }}</span>{{ formatSportType(activity.sportType) }}</span></td>
-                  <td class="cell-num cell-distance-bold">{{ formatDistance(activity.distanceMeters) }}</td>
-                  <td class="cell-num">{{ formatSpeed(computeSpeed(activity.averageSpeedMetersPerSecond, activity.distanceMeters, activity.movingTimeSeconds)) }}</td>
+                  <td>
+                    <span
+                      class="category-tag"
+                      [style.background]="categoryTagBg(activity.activityCategory)"
+                      [style.color]="categoryTagFg(activity.activityCategory)"
+                      ><span class="cat-emoji">{{ sportTypeEmoji(activity) }}</span
+                      >{{ formatSportType(activity.sportType) }}</span
+                    >
+                  </td>
+                  <td class="cell-num cell-distance-bold">
+                    {{ formatDistance(activity.distanceMeters) }}
+                  </td>
+                  <td class="cell-num">
+                    {{
+                      formatSpeed(
+                        computeSpeed(
+                          activity.averageSpeedMetersPerSecond,
+                          activity.distanceMeters,
+                          activity.movingTimeSeconds
+                        )
+                      )
+                    }}
+                  </td>
                   <td class="cell-num">{{ formatDuration(activity.movingTimeSeconds) }}</td>
                   <td>
-                    <span class="route-badge" [class.route-ok]="activity.routeSyncStatus === 'route_synced'"
-                      >{{ routeStatusLabel(activity.routeSyncStatus) }}</span>
+                    <span
+                      class="route-badge"
+                      [class.route-ok]="activity.routeSyncStatus === 'route_synced'"
+                      >{{ routeStatusLabel(activity.routeSyncStatus) }}</span
+                    >
                   </td>
                   <td class="cell-actions">
                     <div class="activity-actions-cell">
@@ -190,48 +314,102 @@
                         </button>
                       }
                       <div class="activity-menu-wrapper">
-                      <button
-                        class="activity-menu-trigger"
-                        type="button"
-                        aria-haspopup="menu"
-                        [attr.aria-expanded]="openMenuId() === activity.id"
-                        (click)="toggleActivityMenu($event, activity.id)"
-                      >⋮</button>
-                      @if (openMenuId() === activity.id) {
-                        <ul class="activity-dropdown" [style]="menuStyle()" role="menu" (click)="$event.stopPropagation()">
-                          <li role="none">
-                            <button class="act-dropdown-item" role="menuitem" (click)="openOnStrava($event, activity)">
-                              <app-icon name="external-link" [size]="16" strokeWidth="2" [class]="'act-dropdown-icon'"></app-icon>
-                              Strava
-                            </button>
-                          </li>
-                          <li role="none">
-                            <button class="act-dropdown-item" [class.act-dropdown-item-disabled]="!activity.hasRoute" [disabled]="!activity.hasRoute" role="menuitem" (click)="downloadGpx($event, activity)">
-                              <app-icon name="download" [size]="16" strokeWidth="2" [class]="'act-dropdown-icon'"></app-icon>
-                              Download GPX
-                            </button>
-                          </li>
-                          <li role="none">
-                            <button class="act-dropdown-item" role="menuitem" (click)="editActivity($event, activity)">
-                              <app-icon name="pencil" [size]="16" strokeWidth="2" [class]="'act-dropdown-icon'"></app-icon>
-                              Edit
-                            </button>
-                          </li>
-                          <li role="none">
-                            <button class="act-dropdown-item act-dropdown-item-danger" role="menuitem" (click)="deleteActivity($event, activity)">
-                              <app-icon name="trash-2" [size]="16" strokeWidth="2" [class]="'act-dropdown-icon'"></app-icon>
-                              Delete
-                            </button>
-                          </li>
-                          <li role="none">
-                            <button class="act-dropdown-item" role="menuitem" (click)="retrySyncRoute($event, activity)">
-                              <app-icon name="rotate-ccw" [size]="16" strokeWidth="2" [class]="'act-dropdown-icon'"></app-icon>
-                              Retry sync
-                            </button>
-                          </li>
-                        </ul>
-                      }
-                    </div>
+                        <button
+                          class="activity-menu-trigger"
+                          type="button"
+                          aria-haspopup="menu"
+                          [attr.aria-expanded]="openMenuId() === activity.id"
+                          (click)="toggleActivityMenu($event, activity.id)"
+                        >
+                          ⋮
+                        </button>
+                        @if (openMenuId() === activity.id) {
+                          <ul
+                            class="activity-dropdown"
+                            [style]="menuStyle()"
+                            role="menu"
+                            (click)="$event.stopPropagation()"
+                          >
+                            <li role="none">
+                              <button
+                                class="act-dropdown-item"
+                                role="menuitem"
+                                (click)="openOnStrava($event, activity)"
+                              >
+                                <app-icon
+                                  name="external-link"
+                                  [size]="16"
+                                  strokeWidth="2"
+                                  [class]="'act-dropdown-icon'"
+                                ></app-icon>
+                                Strava
+                              </button>
+                            </li>
+                            <li role="none">
+                              <button
+                                class="act-dropdown-item"
+                                [class.act-dropdown-item-disabled]="!activity.hasRoute"
+                                [disabled]="!activity.hasRoute"
+                                role="menuitem"
+                                (click)="downloadGpx($event, activity)"
+                              >
+                                <app-icon
+                                  name="download"
+                                  [size]="16"
+                                  strokeWidth="2"
+                                  [class]="'act-dropdown-icon'"
+                                ></app-icon>
+                                Download GPX
+                              </button>
+                            </li>
+                            <li role="none">
+                              <button
+                                class="act-dropdown-item"
+                                role="menuitem"
+                                (click)="editActivity($event, activity)"
+                              >
+                                <app-icon
+                                  name="pencil"
+                                  [size]="16"
+                                  strokeWidth="2"
+                                  [class]="'act-dropdown-icon'"
+                                ></app-icon>
+                                Edit
+                              </button>
+                            </li>
+                            <li role="none">
+                              <button
+                                class="act-dropdown-item act-dropdown-item-danger"
+                                role="menuitem"
+                                (click)="deleteActivity($event, activity)"
+                              >
+                                <app-icon
+                                  name="trash-2"
+                                  [size]="16"
+                                  strokeWidth="2"
+                                  [class]="'act-dropdown-icon'"
+                                ></app-icon>
+                                Delete
+                              </button>
+                            </li>
+                            <li role="none">
+                              <button
+                                class="act-dropdown-item"
+                                role="menuitem"
+                                (click)="retrySyncRoute($event, activity)"
+                              >
+                                <app-icon
+                                  name="rotate-ccw"
+                                  [size]="16"
+                                  strokeWidth="2"
+                                  [class]="'act-dropdown-icon'"
+                                ></app-icon>
+                                Retry sync
+                              </button>
+                            </li>
+                          </ul>
+                        }
+                      </div>
                     </div>
                   </td>
                 </tr>
@@ -242,7 +420,11 @@
 
         @if (totalPages() > 1 && status() !== 'empty') {
           <nav class="pagination" aria-label="Activities pagination">
-            <button class="page-btn" [disabled]="currentPage() <= 1" (click)="goToPage(currentPage() - 1)">
+            <button
+              class="page-btn"
+              [disabled]="currentPage() <= 1"
+              (click)="goToPage(currentPage() - 1)"
+            >
               Previous
             </button>
             @for (p of pageNumbers(); track p) {
@@ -253,58 +435,91 @@
                   class="page-btn page-num"
                   [class.page-active]="p === currentPage()"
                   (click)="goToPage(p)"
-                >{{ p }}</button>
+                >
+                  {{ p }}
+                </button>
               }
             }
-            <button class="page-btn" [disabled]="currentPage() >= totalPages()" (click)="goToPage(currentPage() + 1)">
+            <button
+              class="page-btn"
+              [disabled]="currentPage() >= totalPages()"
+              (click)="goToPage(currentPage() + 1)"
+            >
               Next
             </button>
           </nav>
         }
         @if (status() !== 'empty') {
-        <div class="page-size-control">
-          <span class="filter-label">Per page</span>
-          <div class="custom-select page-size-select" tabindex="0" (click)="pageSizeMenuOpen.set(!pageSizeMenuOpen())" (keydown.enter)="pageSizeMenuOpen.set(!pageSizeMenuOpen())" (blur)="pageSizeMenuOpen.set(false)">
-            <span class="custom-select-trigger">{{ pageSize() }}<span class="select-arrow">▾</span></span>
-            @if (pageSizeMenuOpen()) {
-              <ul class="custom-select-options" (mousedown)="$event.preventDefault()">
-                @for (size of PAGE_SIZE_OPTIONS; track size) {
-                  <li role="option" (click)="onPageSizeChange(size)" [class.active]="pageSize() === size">{{ size }}</li>
-                }
-              </ul>
-            }
+          <div class="page-size-control">
+            <span class="filter-label">Per page</span>
+            <div
+              class="custom-select page-size-select"
+              tabindex="0"
+              (click)="pageSizeMenuOpen.set(!pageSizeMenuOpen())"
+              (keydown.enter)="pageSizeMenuOpen.set(!pageSizeMenuOpen())"
+              (blur)="pageSizeMenuOpen.set(false)"
+            >
+              <span class="custom-select-trigger"
+                >{{ pageSize() }}<span class="select-arrow">▾</span></span
+              >
+              @if (pageSizeMenuOpen()) {
+                <ul class="custom-select-options" (mousedown)="$event.preventDefault()">
+                  @for (size of PAGE_SIZE_OPTIONS; track size) {
+                    <li
+                      role="option"
+                      (click)="onPageSizeChange(size)"
+                      [class.active]="pageSize() === size"
+                    >
+                      {{ size }}
+                    </li>
+                  }
+                </ul>
+              }
+            </div>
           </div>
-        </div>
         }
 
         @if (status() === 'empty') {
-          <article class="empty-state empty-state--no-activities" aria-labelledby="activities-empty-title">
+          <article
+            class="empty-state empty-state--no-activities"
+            aria-labelledby="activities-empty-title"
+          >
             <p class="empty-state-kicker">No activities yet</p>
-            <h2 id="activities-empty-title">Sync activities to start building your local history.</h2>
+            <h2 id="activities-empty-title">
+              Sync activities to start building your local history.
+            </h2>
             <p>
               TrailRoam will show imported Strava activities here after the first successful sync.
             </p>
-            <p class="privacy-note">Your data stays private — everything is stored locally in your browser.</p>
-            <button class="primary-action" type="button" (click)="startSync()">Sync activities</button>
+            <p class="privacy-note">
+              Your data stays private — everything is stored locally in your browser.
+            </p>
+            <button class="primary-action" type="button" (click)="startSync()">
+              Sync activities
+            </button>
           </article>
         }
 
         @if (filteredActivities(); as pageItems) {
           @if (pageItems.length === 0 && status() !== 'empty') {
             <div class="empty-state-match-wrapper">
-              <article class="empty-state empty-state--no-match" aria-labelledby="activities-empty-match-title">
+              <article
+                class="empty-state empty-state--no-match"
+                aria-labelledby="activities-empty-match-title"
+              >
                 <p class="empty-state-kicker">No matching activities</p>
                 <h2 id="activities-empty-match-title">
-                  @if (sourceFilter().size > 0) {No activities match the selected source filters.}
-                  @else {No activities match your filters.}
+                  @if (sourceFilter().size > 0) {
+                    No activities match the selected source filters.
+                  } @else {
+                    No activities match your filters.
+                  }
                 </h2>
                 <p>Try adjusting your search or filter criteria to find what you're looking for.</p>
               </article>
             </div>
           }
         }
-
-
       }
       @if (selectedActivity(); as selActivity) {
         <app-activity-detail-panel
@@ -313,4 +528,289 @@
           (close)="clearSelectedActivity()"
         />
       }
-    </section>
+    }
+
+    @case ('places') {
+      <div class="logbook-places">
+        <div class="logbook-places__controls">
+          <div class="logbook-places__search-wrap">
+            <app-icon
+              name="search"
+              [size]="14"
+              strokeWidth="2"
+              [class]="'logbook-places__search-icon'"
+            ></app-icon>
+            <input
+              class="logbook-places__search-input"
+              type="search"
+              placeholder="Search saved places..."
+              [value]="placesSearchQuery()"
+              (input)="placesSearchQuery.set($any($event.target).value)"
+              aria-label="Search saved places"
+            />
+            @if (placesSearchQuery()) {
+              <button
+                class="logbook-places__search-clear"
+                type="button"
+                (click)="placesSearchQuery.set('')"
+                aria-label="Clear search"
+              >
+                <app-icon name="x" [size]="12" strokeWidth="2"></app-icon>
+              </button>
+            }
+          </div>
+          <div class="logbook-places__sort">
+            <span class="logbook-places__sort-label">Sort by</span>
+            <button
+              class="logbook-places__sort-btn"
+              [class.logbook-places__sort-btn--active]="placesSortColumn() === 'date'"
+              (click)="onPlacesSort('date')"
+            >
+              Date
+            </button>
+            <button
+              class="logbook-places__sort-btn"
+              [class.logbook-places__sort-btn--active]="placesSortColumn() === 'name'"
+              (click)="onPlacesSort('name')"
+            >
+              Name
+            </button>
+          </div>
+        </div>
+
+        @if (filteredPlaces().length === 0) {
+          @if (savedPlacesService.places().length === 0) {
+            <div class="empty-state">
+              <p class="empty-state-kicker">No saved places yet</p>
+              <p>Save places from the Map Explorer to see them here.</p>
+            </div>
+          } @else {
+            <div class="empty-state">
+              <p class="empty-state-kicker">No matching places</p>
+              <p>No places match your search.</p>
+            </div>
+          }
+        } @else {
+          <div class="logbook-places__table-wrap">
+            <table class="logbook-places__table" aria-label="Saved places">
+              <thead>
+                <tr>
+                  <th scope="col" class="sortable" (click)="onPlacesSort('date')">
+                    Date{{ placesSortIndicator('date') }}
+                  </th>
+                  <th scope="col" class="sortable" (click)="onPlacesSort('name')">
+                    Name{{ placesSortIndicator('name') }}
+                  </th>
+                  <th scope="col">Notes</th>
+                  <th scope="col" class="col-actions-header"></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (place of filteredPlaces(); track place.id) {
+                  <tr class="logbook-place-row" (click)="onSelectPlace(place)">
+                    <td class="cell-date-secondary">{{ formatDateShort(place.createdAt) }}</td>
+                    <td>
+                      <div class="logbook-place-row__name-cell">
+                        <span class="logbook-place-row__icon"
+                          ><app-icon name="map-pin" [size]="14" strokeWidth="2"></app-icon
+                        ></span>
+                        <div class="logbook-place-row__body">
+                          <span class="logbook-place-row__name">{{ place.name }}</span>
+                          @if (place.secondaryLabel) {
+                            <span class="logbook-place-row__secondary">{{
+                              place.secondaryLabel
+                            }}</span>
+                          }
+                        </div>
+                      </div>
+                    </td>
+                    <td class="logbook-place-row__notes">{{ place.notes || '\u2014' }}</td>
+                    <td class="cell-actions">
+                      <div class="logbook-place-row__actions">
+                        <button
+                          class="map-nav-btn"
+                          type="button"
+                          (click)="onSelectPlace(place); $event.stopPropagation()"
+                          attr.aria-label="View '{{ place.name }}' on map"
+                          title="View on map"
+                        >
+                          <app-icon name="map" [size]="16" strokeWidth="2"></app-icon>
+                        </button>
+                        <div class="activity-menu-wrapper">
+                          <button
+                            class="activity-menu-trigger"
+                            type="button"
+                            aria-haspopup="menu"
+                            [attr.aria-expanded]="openMenuId() === place.id"
+                            (click)="togglePlaceMenu($event, place.id)"
+                          >
+                            ⋮
+                          </button>
+                          @if (openMenuId() === place.id) {
+                            <ul
+                              class="activity-dropdown"
+                              [style]="menuStyle()"
+                              role="menu"
+                              (click)="$event.stopPropagation()"
+                            >
+                              <li role="none">
+                                <button
+                                  class="act-dropdown-item"
+                                  role="menuitem"
+                                  (click)="onEditPlace(place); openMenuId.set(null)"
+                                >
+                                  <app-icon
+                                    name="pencil"
+                                    [size]="14"
+                                    strokeWidth="2"
+                                    [class]="'act-dropdown-icon'"
+                                  ></app-icon>
+                                  Edit
+                                </button>
+                              </li>
+                              <li role="none">
+                                <button
+                                  class="act-dropdown-item act-dropdown-item-danger"
+                                  role="menuitem"
+                                  (click)="onRemovePlace(place); openMenuId.set(null)"
+                                >
+                                  <app-icon
+                                    name="trash-2"
+                                    [size]="14"
+                                    strokeWidth="2"
+                                    [class]="'act-dropdown-icon'"
+                                  ></app-icon>
+                                  Remove
+                                </button>
+                              </li>
+                            </ul>
+                          }
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    }
+
+    @case ('all') {
+      <div class="logbook-all">
+        <div class="logbook-all__controls">
+          <div class="logbook-all__count">
+            All
+            <span class="logbook-all__count-num">({{ allRows().length }})</span>
+          </div>
+        </div>
+
+        @if (allRows().length === 0) {
+          <div class="empty-state">
+            <p class="empty-state-kicker">No activities or places yet</p>
+            <p>Sync activities or save places from the map.</p>
+          </div>
+        } @else {
+          <div class="logbook-all__table-wrap">
+            <table class="logbook-all__table" aria-label="All activities and places">
+              <thead>
+                <tr>
+                  <th scope="col" class="sortable" (click)="onAllSort('date')">
+                    Date{{ allSortIndicator('date') }}
+                  </th>
+                  <th scope="col" class="sortable" (click)="onAllSort('name')">
+                    Name{{ allSortIndicator('name') }}
+                  </th>
+                  <th scope="col" class="col-actions-header"></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (
+                  row of allRows();
+                  track row.kind === 'activity' ? row.activity.id : row.place.id
+                ) {
+                  @if (row.kind === 'activity') {
+                    <tr
+                      class="logbook-all-row--activity clickable"
+                      (click)="navigateToMap($event, row.activity)"
+                    >
+                      <td class="cell-date-secondary">
+                        {{ formatDateShort(row.activity.startDate) }}
+                      </td>
+                      <td>
+                        <div class="logbook-all-row__name-cell">
+                          <span class="logbook-all-row__icon">{{
+                            sportTypeEmoji(row.activity)
+                          }}</span>
+                          <div class="logbook-all-row__body">
+                            <span class="logbook-all-row__name">{{ row.activity.name }}</span>
+                            <div class="logbook-all-row__meta">
+                              <span class="logbook-all-row__type">Type: Activity</span>
+                              &middot;
+                              {{ formatDistance(row.activity.distanceMeters) }}
+                              &middot;
+                              {{ formatDuration(row.activity.movingTimeSeconds) }}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td class="cell-actions">
+                        <div class="activity-actions-cell">
+                          <button
+                            class="map-nav-btn"
+                            type="button"
+                            (click)="navigateToMap($event, row.activity)"
+                            attr.aria-label="View '{{ row.activity.name }}' on map"
+                            title="View on map"
+                          >
+                            <app-icon name="map" [size]="16" strokeWidth="2"></app-icon>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  } @else {
+                    <tr class="logbook-all-row--place" (click)="onSelectPlace(row.place, 'all')">
+                      <td class="cell-date-secondary">
+                        {{ formatDateShort(row.place.createdAt) }}
+                      </td>
+                      <td>
+                        <div class="logbook-all-row__name-cell">
+                          <span class="logbook-all-row__icon"
+                            ><app-icon name="map-pin" [size]="14" strokeWidth="2"></app-icon
+                          ></span>
+                          <div class="logbook-all-row__body">
+                            <span class="logbook-all-row__name">{{ row.place.name }}</span>
+                            @if (row.place.secondaryLabel) {
+                              <div class="logbook-all-row__meta">
+                                <span class="logbook-all-row__type">Type: Place</span>
+                                &middot; {{ row.place.secondaryLabel }}
+                              </div>
+                            }
+                          </div>
+                        </div>
+                      </td>
+                      <td class="cell-actions">
+                        <div class="activity-actions-cell">
+                          <button
+                            class="map-nav-btn"
+                            type="button"
+                            (click)="onSelectPlace(row.place, 'all'); $event.stopPropagation()"
+                            attr.aria-label="View '{{ row.place.name }}' on map"
+                            title="View on map"
+                          >
+                            <app-icon name="map" [size]="16" strokeWidth="2"></app-icon>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  }
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    }
+  }
+</section>

@@ -13,7 +13,14 @@ body {
 
 body {
   background: #f7faf8;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
 }
 
 .route-page {
@@ -88,7 +95,9 @@ p {
 .map-container .maplibregl-ctrl-top-left {
   margin: 12px 0 0 10px;
   top: 60px !important;
-  transition: margin 200ms ease, top 200ms ease;
+  transition:
+    margin 200ms ease,
+    top 200ms ease;
 }
 
 .map-container .maplibregl-ctrl-top-right {
@@ -596,7 +605,14 @@ p {
 }
 
 .trailroam-confirm-dialog .mat-mdc-dialog-surface {
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
 }
 
 .history-header {
@@ -752,41 +768,17 @@ p {
   display: none;
 }
 
-/* Saved-place marker popup (rendered by MapLibre outside Angular encapsulation). */
-.saved-place-popup {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  max-width: 220px;
-}
-
-.saved-place-popup__name {
-  color: #14211b;
-  font-size: 0.875rem;
-  font-weight: 600;
-  line-height: 1.3;
-}
-
-.saved-place-popup__secondary {
-  color: #63746a;
-  font-size: 0.75rem;
-  line-height: 1.4;
-  margin-bottom: 4px;
-}
-
-.saved-place-popup__remove {
-  background: transparent;
-  border: 0;
-  color: #b8433a;
-  cursor: pointer;
-  font: inherit;
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 4px 0;
-  text-align: left;
-}
-
-.saved-place-popup__remove:hover {
-  text-decoration: underline;
+/* Saved-place card popup — override MapLibre's default popup-content styles so the card
+   component controls its own background, padding, border-radius, and shadow.
+   The flex centering ensures the popup tip (arrow) stays aligned to the card center even
+   when the card is narrower than the min-width of its host wrapper. */
+.maplibregl-popup-content:has(.saved-place-card) {
+  align-items: center !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+  max-width: none !important;
+  padding: 0 !important;
 }

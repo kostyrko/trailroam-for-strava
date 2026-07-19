@@ -38,8 +38,6 @@ export class SavedPlacesService {
   async load(): Promise<void> {
     try {
       const list = await this.repositories.savedPlaces.list();
-      // TEMP diagnostic (always visible) — remove once marker rendering is verified.
-      console.warn('[DIAG] SavedPlacesService.load', { loaded: list.length, first: list[0] });
       this._places.set(list);
     } catch (err) {
       logger.error('Failed to load saved places:', err);
@@ -54,10 +52,13 @@ export class SavedPlacesService {
    */
   async save(input: SavePlaceInput): Promise<SavedPlaceRecord | null> {
     const existing = await this.findDuplicate(input);
-    if (existing) { return null; }
+    if (existing) {
+      return null;
+    }
 
     const now = new Date().toISOString();
-    const normalizedNotes = input.notes && input.notes.trim() !== '' ? input.notes.trim() : undefined;
+    const normalizedNotes =
+      input.notes && input.notes.trim() !== '' ? input.notes.trim() : undefined;
     const record: SavedPlaceRecord = {
       id: this.deriveId(),
       name: input.name,
@@ -96,19 +97,43 @@ export class SavedPlacesService {
    * notes are stored as `undefined` to keep records tidy. Returns the updated record, or `null`
    * if the place was not found.
    */
-  async update(id: string, changes: { name: string; notes: string }): Promise<SavedPlaceRecord | null> {
+  async update(
+    id: string,
+    changes: { name: string; notes: string },
+  ): Promise<SavedPlaceRecord | null> {
     try {
       const normalizedNotes = changes.notes.trim() === '' ? undefined : changes.notes.trim();
       const updated = await this.repositories.savedPlaces.updateEditable(id, {
         name: changes.name,
         notes: normalizedNotes,
       });
-      if (!updated) { return null; }
+      if (!updated) {
+        return null;
+      }
       this._places.update((list) => list.map((p) => (p.id === id ? updated : p)));
       return updated;
     } catch (err) {
       logger.error('Failed to update saved place:', err);
       throw err;
+    }
+  }
+
+  /**
+   * Updates the coordinates of a saved place after the user drags its marker on the map.
+   * Persists to storage and refreshes the signal so all consumers see the new position.
+   */
+  async reposition(id: string, latitude: number, longitude: number): Promise<void> {
+    try {
+      const updated = await this.repositories.savedPlaces.updateCoordinates(
+        id,
+        latitude,
+        longitude,
+      );
+      if (updated) {
+        this._places.update((list) => list.map((p) => (p.id === id ? updated : p)));
+      }
+    } catch (err) {
+      logger.error('Failed to reposition saved place:', err);
     }
   }
 
@@ -124,12 +149,21 @@ export class SavedPlacesService {
    * Finds the existing saved place that matches `input`, if any. Exposed so callers can focus the
    * existing marker when a duplicate save is attempted (PRD §9).
    */
-  async findDuplicate(input: Pick<SavePlaceInput, 'providerId' | 'latitude' | 'longitude'>): Promise<SavedPlaceRecord | null> {
+  async findDuplicate(
+    input: Pick<SavePlaceInput, 'providerId' | 'latitude' | 'longitude'>,
+  ): Promise<SavedPlaceRecord | null> {
     if (input.providerId) {
       const byProvider = await this.repositories.savedPlaces.findByProviderId(input.providerId);
-      if (byProvider) { return byProvider; }
+      if (byProvider) {
+        return byProvider;
+      }
     }
-    return (await this.repositories.savedPlaces.findWithinRadiusMeters(input.latitude, input.longitude)) ?? null;
+    return (
+      (await this.repositories.savedPlaces.findWithinRadiusMeters(
+        input.latitude,
+        input.longitude,
+      )) ?? null
+    );
   }
 
   private async findDuplicateFromResult(result: GeocodeResult): Promise<SavedPlaceRecord | null> {

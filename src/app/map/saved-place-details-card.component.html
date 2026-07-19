@@ -1,0 +1,61 @@
+<div
+  class="saved-place-card"
+  [class.saved-place-card--visible]="visible()"
+  role="dialog"
+  aria-label="Saved place details"
+>
+  <!-- Close button — absolutely positioned at top-right of the card -->
+  <button class="card-close-btn" type="button" aria-label="Close" (click)="close.emit()">
+    <app-icon name="x" [size]="14" strokeWidth="2" />
+  </button>
+
+  <!-- Badge -->
+  <div class="card-badge" aria-hidden="true">Saved Place</div>
+
+  <!-- Header: icon, name + location -->
+  <div class="card-header">
+    <div class="card-header__icon" aria-hidden="true">
+      <app-icon name="mountain" [size]="18" strokeWidth="2" />
+    </div>
+    <div class="card-header__info">
+      <h3 class="card-header__name" [title]="place().name">{{ place().name }}</h3>
+      @if (place().secondaryLabel; as label) {
+        <span class="card-header__location">{{ label }}</span>
+      }
+    </div>
+  </div>
+
+  <!-- Notes -->
+  <div class="card-notes">
+    <span class="card-notes__label" aria-hidden="true">Notes</span>
+    @if (place().notes; as notes) {
+      <div class="card-notes__bubble">
+        <span>{{ notes }}</span>
+      </div>
+    } @else {
+      <span class="card-notes__placeholder">No notes added</span>
+    }
+  </div>
+
+  <!-- Actions -->
+  <div class="card-actions">
+    <button
+      class="card-actions__btn card-actions__btn--edit"
+      type="button"
+      aria-label="Edit saved place"
+      (click)="edit.emit(place())"
+    >
+      <app-icon name="pencil" [size]="13" strokeWidth="2" />
+      Edit
+    </button>
+    <button
+      class="card-actions__btn card-actions__btn--remove"
+      type="button"
+      aria-label="Remove saved place"
+      (click)="remove.emit(place())"
+    >
+      <app-icon name="trash-2" [size]="13" strokeWidth="2" />
+      Remove
+    </button>
+  </div>
+</div>

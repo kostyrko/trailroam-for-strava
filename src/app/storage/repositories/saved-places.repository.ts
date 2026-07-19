@@ -24,9 +24,14 @@ export class SavedPlacesRepository {
    * Updates the editable fields of a saved place (name, notes) and refreshes `updatedAt`.
    * Coordinates, provider id, and timestamps are preserved. Returns the updated record.
    */
-  async updateEditable(id: string, changes: { name: string; notes?: string }): Promise<SavedPlaceRecord | undefined> {
+  async updateEditable(
+    id: string,
+    changes: { name: string; notes?: string },
+  ): Promise<SavedPlaceRecord | undefined> {
     const existing = await this.db.saved_places.get(id);
-    if (!existing) { return undefined; }
+    if (!existing) {
+      return undefined;
+    }
     const updated: SavedPlaceRecord = {
       ...existing,
       name: changes.name,
@@ -50,6 +55,29 @@ export class SavedPlacesRepository {
     await this.db.saved_places.clear();
   }
 
+  /**
+   * Updates only the coordinates of a saved place (from marker drag) and refreshes `updatedAt`.
+   * All other fields are preserved. Returns the updated record, or `undefined` if not found.
+   */
+  async updateCoordinates(
+    id: string,
+    latitude: number,
+    longitude: number,
+  ): Promise<SavedPlaceRecord | undefined> {
+    const existing = await this.db.saved_places.get(id);
+    if (!existing) {
+      return undefined;
+    }
+    const updated: SavedPlaceRecord = {
+      ...existing,
+      latitude,
+      longitude,
+      updatedAt: new Date().toISOString(),
+    };
+    await this.db.saved_places.put(updated);
+    return updated;
+  }
+
   async findByProviderId(providerId: string): Promise<SavedPlaceRecord | undefined> {
     return this.db.saved_places.where('providerId').equals(providerId).first();
   }
@@ -66,7 +94,11 @@ export class SavedPlacesRepository {
   ): Promise<SavedPlaceRecord | undefined> {
     const all = await this.db.saved_places.toArray();
     return all.find(
-      (p) => haversineMeters({ latitude: p.latitude, longitude: p.longitude }, { latitude, longitude }) <= radiusMeters,
+      (p) =>
+        haversineMeters(
+          { latitude: p.latitude, longitude: p.longitude },
+          { latitude, longitude },
+        ) <= radiusMeters,
     );
   }
 }

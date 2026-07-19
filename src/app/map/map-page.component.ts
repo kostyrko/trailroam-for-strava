@@ -494,6 +494,7 @@ export class MapPage implements AfterViewInit {
     effect(() => {
       this.dataLoaded();
       this.mapReady();
+      this.leftPanelView();
       const filtered = this.filteredRoutes();
       if (this.dataLoaded() && this.mapReady()) {
         this.tryRenderRoutes('effect');
@@ -588,13 +589,19 @@ export class MapPage implements AfterViewInit {
       logger.trace(`tryRenderRoutes from ${src}: SKIP (not ready)`);
       return;
     }
-    const routes = this.filteredRoutes();
     const mapComp = this.mapComponent;
-    const selectId = this.selectedActivityId();
     if (!mapComp) {
       logger.trace(`tryRenderRoutes from ${src}: SKIP (no mapComp)`);
       return;
     }
+    // When the Places tab is active, clear route data from the map so only saved-place markers
+    // are visible. Routes re-render automatically when switching to Activities or All.
+    if (this.leftPanelView() === 'places') {
+      this.routeRendererService.clearRoutes();
+      return;
+    }
+    const routes = this.filteredRoutes();
+    const selectId = this.selectedActivityId();
     mapComp.renderRouteFeatures(routes, selectId ?? undefined);
   }
 
@@ -846,6 +853,15 @@ export class MapPage implements AfterViewInit {
     if (this.selectedPlaceId() === place.id) {
       this.selectedPlaceId.set(null);
     }
+  }
+
+  /** Persists the new coordinates when a saved-place marker is dragged to a new position. */
+  protected async onMarkerRepositioned(event: {
+    id: string;
+    latitude: number;
+    longitude: number;
+  }): Promise<void> {
+    await this.savedPlacesService.reposition(event.id, event.latitude, event.longitude);
   }
 
   /** Stores the selected search result and surfaces whether it is already saved. */

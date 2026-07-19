@@ -1,82 +1,144 @@
-    <div class="map-shell" [class.map-fullscreen]="fullscreen()" [class.map-heatmap-active]="heatmapActive()" aria-label="Activity route map" (document:keydown)="onDocumentKeydown($event)">
-      <div #mapContainer class="map-container"></div>
+<div
+  class="map-shell"
+  [class.map-fullscreen]="fullscreen()"
+  [class.map-heatmap-active]="heatmapActive()"
+  aria-label="Activity route"
+  (document:keydown)="onDocumentKeydown($event)"
+>
+  <div #mapContainer class="map-container"></div>
+  <button
+    class="map-fit-btn"
+    type="button"
+    [attr.aria-label]="fullscreen() ? 'Reset map view' : 'Fit map to screen'"
+    (click)="toggleFullscreen()"
+    data-tooltip="Fit map"
+  >
+    @if (fullscreen()) {
+      <span class="fit-icon fit-icon-compress">⤡</span>
+    } @else {
+      <span class="fit-icon fit-icon-expand">⤢</span>
+    }
+  </button>
+  @if (heatmapActive()) {
+    <div class="heatmap-legend" aria-label="Heatmap route density legend">
+      <span class="heatmap-legend-label">Low</span>
+      <div class="heatmap-legend-gradient">
+        <span class="heatmap-legend-stop" style="background: rgba(255, 59, 48, 0.08)"></span>
+        <span class="heatmap-legend-stop" style="background: rgba(255, 59, 48, 0.2)"></span>
+        <span class="heatmap-legend-stop" style="background: rgba(255, 59, 48, 0.4)"></span>
+        <span class="heatmap-legend-stop" style="background: rgba(255, 59, 48, 0.6)"></span>
+        <span class="heatmap-legend-stop" style="background: rgba(255, 59, 48, 0.85)"></span>
+      </div>
+      <span class="heatmap-legend-label">High</span>
+    </div>
+  }
+  <div class="map-layer-wrapper">
+    <div class="map-layer-btn-group">
       <button
-        class="map-fit-btn"
+        #layerBtn
+        class="map-layer-btn"
         type="button"
-        [attr.aria-label]="fullscreen() ? 'Reset map view' : 'Fit map to screen'"
-        (click)="toggleFullscreen()"
-        data-tooltip="Fit map"
+        (click)="toggleLayerMenu()"
+        aria-label="Switch map layer"
+        data-tooltip="Basemap"
       >
-        @if (fullscreen()) {
-          <span class="fit-icon fit-icon-compress">⤡</span>
-        } @else {
-          <span class="fit-icon fit-icon-expand">⤢</span>
-        }
+        <app-icon name="layers" [size]="18" strokeWidth="2"></app-icon>
       </button>
-      @if (heatmapActive()) {
-        <div class="heatmap-legend" aria-label="Heatmap route density legend">
-          <span class="heatmap-legend-label">Low</span>
-          <div class="heatmap-legend-gradient">
-            <span class="heatmap-legend-stop" style="background:rgba(255,59,48,0.08)"></span>
-            <span class="heatmap-legend-stop" style="background:rgba(255,59,48,0.2)"></span>
-            <span class="heatmap-legend-stop" style="background:rgba(255,59,48,0.4)"></span>
-            <span class="heatmap-legend-stop" style="background:rgba(255,59,48,0.6)"></span>
-            <span class="heatmap-legend-stop" style="background:rgba(255,59,48,0.85)"></span>
-          </div>
-          <span class="heatmap-legend-label">High</span>
+      @if (layerMenuOpen()) {
+        <div class="map-layer-menu" (click)="$event.stopPropagation()">
+          @for (provider of AVAILABLE_PROVIDERS; track provider.id) {
+            <button
+              class="map-layer-menu-item"
+              type="button"
+              [class.active]="provider.id === activeProviderId()"
+              (click)="selectLayer(provider)"
+            >
+              @if (provider.id === 'opentopomap') {
+                <app-icon
+                  name="mountain"
+                  [size]="20"
+                  strokeWidth="2"
+                  [class]="'map-layer-icon'"
+                ></app-icon>
+              } @else if (provider.id === 'esri-satellite' || provider.id === 'versatiles-aerial') {
+                <app-icon
+                  name="satellite"
+                  [size]="20"
+                  strokeWidth="2"
+                  [class]="'map-layer-icon'"
+                ></app-icon>
+              } @else {
+                <app-icon
+                  name="map"
+                  [size]="20"
+                  strokeWidth="2"
+                  [class]="'map-layer-icon'"
+                ></app-icon>
+              }
+              <span class="map-layer-name">{{ provider.label }}</span>
+              @if (provider.id === activeProviderId()) {
+                <span class="map-layer-check">✓</span>
+              }
+            </button>
+          }
         </div>
       }
-      <div class="map-layer-wrapper">
-      <div class="map-layer-btn-group">
-        <button #layerBtn class="map-layer-btn" type="button" (click)="toggleLayerMenu()" aria-label="Switch map layer" data-tooltip="Basemap">
-          <app-icon name="layers" [size]="18" strokeWidth="2"></app-icon>
-        </button>
-        @if (layerMenuOpen()) {
-          <div class="map-layer-menu" (click)="$event.stopPropagation()">
-            @for (provider of AVAILABLE_PROVIDERS; track provider.id) {
-              <button class="map-layer-menu-item" type="button" [class.active]="provider.id === activeProviderId()" (click)="selectLayer(provider)">
-                @if (provider.id === 'opentopomap') {
-                  <app-icon name="mountain" [size]="20" strokeWidth="2" [class]="'map-layer-icon'"></app-icon>
-                } @else if (provider.id === 'esri-satellite' || provider.id === 'versatiles-aerial') {
-                  <app-icon name="satellite" [size]="20" strokeWidth="2" [class]="'map-layer-icon'"></app-icon>
-                } @else {
-                  <app-icon name="map" [size]="20" strokeWidth="2" [class]="'map-layer-icon'"></app-icon>
-                }
-                <span class="map-layer-name">{{ provider.label }}</span>
-                @if (provider.id === activeProviderId()) {
-                  <span class="map-layer-check">✓</span>
-                }
-              </button>
-            }
-          </div>
+      <button
+        class="map-heatmap-btn"
+        type="button"
+        [class.active]="heatmapActive()"
+        (click)="toggleHeatmap()"
+        [attr.aria-label]="heatmapActive() ? 'Show routes' : 'Show heatmap'"
+        [attr.data-tooltip]="heatmapActive() ? 'Trails' : 'Heatmap'"
+      >
+        @if (heatmapActive()) {
+          <app-icon name="line-squiggle" [size]="18" strokeWidth="2"></app-icon>
+        } @else {
+          <app-icon name="flame" [size]="18" strokeWidth="2"></app-icon>
         }
-        <button class="map-heatmap-btn" type="button" [class.active]="heatmapActive()" (click)="toggleHeatmap()" [attr.aria-label]="heatmapActive() ? 'Show routes' : 'Show heatmap'" [attr.data-tooltip]="heatmapActive() ? 'Trails' : 'Heatmap'">
-          @if (heatmapActive()) {
-            <app-icon name="line-squiggle" [size]="18" strokeWidth="2"></app-icon>
-          } @else {
-            <app-icon name="flame" [size]="18" strokeWidth="2"></app-icon>
-          }
-        </button>
-        <button class="map-opacity-btn" type="button" (click)="toggleSliderVisibility()" [class.active]="sliderVisible()" data-tooltip="Opacity">
-          <app-icon name="eye" [size]="18" strokeWidth="2"></app-icon>
-        </button>
-        @if (sliderVisible()) {
-          <div class="map-opacity-slider-wrapper">
-            <input #opacitySlider class="map-opacity-slider" type="range" min="0" max="100" [value]="opacitySliderValue()" (input)="onOpacityChange($any($event.target).value)" aria-label="Adjust layer opacity" />
-          </div>
-        }
-        <button class="map-search-btn" type="button" (click)="toggleSearchPanel()" [class.active]="searchPanelVisible()" data-tooltip="Search" aria-label="Search places or coordinates">
-          <app-icon name="search" [size]="18" strokeWidth="2"></app-icon>
-        </button>
-        @if (searchPanelVisible()) {
-          <div class="map-search-popover" (click)="$event.stopPropagation()">
-            <app-map-search-panel
-              [selectedResultSaved]="selectedResultSaved()"
-              (searchSelected)="onSearchSelected($event)"
-              (saveRequested)="onSavePlaceRequested($event)"
-            />
-          </div>
-        }
-      </div>
-      </div>
+      </button>
+      <button
+        class="map-opacity-btn"
+        type="button"
+        (click)="toggleSliderVisibility()"
+        [class.active]="sliderVisible()"
+        data-tooltip="Opacity"
+      >
+        <app-icon name="eye" [size]="18" strokeWidth="2"></app-icon>
+      </button>
+      @if (sliderVisible()) {
+        <div class="map-opacity-slider-wrapper">
+          <input
+            #opacitySlider
+            class="map-opacity-slider"
+            type="range"
+            min="0"
+            max="100"
+            [value]="opacitySliderValue()"
+            (input)="onOpacityChange($any($event.target).value)"
+            aria-label="Adjust layer opacity"
+          />
+        </div>
+      }
+      <button
+        class="map-search-btn"
+        type="button"
+        (click)="toggleSearchPanel()"
+        [class.active]="searchPanelVisible()"
+        data-tooltip="Search"
+        aria-label="Search places or coordinates"
+      >
+        <app-icon name="search" [size]="18" strokeWidth="2"></app-icon>
+      </button>
+      @if (searchPanelVisible()) {
+        <div class="map-search-popover" (click)="$event.stopPropagation()">
+          <app-map-search-panel
+            [selectedResultSaved]="selectedResultSaved()"
+            (searchSelected)="onSearchSelected($event)"
+            (saveRequested)="onSavePlaceRequested($event)"
+          />
+        </div>
+      }
     </div>
+  </div>
+</div>

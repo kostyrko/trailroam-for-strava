@@ -1,13 +1,17 @@
 import {
   AfterViewInit,
+  ApplicationRef,
   Component,
+  ComponentRef,
   ElementRef,
+  EnvironmentInjector,
   EventEmitter,
   Input,
   NgZone,
   OnDestroy,
   Output,
   ViewChild,
+  createComponent,
   effect,
   inject,
   input,
@@ -24,6 +28,7 @@ import { RouteRendererService } from './route-renderer.service';
 import { IconComponent } from '../shared/icon.component';
 import { MapSearchPanelComponent, type SearchSelectedPayload } from './map-search-panel.component';
 import type { GeocodeResult } from './geocoding.service';
+import { SavedPlaceDetailsCardComponent } from './saved-place-details-card.component';
 
 /** Pin color for saved-place markers — distinct from activity route colors. */
 const SAVED_PLACE_MARKER_COLOR = '#1f6f50';
@@ -64,9 +69,28 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
   /** Saved places to render as persistent markers. Driven by MapPage from SavedPlacesService. */
   readonly savedPlaces = input<SavedPlaceRecord[]>([]);
 
+  /**
+   * Whether saved-place markers should be visible. Mirrors the active left-panel tab: true on the
+   * Places and All tabs, false on the Activities tab. When false, existing markers are removed and
+   * no new ones are created (the saved-places data itself is unaffected).
+   */
+  readonly showSavedPlaceMarkers = input(true);
+
+  /** Emits when the user clicks "Edit" inside a saved-marker popup. */
+  @Output()
+  readonly editPlaceRequested = new EventEmitter<SavedPlaceRecord>();
+
   /** Emits when the user clicks "Remove place" inside a saved-marker popup. */
   @Output()
   readonly removePlaceRequested = new EventEmitter<SavedPlaceRecord>();
+
+  /** Emits when a saved-place marker is dragged to a new position on the map. */
+  @Output()
+  readonly markerRepositioned = new EventEmitter<{
+    id: string;
+    latitude: number;
+    longitude: number;
+  }>();
 
   /** Emits the search result the user just selected (re-emitted from the search panel). */
   @Output()
@@ -91,6 +115,8 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
   private readonly mapLibreService = inject(MapLibreService);
   private readonly basemapProviderService = inject(BasemapProviderService);
   private readonly routeRendererService = inject(RouteRendererService);
+  private readonly appRef = inject(ApplicationRef);
+  private readonly environmentInjector = inject(EnvironmentInjector);
   private isHeatmapMode = false;
   private readonly ngZone = inject(NgZone);
   private isDestroyed = false;
@@ -99,20 +125,33 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
   private mapInstance: MapLibreMap | null = null;
   /** Active saved-place markers, keyed by SavedPlaceRecord.id. Reconciled from the input. */
   private savedPlaceMarkers = new Map<string, Marker>();
+  /** Cleanup functions for drag-end event handlers, keyed by SavedPlaceRecord.id. */
+  private markerDragHandlers = new Map<string, () => void>();
+  /** Dynamically-created card component refs for saved-place popups, keyed by SavedPlaceRecord.id. */
+  private savedPlaceCardRefs = new Map<string, ComponentRef<SavedPlaceDetailsCardComponent>>();
+  /**
+   * Id of the saved place whose popup is "pinned" open (opened from the left panel).
+   * A pinned popup stays visible even when the cursor leaves the marker — it is only closed
+   * via the close button, selecting another place, or clicking outside the card.
+   */
+  private readonly pinnedPlaceId = signal<string | null>(null);
 
   constructor() {
-    // Reconcile saved-place markers whenever the input changes. The map may not be ready yet on
-    // the first run; in that case the reconciliation is queued and re-run once the style loads.
-    // `reconcileSavedPlaceMarkers` always reads the *current* input value at execution time, so a
+    // Reconcile saved-place markers whenever the places list or the visibility flag changes. The
+    // map may not be ready yet on the first run; in that case reconciliation retries until ready.
+    // `reconcileSavedPlaceMarkers` always reads the *current* inputs at execution time, so a
     // stale closure array (e.g. an empty list captured before `load()` resolved) is never used.
     effect(() => {
       this.savedPlaces();
+      this.showSavedPlaceMarkers();
       void this.reconcileSavedPlaceMarkers();
     });
   }
 
   protected readonly AVAILABLE_PROVIDERS = AVAILABLE_PROVIDERS;
-  protected readonly activeProviderId = signal(this.basemapProviderService.getSelectedProvider().config.id);
+  protected readonly activeProviderId = signal(
+    this.basemapProviderService.getSelectedProvider().config.id,
+  );
   protected readonly layerMenuOpen = signal(false);
   protected readonly heatmapActive = signal(false);
   private readonly heatmapOpacity = signal(100);
@@ -140,7 +179,9 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
     document.removeEventListener('click', this.closeLayerMenu);
     this.basemapProviderService.setProvider(config);
     const map = this.mapInstance;
-    if (!map) { return; }
+    if (!map) {
+      return;
+    }
     this.pendingReadyTasks = [];
     map.once('style.load', () => {
       this.routeRendererService.init(map);
@@ -156,12 +197,18 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
   private drainPendingTasks(source: string): void {
     const tasks = this.pendingReadyTasks;
     this.pendingReadyTasks = [];
-    logger.trace(`drainPendingTasks from ${source}: ${tasks.length} pending tasks, ${this.cachedRoutes.length} cached routes`);
-    for (const t of tasks) { t(); }
+    logger.trace(
+      `drainPendingTasks from ${source}: ${tasks.length} pending tasks, ${this.cachedRoutes.length} cached routes`,
+    );
+    for (const t of tasks) {
+      t();
+    }
   }
 
   private rerenderRoutes(): void {
-    this.routeRendererService.renderRoutes(this.cachedRoutes, (route) => this.routeSelected.emit(route));
+    this.routeRendererService.renderRoutes(this.cachedRoutes, (route) =>
+      this.routeSelected.emit(route),
+    );
   }
 
   private queueOrRender(routes: MapRouteFeature[], selectedId?: string): void {
@@ -176,7 +223,9 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
       this.routeRendererService.renderRoutes(routes, (route) => this.routeSelected.emit(route));
       if (selectedId) {
         this.routeRendererService.selectRoute(selectedId);
-        const selected = routes.find((r) => r.activityId === selectedId || r.activity.id === selectedId);
+        const selected = routes.find(
+          (r) => r.activityId === selectedId || r.activity.id === selectedId,
+        );
         if (selected) {
           this.routeRendererService.fitToRoute(selected.coordinates, selected.route.bounds);
         }
@@ -188,7 +237,9 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
   }
 
   private pollForStyle(routes: MapRouteFeature[], selectedId?: string, attempt = 0): void {
-    if (this.isDestroyed) { return; }
+    if (this.isDestroyed) {
+      return;
+    }
     if (!this.mapInstance) {
       this.pendingReadyTasks.push(() => this.renderRouteFeatures(routes, selectedId));
       return;
@@ -198,7 +249,9 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
       this.routesRendered.emit();
       if (selectedId) {
         this.routeRendererService.selectRoute(selectedId);
-        const selected = routes.find((r) => r.activityId === selectedId || r.activity.id === selectedId);
+        const selected = routes.find(
+          (r) => r.activityId === selectedId || r.activity.id === selectedId,
+        );
         if (selected) {
           this.routeRendererService.fitToRoute(selected.coordinates, selected.route.bounds);
         }
@@ -216,7 +269,9 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
 
   renderRouteFeatures(routes: MapRouteFeature[], selectedId?: string): void {
     this.cachedRoutes = routes;
-    if (routes.length === 0) { return; }
+    if (routes.length === 0) {
+      return;
+    }
     const map = this.mapInstance;
     if (!map) {
       this.pendingReadyTasks.push(() => this.renderRouteFeatures(routes, selectedId));
@@ -235,7 +290,9 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
     this.routeRendererService.renderRoutes(routes, (route) => this.routeSelected.emit(route));
     this.routesRendered.emit();
     if (selectedId) {
-      const selected = routes.find((r) => r.activityId === selectedId || r.activity.id === selectedId);
+      const selected = routes.find(
+        (r) => r.activityId === selectedId || r.activity.id === selectedId,
+      );
       if (selected) {
         this.routeRendererService.selectRoute(selectedId);
         this.routeRendererService.fitToRoute(selected.coordinates, selected.route.bounds);
@@ -266,7 +323,9 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
     map.once('load', () => this.addMapControls());
 
     map.on('styleimagemissing', (e: { id: string }) => {
-      if (map.hasImage(e.id)) { return; }
+      if (map.hasImage(e.id)) {
+        return;
+      }
       const canvas = document.createElement('canvas');
       canvas.width = 1;
       canvas.height = 1;
@@ -275,11 +334,31 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
 
     const emitViewport = () => {
       const b = map.getBounds();
-      this.ngZone.run(() => this.viewportChanged.emit([b.getSouthWest().toArray() as [number, number], b.getNorthEast().toArray() as [number, number]]));
+      this.ngZone.run(() =>
+        this.viewportChanged.emit([
+          b.getSouthWest().toArray() as [number, number],
+          b.getNorthEast().toArray() as [number, number],
+        ]),
+      );
     };
     map.on('idle', () => this.ngZone.run(() => this.mapIdle.emit()));
     map.on('moveend', emitViewport);
     map.once('load', emitViewport);
+
+    map.on('click', () => {
+      // Clicking the map background unpins any pinned (panel-selected) popup.
+      const pinned = this.pinnedPlaceId();
+      if (pinned) {
+        this.pinnedPlaceId.set(null);
+        const marker = this.savedPlaceMarkers.get(pinned);
+        if (marker) {
+          const popup = marker.getPopup();
+          if (popup && popup.isOpen()) {
+            popup.remove();
+          }
+        }
+      }
+    });
 
     map.on('error', (err) => {
       if (err?.error?.status === 404 || err?.error?.status === 403 || err?.error?.status === 500) {
@@ -312,7 +391,9 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
   }
 
   flyToBounds(coordinates: [number, number][], bounds?: RouteBounds): void {
-    if (coordinates.length === 0) { return; }
+    if (coordinates.length === 0) {
+      return;
+    }
     const map = this.mapInstance;
     if (!map || !map.isStyleLoaded()) {
       this.pendingReadyTasks.push(() => this.flyToBounds(coordinates, bounds));
@@ -356,7 +437,10 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
     const marker = this.savedPlaceMarkers.get(place.id);
     if (marker) {
       const popup = marker.getPopup();
-      if (popup) { marker.togglePopup(); }
+      if (popup && !popup.isOpen()) {
+        marker.togglePopup();
+      }
+      this.pinnedPlaceId.set(place.id);
     }
   }
 
@@ -371,11 +455,30 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
    * a single `style.load` one-shot (which can race and fire before the input is populated).
    */
   private async reconcileSavedPlaceMarkers(): Promise<void> {
-    if (this.isDestroyed) { return; }
+    if (this.isDestroyed) {
+      return;
+    }
     const map = this.mapInstance;
     if (!map || !map.isStyleLoaded()) {
       // Poll briefly until the map and its style are ready, then reconcile with the latest input.
       setTimeout(() => this.reconcileSavedPlaceMarkers(), 100);
+      return;
+    }
+
+    // When markers should be hidden (Activities tab), remove all existing markers and stop.
+    if (!this.showSavedPlaceMarkers()) {
+      for (const [, marker] of this.savedPlaceMarkers) {
+        marker.remove();
+      }
+      this.savedPlaceMarkers.clear();
+      for (const cleanup of this.markerDragHandlers.values()) {
+        cleanup();
+      }
+      this.markerDragHandlers.clear();
+      for (const ref of this.savedPlaceCardRefs.values()) {
+        ref.destroy();
+      }
+      this.savedPlaceCardRefs.clear();
       return;
     }
 
@@ -387,6 +490,16 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
       if (!next.has(id)) {
         marker.remove();
         this.savedPlaceMarkers.delete(id);
+        const cleanup = this.markerDragHandlers.get(id);
+        if (cleanup) {
+          cleanup();
+          this.markerDragHandlers.delete(id);
+        }
+        const cardRef = this.savedPlaceCardRefs.get(id);
+        if (cardRef) {
+          cardRef.destroy();
+          this.savedPlaceCardRefs.delete(id);
+        }
       }
     }
 
@@ -396,14 +509,93 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
       const existing = this.savedPlaceMarkers.get(place.id);
       if (existing) {
         existing.setLngLat([place.longitude, place.latitude]);
+        existing.setDraggable(true);
         existing.setPopup(this.buildSavedPlacePopup(place, maplibregl.Popup));
         this.applyMarkerAccessibility(existing, place);
         continue;
       }
-      const marker = new maplibregl.Marker({ color: SAVED_PLACE_MARKER_COLOR })
+      const marker = new maplibregl.Marker({ color: SAVED_PLACE_MARKER_COLOR, draggable: true })
         .setLngLat([place.longitude, place.latitude])
         .setPopup(this.buildSavedPlacePopup(place, maplibregl.Popup))
         .addTo(map);
+
+      // Drag-end handler: persist the new marker position.
+      const onDragEnd = () => {
+        const pos = marker.getLngLat();
+        this.ngZone.run(() =>
+          this.markerRepositioned.emit({
+            id: place.id,
+            latitude: pos.lat,
+            longitude: pos.lng,
+          }),
+        );
+      };
+      marker.on('dragend', onDragEnd);
+      this.markerDragHandlers.set(place.id, () => marker.off('dragend', onDragEnd));
+
+      // Hover popup: show on mouseenter, hide on mouseleave (with generous delay so the cursor can
+      // cross the gap between the marker pin and the popup content). Once the popup appears in the
+      // DOM, a mouseenter listener on it cancels the hide timer so the popup stays open while the
+      // cursor is over it.
+      const markerEl = marker.getElement();
+      let hideTimer: ReturnType<typeof setTimeout> | null = null;
+      let popupListenersAttached = false;
+
+      const attachPopupHover = () => {
+        if (popupListenersAttached) {
+          return;
+        }
+        const popupEl = document.querySelector('.maplibregl-popup');
+        if (!popupEl) {
+          return;
+        }
+        popupListenersAttached = true;
+        popupEl.addEventListener('mouseenter', () => {
+          if (hideTimer) {
+            clearTimeout(hideTimer);
+            hideTimer = null;
+          }
+        });
+        popupEl.addEventListener('mouseleave', () => {
+          const p = marker.getPopup();
+          if (p && p.isOpen()) {
+            p.remove();
+          }
+        });
+      };
+
+      const onMouseEnter = () => {
+        if (hideTimer) {
+          clearTimeout(hideTimer);
+          hideTimer = null;
+        }
+        const popup = marker.getPopup();
+        if (popup && !popup.isOpen()) {
+          marker.togglePopup();
+          // After the popup renders, attach hover listeners so the popup stays open when the
+          // cursor reaches it. Two requestAnimationFrame calls ensure the DOM has updated.
+          requestAnimationFrame(() => requestAnimationFrame(attachPopupHover));
+        }
+      };
+
+      const onMouseLeave = () => {
+        // When the popup was opened from the left panel (pinned), keep it open regardless of
+        // cursor position. Only hover-triggered popups auto-close on mouseleave.
+        if (this.pinnedPlaceId() === place.id) {
+          return;
+        }
+        hideTimer = setTimeout(() => {
+          const popup = marker.getPopup();
+          if (popup && popup.isOpen()) {
+            popup.remove();
+          }
+          popupListenersAttached = false;
+        }, 800);
+      };
+
+      markerEl.addEventListener('mouseenter', onMouseEnter);
+      markerEl.addEventListener('mouseleave', onMouseLeave);
+
       this.applyMarkerAccessibility(marker, place);
       this.savedPlaceMarkers.set(place.id, marker);
     }
@@ -421,46 +613,75 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
-   * Builds the compact popup shown when a saved-place marker is clicked: the saved name,
-   * secondary location text, and a "Remove place" button. The Remove button is wired here so the
-   * click bubbles up to the container via `removePlaceRequested`.
+   * Builds the popup shown on hover over a saved-place marker by dynamically instantiating the
+   * {@link SavedPlaceDetailsCardComponent} inside a wrapper element. The card receives input bindings
+   * for the place data and emits edit/remove/close events that bubble up through the component's
+   * own outputs. The previous card ref for the same place (if any) is destroyed first.
    */
   private buildSavedPlacePopup(
     place: SavedPlaceRecord,
     PopupCtor: new (opts: { closeButton: boolean; closeOnClick: boolean }) => Popup,
   ): Popup {
-    const container = document.createElement('div');
-    container.className = 'saved-place-popup';
+    const wrapper = document.createElement('div');
+    wrapper.style.minWidth = '300px';
 
-    const name = document.createElement('strong');
-    name.className = 'saved-place-popup__name';
-    name.textContent = place.name;
-    container.appendChild(name);
-
-    if (place.secondaryLabel) {
-      const secondary = document.createElement('span');
-      secondary.className = 'saved-place-popup__secondary';
-      secondary.textContent = place.secondaryLabel;
-      container.appendChild(secondary);
+    // Destroy any previous card ref for this place before creating a new one.
+    const prevRef = this.savedPlaceCardRefs.get(place.id);
+    if (prevRef) {
+      prevRef.destroy();
+      this.savedPlaceCardRefs.delete(place.id);
     }
 
-    const removeBtn = document.createElement('button');
-    removeBtn.type = 'button';
-    removeBtn.className = 'saved-place-popup__remove';
-    removeBtn.textContent = 'Remove place';
-    removeBtn.setAttribute('aria-label', `Remove saved place ${place.name}`);
-    // Run inside the Angular zone so change detection proceeds after the emit.
-    removeBtn.addEventListener('click', () => {
-      this.ngZone.run(() => this.removePlaceRequested.emit(place));
+    const componentRef = createComponent(SavedPlaceDetailsCardComponent, {
+      environmentInjector: this.environmentInjector,
+      hostElement: wrapper,
     });
-    container.appendChild(removeBtn);
 
-    return new PopupCtor({ closeButton: false, closeOnClick: true }).setDOMContent(container);
+    componentRef.setInput('place', place);
+    componentRef.setInput('visible', true);
+
+    componentRef.instance.edit.subscribe((p: SavedPlaceRecord) => {
+      this.ngZone.run(() => this.editPlaceRequested.emit(p));
+    });
+    componentRef.instance.remove.subscribe((p: SavedPlaceRecord) => {
+      this.ngZone.run(() => this.removePlaceRequested.emit(p));
+    });
+    componentRef.instance.close.subscribe(() => {
+      this.pinnedPlaceId.set(null);
+      const marker = this.savedPlaceMarkers.get(place.id);
+      if (marker) {
+        const popup = marker.getPopup();
+        if (popup) {
+          popup.remove();
+        }
+      }
+    });
+
+    this.appRef.attachView(componentRef.hostView);
+    this.savedPlaceCardRefs.set(place.id, componentRef);
+
+    // After Angular renders into the wrapper, also set min-width on the card element directly.
+    requestAnimationFrame(() => {
+      const cardEl = wrapper.querySelector('.saved-place-card') as HTMLElement | null;
+      if (cardEl) {
+        cardEl.style.minWidth = '300px';
+      }
+    });
+
+    return new PopupCtor({ closeButton: false, closeOnClick: false }).setDOMContent(wrapper);
   }
 
   ngOnDestroy(): void {
     this.isDestroyed = true;
     this.pendingReadyTasks = [];
+    for (const cleanup of this.markerDragHandlers.values()) {
+      cleanup();
+    }
+    this.markerDragHandlers.clear();
+    for (const ref of this.savedPlaceCardRefs.values()) {
+      ref.destroy();
+    }
+    this.savedPlaceCardRefs.clear();
     for (const marker of this.savedPlaceMarkers.values()) {
       marker.remove();
     }
@@ -559,15 +780,19 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
 
   private addMapControls(): void {
     const map = this.mapInstance;
-    if (!map || this.controlsAdded) { return; }
+    if (!map || this.controlsAdded) {
+      return;
+    }
     (async () => {
       try {
         const { default: maplibregl } = await import('maplibre-gl');
         map.addControl(new maplibregl.NavigationControl({}), 'top-left');
-        map.addControl(new maplibregl.ScaleControl({ unit: 'metric', maxWidth: 200 }), 'bottom-right');
+        map.addControl(
+          new maplibregl.ScaleControl({ unit: 'metric', maxWidth: 200 }),
+          'bottom-right',
+        );
         this.controlsAdded = true;
-      } catch {
-      }
+      } catch {}
     })();
   }
 

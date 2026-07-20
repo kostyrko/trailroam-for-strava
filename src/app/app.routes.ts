@@ -11,6 +11,10 @@ export const routes: Routes = [
     redirectTo: 'map',
   },
   {
+    path: 'activities',
+    redirectTo: 'logbook',
+  },
+  {
     path: 'logbook',
     component: ActivitiesPageComponent,
   },

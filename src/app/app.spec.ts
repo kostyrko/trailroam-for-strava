@@ -1,7 +1,14 @@
 import Dexie from 'dexie';
 import { IDBKeyRange, indexedDB } from 'fake-indexeddb';
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRoute, Router, convertToParamMap, provideRouter, ParamMap, withDisabledInitialNavigation } from '@angular/router';
+import {
+  ActivatedRoute,
+  Router,
+  convertToParamMap,
+  provideRouter,
+  ParamMap,
+  withDisabledInitialNavigation,
+} from '@angular/router';
 import { Observable, of } from 'rxjs';
 import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { App } from './app';
@@ -51,13 +58,45 @@ describe('App', () => {
         {
           provide: TRAILROAM_REPOSITORIES,
           useValue: {
-            activities: { put: vi.fn(), get: vi.fn(), list: vi.fn(), count: vi.fn().mockResolvedValue(activitiesCount), clear: vi.fn(), upsert: vi.fn() },
-            activityRoutes: { put: vi.fn(), get: vi.fn(), list: vi.fn(), count: vi.fn().mockResolvedValue(routesCount), clear: vi.fn() },
+            activities: {
+              put: vi.fn(),
+              get: vi.fn(),
+              list: vi.fn(),
+              count: vi.fn().mockResolvedValue(activitiesCount),
+              clear: vi.fn(),
+              upsert: vi.fn(),
+            },
+            activityRoutes: {
+              put: vi.fn(),
+              get: vi.fn(),
+              list: vi.fn(),
+              count: vi.fn().mockResolvedValue(routesCount),
+              clear: vi.fn(),
+            },
             routeGeometry: { list: vi.fn().mockResolvedValue([]), clear: vi.fn() },
-            syncState: { put: vi.fn(), get: vi.fn().mockImplementation(syncStateGet), clear: vi.fn() },
+            syncState: {
+              put: vi.fn(),
+              get: vi.fn().mockImplementation(syncStateGet),
+              clear: vi.fn(),
+            },
             syncHistory: { put: vi.fn(), list: vi.fn(), clear: vi.fn() },
-            settings: { put: vi.fn(), get: vi.fn(), clear: vi.fn(), getOrCreateDefault: vi.fn().mockResolvedValue({ id: 'default', mapProvider: 'openfreemap', createdAt: '2024-01-01', updatedAt: '2024-01-01' }) },
-            accessState: { put: vi.fn(), get: vi.fn(), clear: vi.fn(), getOrCreateDefault: vi.fn() },
+            settings: {
+              put: vi.fn(),
+              get: vi.fn(),
+              clear: vi.fn(),
+              getOrCreateDefault: vi.fn().mockResolvedValue({
+                id: 'default',
+                mapProvider: 'openfreemap',
+                createdAt: '2024-01-01',
+                updatedAt: '2024-01-01',
+              }),
+            },
+            accessState: {
+              put: vi.fn(),
+              get: vi.fn(),
+              clear: vi.fn(),
+              getOrCreateDefault: vi.fn(),
+            },
           },
         },
         {
@@ -82,7 +121,7 @@ describe('App', () => {
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
     const links = [...compiled.querySelectorAll('nav a')].map((link) => link.textContent?.trim());
-    expect(links).toEqual(['Activities', 'Map Explorer', 'Settings']);
+    expect(links).toEqual(['Logbook', 'Map Explorer', 'Settings']);
   });
 
   it('should render header sync button', async () => {
@@ -94,7 +133,9 @@ describe('App', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     const syncButton = compiled.querySelector<HTMLButtonElement>('.sync-btn');
 
-    expect(compiled.querySelector('.app-header__brand')?.textContent).toContain('TrailRoam for Strava');
+    expect(compiled.querySelector('.app-header__brand')?.textContent).toContain(
+      'TrailRoam for Strava',
+    );
     expect(compiled.querySelector('.app-header__actions')).toBeTruthy();
     expect(syncButton?.textContent).toContain('Sync Strava');
     expect(syncButton?.getAttribute('aria-haspopup')).toBe('menu');
@@ -141,17 +182,15 @@ describe('App', () => {
     });
 
     it('should dismiss sync summary when dismiss button is clicked', async () => {
-      configureApp(
-        () => ({
-          id: 'default',
-          status: 'completed',
-          importedCount: 3,
-          updatedCount: 0,
-          routesSyncedCount: 1,
-          skippedCount: 0,
-          failedCount: 0,
-        }),
-      );
+      configureApp(() => ({
+        id: 'default',
+        status: 'completed',
+        importedCount: 3,
+        updatedCount: 0,
+        routesSyncedCount: 1,
+        skippedCount: 0,
+        failedCount: 0,
+      }));
       const fixture = TestBed.createComponent(App);
       fixture.detectChanges();
       await flushMicrotasks();
@@ -159,7 +198,9 @@ describe('App', () => {
 
       expect(fixture.nativeElement.querySelector('.sync-summary')).toBeTruthy();
 
-      const dismissButton = fixture.nativeElement.querySelector('.sync-summary-dismiss') as HTMLButtonElement;
+      const dismissButton = fixture.nativeElement.querySelector(
+        '.sync-summary-dismiss',
+      ) as HTMLButtonElement;
       dismissButton.click();
       fixture.detectChanges();
 
@@ -167,19 +208,17 @@ describe('App', () => {
     });
 
     it('should show error message in sync summary when sync failed', async () => {
-      configureApp(
-        () => ({
-          id: 'default',
-          status: 'failed',
-          importedCount: 2,
-          updatedCount: 0,
-          routesSyncedCount: 0,
-          skippedCount: 0,
-          failedCount: 1,
-          lastErrorCode: 'ACTIVITY_ROUTE_FETCH_FAILED',
-          lastErrorMessage: 'Failed to fetch route for activity 123',
-        }),
-      );
+      configureApp(() => ({
+        id: 'default',
+        status: 'failed',
+        importedCount: 2,
+        updatedCount: 0,
+        routesSyncedCount: 0,
+        skippedCount: 0,
+        failedCount: 1,
+        lastErrorCode: 'ACTIVITY_ROUTE_FETCH_FAILED',
+        lastErrorMessage: 'Failed to fetch route for activity 123',
+      }));
       const fixture = TestBed.createComponent(App);
       fixture.detectChanges();
       await flushMicrotasks();
@@ -217,43 +256,61 @@ describe('MapPage', () => {
   let selectRoute: ReturnType<typeof vi.fn>;
   let removeMap: ReturnType<typeof vi.fn>;
 
-  const mockActivities = [{
-    id: 'test:1',
-    provider: 'strava' as const,
-    providerActivityId: '1',
-    name: 'Test Ride',
-    sportType: 'Ride',
-    activityCategory: 'ride' as const,
-    startDate: '2024-01-01T00:00:00Z',
-    distanceMeters: 10000,
-    movingTimeSeconds: 1800,
-    totalElevationGainMeters: 350,
-    averageSpeedMetersPerSecond: 8.3,
-    averageHeartrateBpm: 145,
-    hasRoute: true,
-    routeSyncStatus: 'route_synced' as const,
-    sourceUrl: 'https://www.strava.com/activities/1',
-    importedAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
-  }];
+  const mockActivities = [
+    {
+      id: 'test:1',
+      provider: 'strava' as const,
+      providerActivityId: '1',
+      name: 'Test Ride',
+      sportType: 'Ride',
+      activityCategory: 'ride' as const,
+      startDate: '2024-01-01T00:00:00Z',
+      distanceMeters: 10000,
+      movingTimeSeconds: 1800,
+      totalElevationGainMeters: 350,
+      averageSpeedMetersPerSecond: 8.3,
+      averageHeartrateBpm: 145,
+      hasRoute: true,
+      routeSyncStatus: 'route_synced' as const,
+      sourceUrl: 'https://www.strava.com/activities/1',
+      importedAt: '2024-01-01T00:00:00Z',
+      updatedAt: '2024-01-01T00:00:00Z',
+    },
+  ];
 
-  const mockRoutes = [{
-    activityId: 'test:1',
-    providerActivityId: '1',
-    simplifiedCoordinates: [[19.9, 50.05], [19.91, 50.06]] as [number, number][],
-    simplifiedPointCount: 2,
-    pointCount: 2,
-    bounds: { west: 19.9, south: 50.05, east: 19.91, north: 50.06 },
-    syncedAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
-  }];
+  const mockRoutes = [
+    {
+      activityId: 'test:1',
+      providerActivityId: '1',
+      simplifiedCoordinates: [
+        [19.9, 50.05],
+        [19.91, 50.06],
+      ] as [number, number][],
+      simplifiedPointCount: 2,
+      pointCount: 2,
+      bounds: { west: 19.9, south: 50.05, east: 19.91, north: 50.06 },
+      syncedAt: '2024-01-01T00:00:00Z',
+      updatedAt: '2024-01-01T00:00:00Z',
+    },
+  ];
 
-  function configureMapPage(queryParams: Record<string, string> = {}, activities = mockActivities, activityRoutes = mockRoutes): void {
+  function configureMapPage(
+    queryParams: Record<string, string> = {},
+    activities = mockActivities,
+    activityRoutes = mockRoutes,
+  ): void {
     onMapEvent = vi.fn();
     renderRoutes = vi.fn();
     selectRoute = vi.fn();
     removeMap = vi.fn();
-    createMap = vi.fn().mockResolvedValue({ once: onMapEvent, on: vi.fn(), remove: removeMap, addControl: vi.fn(), isStyleLoaded: () => true, getSource: vi.fn().mockReturnValue(undefined) });
+    createMap = vi.fn().mockResolvedValue({
+      once: onMapEvent,
+      on: vi.fn(),
+      remove: removeMap,
+      addControl: vi.fn(),
+      isStyleLoaded: () => true,
+      getSource: vi.fn().mockReturnValue(undefined),
+    });
 
     TestBed.configureTestingModule({
       imports: [MapPage],
@@ -298,11 +355,35 @@ describe('MapPage', () => {
             activityRoutes: {
               list: vi.fn().mockResolvedValue(activityRoutes),
             },
-            routeGeometry: { list: vi.fn().mockResolvedValue([]), get: vi.fn().mockResolvedValue(undefined) },
+            routeGeometry: {
+              list: vi.fn().mockResolvedValue([]),
+              get: vi.fn().mockResolvedValue(undefined),
+            },
             syncState: { get: vi.fn().mockResolvedValue(undefined), clear: vi.fn() },
             syncHistory: { put: vi.fn(), list: vi.fn(), clear: vi.fn() },
-            settings: { get: vi.fn(), getOrCreateDefault: vi.fn().mockResolvedValue({ id: 'default', mapProvider: 'openfreemap', mapExplorerPanelExpanded: true, createdAt: '2024-01-01T00:00:00Z', updatedAt: '2024-01-01T00:00:00Z' }) },
+            settings: {
+              get: vi.fn(),
+              getOrCreateDefault: vi.fn().mockResolvedValue({
+                id: 'default',
+                mapProvider: 'openfreemap',
+                mapExplorerPanelExpanded: true,
+                createdAt: '2024-01-01T00:00:00Z',
+                updatedAt: '2024-01-01T00:00:00Z',
+              }),
+            },
             accessState: { get: vi.fn() },
+            savedPlaces: {
+              list: vi.fn().mockResolvedValue([]),
+              put: vi.fn(),
+              get: vi.fn(),
+              delete: vi.fn(),
+              updateEditable: vi.fn(),
+              updateCoordinates: vi.fn(),
+              findByProviderId: vi.fn(),
+              findWithinRadiusMeters: vi.fn(),
+              count: vi.fn().mockResolvedValue(0),
+              clear: vi.fn(),
+            },
           },
         },
       ],
@@ -413,6 +494,20 @@ describe('MapPage', () => {
     expect(cmp.selectedRoute()).toBeNull();
     expect(cmp.noRouteActivity()).toBe(false);
   });
+
+  it('should capture placeId from URL params into pendingPlaceId and clear URL', async () => {
+    configureMapPage({ placeId: 'place:1', from: 'places' });
+
+    const fixture = TestBed.createComponent(MapPage);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const cmp = fixture.componentInstance as any;
+    // The effect captures placeId/from into pending signals and navigates to /map to clear params
+    expect(cmp.pendingPlaceId()).toBe('place:1');
+    expect(cmp.placeNavigationActive()).toBe(true);
+  });
 });
 
 describe('SettingsPage', () => {
@@ -442,7 +537,11 @@ describe('SettingsPage', () => {
         },
         {
           provide: SyncHistoryService,
-          useValue: { record: vi.fn().mockResolvedValue(undefined), list: vi.fn().mockResolvedValue([]), clear: vi.fn().mockResolvedValue(undefined) },
+          useValue: {
+            record: vi.fn().mockResolvedValue(undefined),
+            list: vi.fn().mockResolvedValue([]),
+            clear: vi.fn().mockResolvedValue(undefined),
+          },
         },
       ],
     });
@@ -465,14 +564,19 @@ describe('SettingsPage', () => {
 
     const fixture = TestBed.createComponent(SettingsPage);
     fixture.detectChanges();
-    const buttons = fixture.nativeElement.querySelectorAll('.btn-danger') as unknown as HTMLButtonElement[];
-    const clearButton = Array.from(buttons).find((b) => b.textContent?.includes('Clear synced local data'));
+    const buttons = fixture.nativeElement.querySelectorAll(
+      '.btn-danger',
+    ) as unknown as HTMLButtonElement[];
+    const clearButton = Array.from(buttons).find((b) =>
+      b.textContent?.includes('Clear synced local data'),
+    );
     clearButton?.click();
     await fixture.whenStable();
 
     expect(confirmMock).toHaveBeenCalledWith({
       title: 'Clear synced local data',
-      message: 'This will delete imported activities and routes from this browser. It will not delete anything from Strava.',
+      message:
+        'This will delete imported activities and routes from this browser. It will not delete anything from Strava.',
       confirmLabel: 'Clear data',
       danger: true,
     });
@@ -485,8 +589,12 @@ describe('SettingsPage', () => {
 
     const fixture = TestBed.createComponent(SettingsPage);
     fixture.detectChanges();
-    const buttons = fixture.nativeElement.querySelectorAll('.btn-danger') as unknown as HTMLButtonElement[];
-    const clearButton = Array.from(buttons).find((b) => b.textContent?.includes('Clear synced local data'));
+    const buttons = fixture.nativeElement.querySelectorAll(
+      '.btn-danger',
+    ) as unknown as HTMLButtonElement[];
+    const clearButton = Array.from(buttons).find((b) =>
+      b.textContent?.includes('Clear synced local data'),
+    );
     clearButton?.click();
     await fixture.whenStable();
     fixture.detectChanges();

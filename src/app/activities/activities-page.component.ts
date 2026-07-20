@@ -1008,13 +1008,6 @@ export class ActivitiesPageComponent {
   }
 
   protected onSelectPlace(place: SavedPlaceRecord, source: 'places' | 'all' = 'places'): void {
-    console.log('[Trailroam] onSelectPlace', {
-      name: place.name,
-      id: place.id,
-      lat: place.latitude,
-      lng: place.longitude,
-      source,
-    });
     this.router.navigate(['/map'], { queryParams: { placeId: place.id, from: source } });
   }
 

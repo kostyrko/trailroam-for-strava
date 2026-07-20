@@ -109,7 +109,13 @@ export class MapPage implements AfterViewInit {
     { initialValue: null },
   );
   private readonly fromParam = toSignal(
-    this.route.queryParamMap.pipe(map((params) => params.get('from') as 'places' | 'all' | null)),
+    this.route.queryParamMap.pipe(
+      map((params) => {
+        const v = params.get('from');
+        if (v === 'places' || v === 'all') return v;
+        return null;
+      }),
+    ),
     { initialValue: null },
   );
   private readonly basemapErrorParam = toSignal(
@@ -537,7 +543,6 @@ export class MapPage implements AfterViewInit {
       const placeId = this.placeIdParam();
       const from = this.fromParam();
       if (placeId) {
-        console.log('[Trailroam] Captured placeId from URL:', placeId, 'from:', from);
         this.placeNavigationActive.set(true);
         this.pendingPlaceId.set(placeId);
         this.pendingPlaceSource.set(from);
@@ -551,35 +556,14 @@ export class MapPage implements AfterViewInit {
       const from = this.pendingPlaceSource();
       const places = this.savedPlacesService.places();
       const ready = this.mapReady();
-      console.log('[Trailroam] placeId fly effect', {
-        placeId,
-        from,
-        placesCount: places.length,
-        mapReady: ready,
-      });
       if (!placeId) return;
       const found = places.find((p) => p.id === placeId);
-      console.log('[Trailroam] placeId fly effect — found:', !!found, 'ready:', ready);
       if (found && ready) {
-        console.log(
-          '[Trailroam] Executing focusSavedPlace for',
-          found.name,
-          'at',
-          found.latitude,
-          found.longitude,
-          'mapComponent:',
-          !!this.mapComponent,
-        );
         this.selectedPlaceId.set(found.id);
         this.leftPanelView.set(from === 'all' ? 'all' : 'places');
-        // Use setTimeout to ensure the map component's async init (createMap) completes first,
-        // so that this.mapInstance and saved-place markers are available.
-        setTimeout(() => {
-          if (this.mapComponent) {
-            console.log('[Trailroam] setTimeout focusSavedPlace');
-            this.mapComponent.focusSavedPlace(found);
-          }
-        }, 600);
+        if (this.mapComponent) {
+          this.mapComponent.focusSavedPlace(found);
+        }
         // Clear pending so we don't re-fly on every signal change
         this.pendingPlaceId.set(null);
         this.pendingPlaceSource.set(null);

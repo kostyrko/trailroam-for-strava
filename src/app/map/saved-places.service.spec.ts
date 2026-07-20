@@ -13,20 +13,42 @@ function makeRepoMock(stored: SavedPlaceRecord[] = []) {
     list: vi.fn(async () => [...store].sort((a, b) => b.createdAt.localeCompare(a.createdAt))),
     put: vi.fn(async (rec: SavedPlaceRecord) => {
       const idx = store.findIndex((p) => p.id === rec.id);
-      if (idx >= 0) { store[idx] = rec; } else { store.push(rec); }
+      if (idx >= 0) {
+        store[idx] = rec;
+      } else {
+        store.push(rec);
+      }
       return rec.id;
     }),
     delete: vi.fn(async (id: string) => {
       const idx = store.findIndex((p) => p.id === id);
-      if (idx >= 0) { store.splice(idx, 1); }
+      if (idx >= 0) {
+        store.splice(idx, 1);
+      }
     }),
     updateEditable: vi.fn(async (id: string, changes: { name: string; notes?: string }) => {
       const idx = store.findIndex((p) => p.id === id);
-      if (idx < 0) { return undefined; }
+      if (idx < 0) {
+        return undefined;
+      }
       const updated: SavedPlaceRecord = {
         ...store[idx],
         name: changes.name,
         notes: changes.notes,
+        updatedAt: new Date().toISOString(),
+      };
+      store[idx] = updated;
+      return updated;
+    }),
+    updateCoordinates: vi.fn(async (id: string, latitude: number, longitude: number) => {
+      const idx = store.findIndex((p) => p.id === id);
+      if (idx < 0) {
+        return undefined;
+      }
+      const updated: SavedPlaceRecord = {
+        ...store[idx],
+        latitude,
+        longitude,
         updatedAt: new Date().toISOString(),
       };
       store[idx] = updated;
@@ -37,7 +59,9 @@ function makeRepoMock(stored: SavedPlaceRecord[] = []) {
     ),
     findWithinRadiusMeters: vi.fn(async (lat: number, lng: number, radius = 10) => {
       // Approximate match for the test fixtures below: treat close coordinates as duplicates.
-      const close = store.find((p) => Math.abs(p.latitude - lat) < 0.0002 && Math.abs(p.longitude - lng) < 0.0002);
+      const close = store.find(
+        (p) => Math.abs(p.latitude - lat) < 0.0002 && Math.abs(p.longitude - lng) < 0.0002,
+      );
       return close;
     }),
   };
@@ -45,7 +69,9 @@ function makeRepoMock(stored: SavedPlaceRecord[] = []) {
 
 function mockResult(label: string, lng: number, lat: number, providerId?: string): GeocodeResult {
   const r: GeocodeResult = { label, center: [lng, lat] };
-  if (providerId) { r.providerId = providerId; }
+  if (providerId) {
+    r.providerId = providerId;
+  }
   return r;
 }
 
@@ -97,7 +123,9 @@ describe('SavedPlacesService', () => {
   });
 
   it('refuses to create a duplicate (providerId match) and returns null', async () => {
-    repoMock.store.push(makePlace('place:1', 'Kraków', '2026-05-01T00:00:00.000Z', { providerId: 'R123' }));
+    repoMock.store.push(
+      makePlace('place:1', 'Kraków', '2026-05-01T00:00:00.000Z', { providerId: 'R123' }),
+    );
     const service = TestBed.inject(SavedPlacesService);
     await service.load();
 
@@ -114,7 +142,12 @@ describe('SavedPlacesService', () => {
   });
 
   it('refuses to create a duplicate by 10m proximity when no providerId is present', async () => {
-    repoMock.store.push(makePlace('place:1', 'Kraków', '2026-05-01T00:00:00.000Z', { latitude: 50.0614, longitude: 19.9372 }));
+    repoMock.store.push(
+      makePlace('place:1', 'Kraków', '2026-05-01T00:00:00.000Z', {
+        latitude: 50.0614,
+        longitude: 19.9372,
+      }),
+    );
     const service = TestBed.inject(SavedPlacesService);
     await service.load();
 
@@ -129,12 +162,16 @@ describe('SavedPlacesService', () => {
   });
 
   it('isAlreadySaved reflects the duplicate state for a search result (center is [lng, lat])', async () => {
-    repoMock.store.push(makePlace('place:1', 'Kraków', '2026-05-01T00:00:00.000Z', { providerId: 'R123' }));
+    repoMock.store.push(
+      makePlace('place:1', 'Kraków', '2026-05-01T00:00:00.000Z', { providerId: 'R123' }),
+    );
     const service = TestBed.inject(SavedPlacesService);
     await service.load();
 
     expect(await service.isAlreadySaved(mockResult('Kraków', 19.9372, 50.0614, 'R123'))).toBe(true);
-    expect(await service.isAlreadySaved(mockResult('Warsaw', 21.0122, 52.2297, 'N999'))).toBe(false);
+    expect(await service.isAlreadySaved(mockResult('Warsaw', 21.0122, 52.2297, 'N999'))).toBe(
+      false,
+    );
   });
 
   it('removes a place by id and updates the signal', async () => {
@@ -149,11 +186,16 @@ describe('SavedPlacesService', () => {
   });
 
   it('updates the name and notes of a place and reflects it in the signal', async () => {
-    repoMock.store.push(makePlace('place:1', 'Kraków', '2026-05-01T00:00:00.000Z', { notes: 'old notes' }));
+    repoMock.store.push(
+      makePlace('place:1', 'Kraków', '2026-05-01T00:00:00.000Z', { notes: 'old notes' }),
+    );
     const service = TestBed.inject(SavedPlacesService);
     await service.load();
 
-    const updated = await service.update('place:1', { name: 'Kraków centre', notes: 'meet at dawn' });
+    const updated = await service.update('place:1', {
+      name: 'Kraków centre',
+      notes: 'meet at dawn',
+    });
 
     expect(updated?.name).toBe('Kraków centre');
     expect(updated?.notes).toBe('meet at dawn');
@@ -163,7 +205,9 @@ describe('SavedPlacesService', () => {
   });
 
   it('stores empty notes as undefined on update', async () => {
-    repoMock.store.push(makePlace('place:1', 'Kraków', '2026-05-01T00:00:00.000Z', { notes: 'old notes' }));
+    repoMock.store.push(
+      makePlace('place:1', 'Kraków', '2026-05-01T00:00:00.000Z', { notes: 'old notes' }),
+    );
     const service = TestBed.inject(SavedPlacesService);
     await service.load();
 
@@ -179,6 +223,34 @@ describe('SavedPlacesService', () => {
     const updated = await service.update('place:missing', { name: 'X', notes: '' });
 
     expect(updated).toBeNull();
+  });
+
+  describe('reposition', () => {
+    it('updates the coordinates of a place and refreshes the signal', async () => {
+      repoMock.store.push(
+        makePlace('place:1', 'Kraków', '2026-05-01T00:00:00.000Z', {
+          latitude: 50.0614,
+          longitude: 19.9372,
+        }),
+      );
+      const service = TestBed.inject(SavedPlacesService);
+      await service.load();
+
+      await service.reposition('place:1', 50.062, 19.938);
+
+      expect(repoMock.updateCoordinates).toHaveBeenCalledWith('place:1', 50.062, 19.938);
+      const inSignal = service.places().find((p) => p.id === 'place:1');
+      expect(inSignal?.latitude).toBe(50.062);
+      expect(inSignal?.longitude).toBe(19.938);
+    });
+
+    it('does not throw when the place does not exist', async () => {
+      repoMock.updateCoordinates = vi.fn().mockResolvedValue(undefined);
+      const service = TestBed.inject(SavedPlacesService);
+      await service.load();
+
+      await expect(service.reposition('place:missing', 50.0, 19.0)).resolves.toBeUndefined();
+    });
   });
 });
 

@@ -434,13 +434,6 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
    */
   focusSavedPlace(place: SavedPlaceRecord): void {
     const center: [number, number] = [place.longitude, place.latitude];
-    console.log('[Trailroam] focusSavedPlace called', {
-      name: place.name,
-      center,
-      hasMap: !!this.mapInstance,
-      markerCount: this.savedPlaceMarkers.size,
-      hasMarker: this.savedPlaceMarkers.has(place.id),
-    });
     this.flyTo(center);
     this.pinnedPlaceId.set(place.id);
     this.openMarkerPopup(place.id);
@@ -565,7 +558,8 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
         if (popupListenersAttached) {
           return;
         }
-        const popupEl = document.querySelector('.maplibregl-popup');
+        const popup = marker.getPopup();
+        const popupEl = popup?.getElement();
         if (!popupEl) {
           return;
         }

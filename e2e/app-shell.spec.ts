@@ -16,8 +16,8 @@ test.beforeAll(async () => {
     const der = Buffer.from(manifest.key, 'base64');
     const hash = createHash('sha256').update(der).digest();
     for (let i = 0; i < 16; i++) {
-      extId += String.fromCharCode(0x61 + ((hash[i * 2] & 0xF0) >> 4));
-      extId += String.fromCharCode(0x61 + (hash[i * 2] & 0x0F));
+      extId += String.fromCharCode(0x61 + ((hash[i * 2] & 0xf0) >> 4));
+      extId += String.fromCharCode(0x61 + (hash[i * 2] & 0x0f));
     }
   }
 
@@ -29,7 +29,11 @@ test.beforeAll(async () => {
     if (url === '/') url = '/app/index.html';
     const filePath = resolve(BROWSER_DIR, url.slice(1));
     let targetPath = filePath;
-    try { readFileSync(targetPath); } catch { targetPath = resolve(BROWSER_DIR, 'app/index.html'); }
+    try {
+      readFileSync(targetPath);
+    } catch {
+      targetPath = resolve(BROWSER_DIR, 'app/index.html');
+    }
     try {
       const content = readFileSync(targetPath);
       const ext = extname(targetPath);
@@ -96,10 +100,10 @@ test.describe('App shell (static serve)', () => {
     await expect(page.getByText('Sync Strava')).toBeVisible({ timeout: 15000 });
   });
 
-  test('should navigate to Activities page via nav', async ({ page }) => {
+  test('should navigate to Logbook page via nav', async ({ page }) => {
     await page.goto(`http://localhost:${PORT}/`);
-    await page.getByText('Activities').first().click();
-    await page.waitForURL('**/activities');
+    await page.getByText('Logbook').first().click();
+    await page.waitForURL('**/logbook');
     await expect(page.locator('app-activities-page')).toBeVisible({ timeout: 10000 });
   });
 
@@ -116,7 +120,9 @@ test.describe('Settings page', () => {
     await page.goto(`http://localhost:${PORT}/`);
     await page.getByText('Settings').first().click();
     await page.waitForURL('**/settings');
-    await expect(page.getByRole('button', { name: 'Clear synced local data' })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('button', { name: 'Clear synced local data' })).toBeVisible({
+      timeout: 10000,
+    });
     await expect(page.getByRole('button', { name: 'Backup' })).toBeVisible({ timeout: 5000 });
     await expect(page.getByRole('button', { name: 'Restore' })).toBeVisible({ timeout: 5000 });
     await expect(page.getByText('Sync History')).toBeVisible({ timeout: 5000 });
@@ -126,7 +132,9 @@ test.describe('Settings page', () => {
   test('should toggle sync dropdown from header', async ({ page }) => {
     await page.goto(`http://localhost:${PORT}/`);
     await page.locator('.sync-btn').click();
-    await expect(page.getByText('Last synced').or(page.getByText('No sync history'))).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('Last synced').or(page.getByText('No sync history'))).toBeVisible({
+      timeout: 5000,
+    });
   });
 });
 
@@ -139,14 +147,22 @@ test.describe('Map Explorer page', () => {
   });
 });
 
-test.describe('Activities page', () => {
-  test('should show activities page with all elements when navigated from header', async ({ page }) => {
+test.describe('Logbook page', () => {
+  test('should show logbook with all elements when navigated from header', async ({ page }) => {
     await page.goto(`http://localhost:${PORT}/`);
-    await page.getByText('Activities').first().click();
-    await page.waitForURL('**/activities');
+    await page.getByText('Logbook').first().click();
+    await page.waitForURL('**/logbook');
     await expect(page.getByText('No activities yet')).toBeVisible({ timeout: 10000 });
     await expect(page.getByText('Import Activity')).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText('Filter by source')).toBeVisible({ timeout: 5000 }).catch(() => {});
+    await expect(page.getByText('Filter by source'))
+      .toBeVisible({ timeout: 5000 })
+      .catch(() => {});
+  });
+
+  test('/activities redirects to /logbook', async ({ page }) => {
+    await page.goto(`http://localhost:${PORT}/app/index.html/activities`);
+    await page.waitForURL('**/logbook');
+    await expect(page.locator('app-activities-page')).toBeVisible({ timeout: 10000 });
   });
 });
 
@@ -160,12 +176,12 @@ test.describe('App menu', () => {
 });
 
 test.describe('Navigation flow', () => {
-  test('should navigate round-trip via header nav: Map → Activities → Settings', async ({ page }) => {
+  test('should navigate round-trip via header nav: Map → Logbook → Settings', async ({ page }) => {
     await page.goto(`http://localhost:${PORT}/`);
     await page.waitForURL('**/map');
 
-    await page.getByText('Activities').first().click();
-    await page.waitForURL('**/activities');
+    await page.getByText('Logbook').first().click();
+    await page.waitForURL('**/logbook');
     await expect(page.getByText('No activities yet')).toBeVisible({ timeout: 10000 });
 
     await page.getByText('Map Explorer').first().click();
@@ -174,7 +190,9 @@ test.describe('Navigation flow', () => {
 
     await page.getByText('Settings').first().click();
     await page.waitForURL('**/settings');
-    await expect(page.getByRole('button', { name: 'Clear synced local data' })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('button', { name: 'Clear synced local data' })).toBeVisible({
+      timeout: 10000,
+    });
   });
 
   test('should navigate from Settings to Map via logo', async ({ page }) => {

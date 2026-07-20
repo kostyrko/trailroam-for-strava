@@ -197,7 +197,10 @@ describe('TrailroamDatabase', () => {
 
       await repositories.activities.upsert(activity);
 
-      const updatedActivity = createActivity({ name: 'Updated Name', routeSyncStatus: 'not_attempted' });
+      const updatedActivity = createActivity({
+        name: 'Updated Name',
+        routeSyncStatus: 'not_attempted',
+      });
       const result = await repositories.activities.upsert(updatedActivity);
 
       expect(result.activity.name).toBe('Updated Name');
@@ -247,8 +250,12 @@ describe('TrailroamDatabase', () => {
     it('should upsert multiple distinct activities without conflict', async () => {
       const repositories = createRepositories(db);
 
-      const result1 = await repositories.activities.upsert(createActivity({ id: 'strava:1', providerActivityId: '1' }));
-      const result2 = await repositories.activities.upsert(createActivity({ id: 'strava:2', providerActivityId: '2' }));
+      const result1 = await repositories.activities.upsert(
+        createActivity({ id: 'strava:1', providerActivityId: '1' }),
+      );
+      const result2 = await repositories.activities.upsert(
+        createActivity({ id: 'strava:2', providerActivityId: '2' }),
+      );
 
       expect(result1.inserted).toBe(true);
       expect(result2.inserted).toBe(true);
@@ -298,7 +305,14 @@ describe('TrailroamDatabase', () => {
 
       await repositories.activityRoutes.upsert(route);
 
-      const updatedRoute = createRoute({ simplifiedCoordinates: [[19.95, 50.07], [19.96, 50.08]], simplifiedPointCount: 2, pointCount: 2 });
+      const updatedRoute = createRoute({
+        simplifiedCoordinates: [
+          [19.95, 50.07],
+          [19.96, 50.08],
+        ],
+        simplifiedPointCount: 2,
+        pointCount: 2,
+      });
       const result = await repositories.activityRoutes.upsert(updatedRoute);
 
       expect(result.route.syncedAt).toBe(route.syncedAt);
@@ -312,7 +326,11 @@ describe('TrailroamDatabase', () => {
 
       await new Promise((resolve) => setTimeout(resolve, 10));
 
-      const updatedRoute = createRoute({ simplifiedCoordinates: [[19.95, 50.07]], simplifiedPointCount: 1, pointCount: 1 });
+      const updatedRoute = createRoute({
+        simplifiedCoordinates: [[19.95, 50.07]],
+        simplifiedPointCount: 1,
+        pointCount: 1,
+      });
       const result = await repositories.activityRoutes.upsert(updatedRoute);
 
       expect(new Date(result.route.updatedAt).getTime()).toBeGreaterThan(
@@ -324,8 +342,20 @@ describe('TrailroamDatabase', () => {
       const repositories = createRepositories(db);
 
       await repositories.activityRoutes.upsert(createRoute());
-      await repositories.activityRoutes.upsert(createRoute({ simplifiedCoordinates: [[19.95, 50.07]], simplifiedPointCount: 1, pointCount: 1 }));
-      await repositories.activityRoutes.upsert(createRoute({ simplifiedCoordinates: [[19.96, 50.08]], simplifiedPointCount: 1, pointCount: 1 }));
+      await repositories.activityRoutes.upsert(
+        createRoute({
+          simplifiedCoordinates: [[19.95, 50.07]],
+          simplifiedPointCount: 1,
+          pointCount: 1,
+        }),
+      );
+      await repositories.activityRoutes.upsert(
+        createRoute({
+          simplifiedCoordinates: [[19.96, 50.08]],
+          simplifiedPointCount: 1,
+          pointCount: 1,
+        }),
+      );
 
       const all = await repositories.activityRoutes.list();
       expect(all).toHaveLength(1);
@@ -461,6 +491,40 @@ describe('TrailroamDatabase', () => {
       // ~1km away — not a duplicate.
       expect(await repositories.savedPlaces.findWithinRadiusMeters(50.07, 19.94)).toBeUndefined();
     });
+
+    it('updateCoordinates persists new coordinates and updates updatedAt', async () => {
+      const repositories = createRepositories(db);
+      const now = '2026-05-01T00:00:00.000Z';
+      const place: SavedPlaceRecord = {
+        id: 'place:1',
+        name: 'Kraków',
+        latitude: 50.0614,
+        longitude: 19.9372,
+        createdAt: now,
+        updatedAt: now,
+      };
+      await repositories.savedPlaces.put(place);
+
+      const updated = await repositories.savedPlaces.updateCoordinates('place:1', 50.062, 19.938);
+
+      expect(updated).toBeDefined();
+      expect(updated?.latitude).toBe(50.062);
+      expect(updated?.longitude).toBe(19.938);
+      expect(updated?.updatedAt).not.toBe(now);
+      expect(updated?.name).toBe('Kraków');
+      expect(updated?.createdAt).toBe(now);
+
+      // Verify persistence.
+      const reloaded = await repositories.savedPlaces.get('place:1');
+      expect(reloaded?.latitude).toBe(50.062);
+      expect(reloaded?.longitude).toBe(19.938);
+    });
+
+    it('updateCoordinates returns undefined for a non-existent place', async () => {
+      const repositories = createRepositories(db);
+      const result = await repositories.savedPlaces.updateCoordinates('place:missing', 50.0, 19.0);
+      expect(result).toBeUndefined();
+    });
   });
 
   describe('schema upgrades', () => {
@@ -470,8 +534,10 @@ describe('TrailroamDatabase', () => {
       // Seed a database at v3 (no route_geometry, no saved_places) with an activity.
       const legacy = new Dexie(databaseName);
       legacy.version(3).stores({
-        activities: 'id, providerActivityId, startDate, sportType, activityCategory, hasRoute, routeSyncStatus',
-        activity_routes: 'activityId, providerActivityId, syncedAt, pointCount, simplifiedPointCount',
+        activities:
+          'id, providerActivityId, startDate, sportType, activityCategory, hasRoute, routeSyncStatus',
+        activity_routes:
+          'activityId, providerActivityId, syncedAt, pointCount, simplifiedPointCount',
         sync_state: 'id, status, lastSuccessfulSyncAt',
         settings: 'id, mapProvider, updatedAt',
         access_state: 'id, status, updatedAt',
@@ -480,9 +546,17 @@ describe('TrailroamDatabase', () => {
       await legacy.open();
       const now = '2026-07-01T00:00:00.000Z';
       await legacy.table('activities').put({
-        id: 'strava:1', provider: 'strava', providerActivityId: '1', name: 'Legacy Ride',
-        sportType: 'Ride', activityCategory: 'ride', startDate: now, hasRoute: true,
-        routeSyncStatus: 'route_synced', importedAt: now, updatedAt: now,
+        id: 'strava:1',
+        provider: 'strava',
+        providerActivityId: '1',
+        name: 'Legacy Ride',
+        sportType: 'Ride',
+        activityCategory: 'ride',
+        startDate: now,
+        hasRoute: true,
+        routeSyncStatus: 'route_synced',
+        importedAt: now,
+        updatedAt: now,
       });
       legacy.close();
 
@@ -499,7 +573,12 @@ describe('TrailroamDatabase', () => {
 
       // The new saved_places store is writable.
       const place: SavedPlaceRecord = {
-        id: 'place:1', name: 'Kraków', latitude: 50.0614, longitude: 19.9372, createdAt: now, updatedAt: now,
+        id: 'place:1',
+        name: 'Kraków',
+        latitude: 50.0614,
+        longitude: 19.9372,
+        createdAt: now,
+        updatedAt: now,
       };
       await createRepositories(upgraded).savedPlaces.put(place);
       expect(await createRepositories(upgraded).savedPlaces.list()).toHaveLength(1);

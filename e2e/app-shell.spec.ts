@@ -160,7 +160,7 @@ test.describe('Logbook page', () => {
   });
 
   test('/activities redirects to /logbook', async ({ page }) => {
-    await page.goto(`http://localhost:${PORT}/app/index.html/activities`);
+    await page.goto(`http://localhost:${PORT}/app/index.html#/activities`);
     await page.waitForURL('**/logbook');
     await expect(page.locator('app-activities-page')).toBeVisible({ timeout: 10000 });
   });

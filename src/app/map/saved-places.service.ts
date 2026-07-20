@@ -16,6 +16,8 @@ export interface SavePlaceInput {
   providerName?: string;
   secondaryLabel?: string;
   providerId?: string;
+  /** How the place was created. Omitted for backwards compatibility. */
+  source?: 'search' | 'map-context-menu';
 }
 
 /**
@@ -68,6 +70,7 @@ export class SavedPlacesService {
       longitude: input.longitude,
       secondaryLabel: input.secondaryLabel,
       providerId: input.providerId,
+      source: input.source,
       createdAt: now,
       updatedAt: now,
     };

@@ -58,6 +58,7 @@ import { MapFilterOverlayComponent } from './map-filter-overlay.component';
 import { MapPlacesPanelComponent } from './map-places-panel.component';
 import { MapAllPanelComponent } from './map-all-panel.component';
 import { SavedPlacesService } from './saved-places.service';
+import { GeocodingService } from './geocoding.service';
 import { logger } from '../shared/logger';
 
 const ROUTES_WARN_THRESHOLD = 1_000;
@@ -92,6 +93,7 @@ export class MapPage implements AfterViewInit {
   private readonly dataRefresh = inject(DataRefreshService);
   private readonly destroyRef = inject(DestroyRef);
   protected readonly savedPlacesService = inject(SavedPlacesService);
+  private readonly geocodingService = inject(GeocodingService);
 
   protected readonly CATEGORY_COLORS = CATEGORY_COLORS;
 
@@ -971,6 +973,74 @@ export class MapPage implements AfterViewInit {
       }
     } catch {
       this.toastService.show('Could not save place. Please try again.');
+    }
+  }
+
+  /**
+   * Saves a place from the right-click context menu flow. Reverse-geocodes the clicked
+   * coordinates for a default name, shows the save dialog, and persists on confirmation.
+   */
+  protected async onSavePlaceFromContextMenu(event: {
+    longitude: number;
+    latitude: number;
+  }): Promise<void> {
+    const { longitude, latitude } = event;
+    let suggestedName = `Place at ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+    let secondaryLabel: string | undefined;
+
+    // Attempt reverse geocoding for a better default name — non-blocking.
+    try {
+      const reverseResult = await this.geocodingService.reverse(latitude, longitude);
+      if (reverseResult) {
+        suggestedName = reverseResult.providerName ?? reverseResult.label;
+        secondaryLabel = reverseResult.secondaryLabel;
+      }
+    } catch {
+      // Fall through with the coordinate-based name.
+    }
+
+    const data: SavePlaceDialogData = {
+      mode: 'create',
+      suggestedName,
+      secondaryLabel,
+    };
+    const ref = this.dialog.open(SavePlaceDialog, { data, disableClose: true });
+    const confirmed = await ref.afterClosed().toPromise();
+    if (!confirmed) {
+      this.mapComponent?.clearTempMarker();
+      return;
+    }
+
+    try {
+      const saved = await this.savedPlacesService.save({
+        name: confirmed.name,
+        notes: confirmed.notes,
+        latitude,
+        longitude,
+        source: 'map-context-menu',
+      });
+      if (saved) {
+        this.mapComponent?.clearTempMarker();
+        this.selectedPlaceId.set(saved.id);
+        this.toastService.show('Place saved');
+      } else {
+        // Near-duplicate — still allow saving in MVP (§10).
+        const savedAnyways = await this.savedPlacesService.save({
+          name: confirmed.name,
+          notes: confirmed.notes,
+          latitude,
+          longitude,
+          source: 'map-context-menu',
+        });
+        if (savedAnyways) {
+          this.mapComponent?.clearTempMarker();
+          this.selectedPlaceId.set(savedAnyways.id);
+          this.toastService.show('Place saved');
+        }
+      }
+    } catch {
+      this.toastService.show('The place could not be saved. Try again.');
+      // Keep the dialog and temp marker open so the user can retry or cancel.
     }
   }
 

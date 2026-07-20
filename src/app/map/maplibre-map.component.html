@@ -4,8 +4,12 @@
   [class.map-heatmap-active]="heatmapActive()"
   aria-label="Activity route"
   (document:keydown)="onDocumentKeydown($event)"
+  (document:click)="closeContextMenu()"
 >
   <div #mapContainer class="map-container"></div>
+  @if (contextMenuPos(); as pos) {
+    <app-map-context-menu [x]="pos.x" [y]="pos.y" (addPlace)="onContextMenuAddPlace()" />
+  }
   <button
     class="map-fit-btn"
     type="button"

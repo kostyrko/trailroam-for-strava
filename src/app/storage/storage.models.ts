@@ -121,7 +121,13 @@ export interface SettingsRecord {
 
 export interface SyncHistoryRecord {
   id: string;
-  trigger: 'sync_new_activities' | 'sync_missing_routes' | 'clear_and_resync' | 'clear_synced_local_data' | 'backup_local_data' | 'restore_local_data';
+  trigger:
+    | 'sync_new_activities'
+    | 'sync_missing_routes'
+    | 'clear_and_resync'
+    | 'clear_synced_local_data'
+    | 'backup_local_data'
+    | 'restore_local_data';
   startedAt: string;
   completedAt: string;
   status: 'completed' | 'failed' | 'cancelled';
@@ -164,6 +170,8 @@ export interface SavedPlaceRecord {
   secondaryLabel?: string;
   /** Stable provider id (e.g. Photon `osm_type`+`osm_id`); used for duplicate detection. */
   providerId?: string;
+  /** How the place was created: 'search' (search panel) or 'map-context-menu' (right-click). */
+  source?: 'search' | 'map-context-menu';
   /** ISO 8601 UTC timestamp. */
   createdAt: string;
   /** ISO 8601 UTC timestamp. */

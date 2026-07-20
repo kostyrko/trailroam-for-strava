@@ -29,12 +29,13 @@ import { IconComponent } from '../shared/icon.component';
 import { MapSearchPanelComponent, type SearchSelectedPayload } from './map-search-panel.component';
 import type { GeocodeResult } from './geocoding.service';
 import { SavedPlaceDetailsCardComponent } from './saved-place-details-card.component';
+import { MapContextMenuComponent } from './map-context-menu.component';
 
 /** Pin color for saved-place markers — distinct from activity route colors. */
 const SAVED_PLACE_MARKER_COLOR = '#1f6f50';
 
 @Component({
-  imports: [IconComponent, MapSearchPanelComponent],
+  imports: [IconComponent, MapSearchPanelComponent, MapContextMenuComponent],
   selector: 'app-maplibre-map',
   templateUrl: './maplibre-map.component.html',
 })
@@ -100,6 +101,13 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
   @Output()
   readonly savePlaceRequested = new EventEmitter<GeocodeResult>();
 
+  /** Emits when the user wants to save a place from the right-click context menu. */
+  @Output()
+  readonly savePlaceFromContextMenu = new EventEmitter<{
+    longitude: number;
+    latitude: number;
+  }>();
+
   /** Drives the search panel's "Saved" badge: true when the selected result is already saved. */
   readonly selectedResultSaved = signal(false);
 
@@ -135,6 +143,13 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
    * via the close button, selecting another place, or clicking outside the card.
    */
   private readonly pinnedPlaceId = signal<string | null>(null);
+
+  /** Right-click context menu position (viewport pixels). Null = menu closed. */
+  protected readonly contextMenuPos = signal<{ x: number; y: number } | null>(null);
+  /** Coordinates [lng, lat] captured at the last right-click. */
+  private pendingContextCoords: [number, number] | null = null;
+  /** Temporary marker shown while the save-place dialog is open. */
+  private tempContextMarker: Marker | null = null;
 
   constructor() {
     // Reconcile saved-place markers whenever the places list or the visibility flag changes. The
@@ -360,6 +375,20 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
       }
     });
 
+    // Close the context menu when the user starts panning or zooming.
+    map.on('movestart', () => this.closeContextMenu());
+
+    // Right-click context menu for saving a place.
+    this.mapContainer.nativeElement.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      if (!this.mapInstance) return;
+      const rect = this.mapContainer.nativeElement.getBoundingClientRect();
+      const lngLat = this.mapInstance.unproject([e.clientX - rect.left, e.clientY - rect.top]);
+      if (!lngLat || !Number.isFinite(lngLat.lng) || !Number.isFinite(lngLat.lat)) return;
+      this.pendingContextCoords = [lngLat.lng, lngLat.lat];
+      this.contextMenuPos.set({ x: e.clientX, y: e.clientY });
+    });
+
     map.on('error', (err) => {
       if (err?.error?.status === 404 || err?.error?.status === 403 || err?.error?.status === 500) {
         logger.error('MapLibre runtime error:', err);
@@ -451,6 +480,52 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
     }
     if (attempt < 10) {
       setTimeout(() => this.openMarkerPopup(placeId, attempt + 1), 200);
+    }
+  }
+
+  /** Called when the user selects "Add place" from the right-click context menu. */
+  protected onContextMenuAddPlace(): void {
+    const coords = this.pendingContextCoords;
+    if (!coords) return;
+    this.contextMenuPos.set(null);
+
+    // Place a temporary marker at the clicked location.
+    this.clearTempMarker();
+    void this.placeTempMarker(coords);
+
+    this.savePlaceFromContextMenu.emit({
+      longitude: coords[0],
+      latitude: coords[1],
+    });
+  }
+
+  /** Closes the context menu without taking any action. */
+  protected closeContextMenu(): void {
+    this.contextMenuPos.set(null);
+    this.pendingContextCoords = null;
+  }
+
+  private async placeTempMarker([lng, lat]: [number, number]): Promise<void> {
+    const { default: maplibregl } = await import('maplibre-gl');
+    const el = document.createElement('div');
+    el.style.width = '24px';
+    el.style.height = '24px';
+    el.style.borderRadius = '50%';
+    el.style.background = '#1f6f50';
+    el.style.border = '3px solid #fff';
+    el.style.boxShadow = '0 1px 4px rgba(0,0,0,0.3)';
+    el.style.cursor = 'pointer';
+    el.setAttribute('aria-label', 'New place location');
+    this.tempContextMarker = new maplibregl.Marker({ element: el })
+      .setLngLat([lng, lat])
+      .addTo(this.mapInstance!);
+  }
+
+  /** Removes the temporary context-menu marker, if any. */
+  clearTempMarker(): void {
+    if (this.tempContextMarker) {
+      this.tempContextMarker.remove();
+      this.tempContextMarker = null;
     }
   }
 
@@ -787,6 +862,7 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
     if (event.key === 'Escape') {
       this.layerMenuOpen.set(false);
       this.searchPanelVisible.set(false);
+      this.closeContextMenu();
       document.removeEventListener('click', this.closeLayerMenu);
     }
   }

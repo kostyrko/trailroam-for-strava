@@ -1,0 +1,14 @@
+<div
+  class="map-context-menu"
+  [style.left.px]="x()"
+  [style.top.px]="y()"
+  role="menu"
+  attr.aria-label="Map context menu"
+  (click)="$event.stopPropagation()"
+  (contextmenu)="$event.preventDefault()"
+>
+  <button class="map-context-menu__action" type="button" role="menuitem" (click)="addPlace.emit()">
+    <app-icon name="map-pin" [size]="16" strokeWidth="2"></app-icon>
+    Save place
+  </button>
+</div>

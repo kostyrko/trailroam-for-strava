@@ -538,7 +538,11 @@ export class MapPage implements AfterViewInit {
         this.fetchFullGeometryForRoute(route);
       }
     });
-    // Capture placeId/from from URL into pending signals so they survive param cleanup
+    // Capture placeId/from from URL into pending signals. Once consumed by the fly-to effect
+    // below, pendingPlaceId is set to null so the URL params are never re-processed on subsequent
+    // signal changes. We intentionally do NOT navigate to clear the URL params here — doing so
+    // from within a constructor effect can race with the component's async initialization and
+    // cause the component to be destroyed/re-created before the fly-to completes.
     effect(() => {
       const placeId = this.placeIdParam();
       const from = this.fromParam();
@@ -546,8 +550,6 @@ export class MapPage implements AfterViewInit {
         this.placeNavigationActive.set(true);
         this.pendingPlaceId.set(placeId);
         this.pendingPlaceSource.set(from);
-        // Clear URL params immediately so bookmarking doesn't keep stale IDs
-        this.router.navigate(['/map'], { queryParams: {}, replaceUrl: true });
       }
     });
     // Drive the fly-to logic from pending signals so it works regardless of URL state
@@ -561,9 +563,8 @@ export class MapPage implements AfterViewInit {
       if (found && ready) {
         this.selectedPlaceId.set(found.id);
         this.leftPanelView.set(from === 'all' ? 'all' : 'places');
-        if (this.mapComponent) {
-          this.mapComponent.focusSavedPlace(found);
-        }
+        // focusSavedPlace handles map-not-ready internally with a retry loop.
+        this.mapComponent?.focusSavedPlace(found);
         // Clear pending so we don't re-fly on every signal change
         this.pendingPlaceId.set(null);
         this.pendingPlaceSource.set(null);

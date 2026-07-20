@@ -495,7 +495,7 @@ describe('MapPage', () => {
     expect(cmp.noRouteActivity()).toBe(false);
   });
 
-  it('should capture placeId from URL params into pendingPlaceId and clear URL', async () => {
+  it('should capture placeId from URL params into pendingPlaceId', async () => {
     configureMapPage({ placeId: 'place:1', from: 'places' });
 
     const fixture = TestBed.createComponent(MapPage);
@@ -504,7 +504,6 @@ describe('MapPage', () => {
     fixture.detectChanges();
 
     const cmp = fixture.componentInstance as any;
-    // The effect captures placeId/from into pending signals and navigates to /map to clear params
     expect(cmp.pendingPlaceId()).toBe('place:1');
     expect(cmp.placeNavigationActive()).toBe(true);
   });

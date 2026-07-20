@@ -413,17 +413,10 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
       this.pendingReadyTasks.push(() => this.flyTo(center, bounds));
       return;
     }
-    const execute = () => {
-      if (bounds) {
-        map.fitBounds(bounds, { padding: 80, maxZoom: 15 });
-      } else {
-        map.flyTo({ center, zoom: Math.max(map.getZoom(), 13) });
-      }
-    };
-    if (map.isStyleLoaded()) {
-      execute();
+    if (bounds) {
+      map.fitBounds(bounds, { padding: 80, maxZoom: 15 });
     } else {
-      map.once('style.load', execute);
+      map.flyTo({ center, zoom: Math.max(map.getZoom(), 13) });
     }
   }
 
@@ -434,6 +427,10 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
    */
   focusSavedPlace(place: SavedPlaceRecord): void {
     const center: [number, number] = [place.longitude, place.latitude];
+    if (!this.mapInstance) {
+      setTimeout(() => this.focusSavedPlace(place), 100);
+      return;
+    }
     this.flyTo(center);
     this.pinnedPlaceId.set(place.id);
     this.openMarkerPopup(place.id);
@@ -521,9 +518,19 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
     for (const place of places) {
       const existing = this.savedPlaceMarkers.get(place.id);
       if (existing) {
+        // Preserve the popup open state: Marker.setPopup() removes the old popup (closing it if
+        // open) and sets a new one — it never re-opens the new popup automatically.
+        const oldPopup = existing.getPopup();
+        const popupWasOpen = oldPopup?.isOpen() ?? false;
+
         existing.setLngLat([place.longitude, place.latitude]);
         existing.setDraggable(true);
         existing.setPopup(this.buildSavedPlacePopup(place, maplibregl.Popup));
+
+        if (popupWasOpen) {
+          existing.togglePopup();
+        }
+
         this.applyMarkerAccessibility(existing, place);
         continue;
       }

@@ -14,36 +14,12 @@
     </div>
   </div>
 
-  <!-- Tab switcher -->
-  <div class="logbook-tabs" role="tablist" aria-label="Logbook views">
-    <button
-      class="logbook-tab"
-      [class.logbook-tab--active]="logbookView() === 'activities'"
-      role="tab"
-      aria-selected="logbookView() === 'activities'"
-      (click)="logbookView.set('activities')"
-    >
-      Activities
-    </button>
-    <button
-      class="logbook-tab"
-      [class.logbook-tab--active]="logbookView() === 'places'"
-      role="tab"
-      aria-selected="logbookView() === 'places'"
-      (click)="logbookView.set('places')"
-    >
-      Places
-    </button>
-    <button
-      class="logbook-tab"
-      [class.logbook-tab--active]="logbookView() === 'all'"
-      role="tab"
-      aria-selected="logbookView() === 'all'"
-      (click)="logbookView.set('all')"
-    >
-      All
-    </button>
-  </div>
+  <!-- Navigation card -->
+  <app-logbook-nav
+    [items]="logbookNavItems()"
+    [activeId]="logbookView()"
+    (activeIdChange)="logbookView.set($event)"
+  />
 
   @switch (logbookView()) {
     @case ('activities') {

@@ -32,6 +32,11 @@
   margin: 0;
 }
 
+app-logbook-nav {
+  display: block;
+  margin-bottom: 16px;
+}
+
 .local-storage-indicator {
   align-items: center;
   color: #859b8e;
@@ -1196,44 +1201,6 @@
 .status-badge--planned {
   background: #f3e8ff;
   color: #7c3aed;
-}
-
-/* ── Tab Switcher ── */
-.logbook-tabs {
-  align-items: center;
-  background: #fff;
-  border-bottom: 1px solid #eef5f0;
-  display: flex;
-  gap: 2px;
-  margin-bottom: 16px;
-  padding: 6px;
-}
-.logbook-tab {
-  background: transparent;
-  border: 0;
-  border-radius: 8px;
-  color: #63746a;
-  cursor: pointer;
-  flex: 1;
-  font: inherit;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  height: 32px;
-  padding: 0;
-  transition:
-    background 120ms ease,
-    color 120ms ease;
-}
-.logbook-tab:hover {
-  background: #f4f9f6;
-  color: #14211b;
-}
-.logbook-tab--active {
-  background: #1f6f50;
-  color: #fff;
-}
-.logbook-tab--active:hover {
-  background: #185940;
 }
 
 /* ── Places Tab ── */

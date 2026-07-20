@@ -69,6 +69,7 @@ import {
 import { SPORT_TYPE_EMOJI, sportTypeEmoji } from '../shared/activity-display';
 import { SavedPlacesService } from '../map/saved-places.service';
 import { SavePlaceDialog, type SavePlaceDialogData } from '../shared/save-place-dialog.component';
+import { LogbookNavComponent, type LogbookNavItem } from './logbook-nav.component';
 
 const PAGE_SIZE_OPTIONS = [5, 10, 25, 50, 100];
 
@@ -152,6 +153,7 @@ function routeStatusLabel(status: string): string {
     ActivitiesStatsComponent,
     ActivitiesSourceFilterComponent,
     ActivitiesSelectedActionsComponent,
+    LogbookNavComponent,
   ],
   templateUrl: './activities-page.component.html',
   styleUrl: './activities-page.component.scss',
@@ -171,8 +173,30 @@ export class ActivitiesPageComponent {
   private readonly destroyRef = inject(DestroyRef);
 
   /** Tabbed view state for the Logbook page. */
-  protected readonly logbookView = signal<'activities' | 'places' | 'all'>('activities');
+  protected readonly logbookView = signal<string>('activities');
   protected readonly savedPlacesService = inject(SavedPlacesService);
+
+  /** Data-driven nav items for the Logbook tab switcher. */
+  protected readonly logbookNavItems = computed<LogbookNavItem[]>(() => [
+    {
+      id: 'activities',
+      label: 'Activities',
+      icon: 'activity',
+      count: this.totalCount(),
+    },
+    {
+      id: 'places',
+      label: 'Places',
+      icon: 'map-pin',
+      count: this.savedPlacesService.places().length,
+    },
+    {
+      id: 'all',
+      label: 'All',
+      icon: 'layers',
+      count: this.totalCount() + this.savedPlacesService.places().length,
+    },
+  ]);
 
   /** Search query for the Places tab. */
   protected readonly placesSearchQuery = signal('');

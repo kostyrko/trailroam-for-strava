@@ -1,0 +1,25 @@
+<nav class="logbook-nav" role="tablist" aria-label="Logbook views">
+  @for (item of items(); track item.id; let idx = $index) {
+    <button
+      class="logbook-nav__item"
+      [class.logbook-nav__item--active]="item.id === activeId()"
+      role="tab"
+      [attr.aria-selected]="item.id === activeId()"
+      [attr.aria-controls]="'logbook-panel-' + item.id"
+      [tabindex]="item.id === activeId() ? 0 : -1"
+      (click)="onItemClick(item.id)"
+      (keydown)="onKeydown($event, idx)"
+    >
+      <span class="logbook-nav__indicator" aria-hidden="true"></span>
+      <span class="logbook-nav__body">
+        <span class="logbook-nav__icon">
+          <app-icon [name]="item.icon" [size]="18" strokeWidth="2"></app-icon>
+        </span>
+        <span class="logbook-nav__label">{{ item.label }}</span>
+        @if (item.count > 0) {
+          <span class="logbook-nav__badge">{{ item.count }}</span>
+        }
+      </span>
+    </button>
+  }
+</nav>

@@ -4,6 +4,7 @@ import { type MapRouteFeature } from './mock-routes';
 import { formatDistance, formatDuration, formatDateShort } from '../shared/formatters';
 import { sportTypeEmojiFromString } from '../shared/activity-display';
 import type { SavedPlaceRecord } from '../storage/storage.models';
+import type { SidebarTrailItem } from './map-activity-panel.component';
 
 /**
  * A single unified row in the "All" view. Discriminated by `kind` so the template can render
@@ -11,13 +12,12 @@ import type { SavedPlaceRecord } from '../storage/storage.models';
  */
 export type AllRow =
   | { kind: 'activity'; activityId: string; route: MapRouteFeature; ts: number }
-  | { kind: 'place'; id: string; place: SavedPlaceRecord; ts: number };
+  | { kind: 'place'; id: string; place: SavedPlaceRecord; ts: number }
+  | { kind: 'trail'; trailItem: SidebarTrailItem; ts: number };
 
 /**
- * Presentational panel for the "All" left-panel view: merges activities and saved places into one
- * list, ordered newest-first, with each row visually identifiable by type. Mirrors the structure
- * and row styling of `MapActivityPanelComponent` / `MapPlacesPanelComponent`. Emits selection,
- * edit, and remove intents; the container (`MapPage`) performs the work.
+ * Presentational panel for the "All" left-panel view: merges activities, trails and saved places
+ * into one list, ordered newest-first, with each row visually identifiable by type.
  */
 @Component({
   selector: 'app-map-all-panel',
@@ -31,12 +31,17 @@ export class MapAllPanelComponent {
   readonly routes = input<MapRouteFeature[]>([]);
   /** Saved places to render (newest-first, as provided by the container). */
   readonly places = input<SavedPlaceRecord[]>([]);
+  /** Trail items to render in the All panel. */
+  readonly trails = input<SidebarTrailItem[]>([]);
   /** Currently selected activity id (for highlight). */
   readonly selectedActivityId = input<string | null>(null);
+  /** Currently selected trail id (for highlight). */
+  readonly selectedTrailId = input<string | null>(null);
   /** Currently focused place id (for highlight). */
   readonly selectedPlaceId = input<string | null>(null);
 
   readonly selectRoute = output<MapRouteFeature>();
+  readonly selectTrail = output<string>();
   readonly hoverRoute = output<MapRouteFeature | null>();
   readonly selectPlace = output<SavedPlaceRecord>();
   readonly editPlace = output<SavedPlaceRecord>();
@@ -75,13 +80,20 @@ export class MapAllPanelComponent {
       place,
       ts: this.toTimestamp(place.createdAt),
     }));
-    return [...activities, ...places].sort((a, b) => b.ts - a.ts);
+    const trailItems = this.trails().map((t) => ({
+      kind: 'trail' as const,
+      trailItem: t,
+      ts: this.toTimestamp(t.firstDate),
+    }));
+    return [...activities, ...places, ...trailItems].sort((a, b) => b.ts - a.ts);
   });
 
   protected readonly filteredRows = computed<AllRow[]>(() => {
     const query = this.searchQuery().toLowerCase().trim();
     const list = this.rows();
-    if (!query) { return list; }
+    if (!query) {
+      return list;
+    }
     return list.filter((row) => {
       if (row.kind === 'activity') {
         return (
@@ -89,24 +101,36 @@ export class MapAllPanelComponent {
           row.route.activity.sportType.toLowerCase().includes(query)
         );
       }
+      if (row.kind === 'place') {
+        return (
+          row.place.name.toLowerCase().includes(query) ||
+          (row.place.secondaryLabel?.toLowerCase().includes(query) ?? false)
+        );
+      }
+      // Trail: match by name or any member activity name
       return (
-        row.place.name.toLowerCase().includes(query) ||
-        (row.place.secondaryLabel?.toLowerCase().includes(query) ?? false)
+        row.trailItem.trail.name.toLowerCase().includes(query) ||
+        row.trailItem.memberActivities.some((m) => m.activity.name.toLowerCase().includes(query))
       );
     });
   });
 
   protected readonly activityCount = computed(() => this.routes().length);
   protected readonly placeCount = computed(() => this.places().length);
+  protected readonly trailCount = computed(() => this.trails().length);
 
   private toTimestamp(iso: string | undefined): number {
-    if (!iso) { return 0; }
+    if (!iso) {
+      return 0;
+    }
     const t = new Date(iso).getTime();
     return Number.isFinite(t) ? t : 0;
   }
 
   protected onSearchInput(value: string): void {
-    if (this.searchInputTimeout) { clearTimeout(this.searchInputTimeout); }
+    if (this.searchInputTimeout) {
+      clearTimeout(this.searchInputTimeout);
+    }
     this.searchInputTimeout = setTimeout(() => this.searchQuery.set(value), 150);
   }
 

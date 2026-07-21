@@ -1,125 +1,231 @@
-    <div class="map-panel" [class.map-panel--collapsed]="!panelExpanded()" [class.map-panel--fullscreen]="isFullscreen()" [class.map-panel--no-transition]="noTransition()">
-      <div class="map-panel-side" [class.map-panel-side--hidden]="panelExpanded()">
-        <button class="map-panel-handle" type="button" (click)="toggle()" [attr.aria-label]="panelExpanded() ? 'Collapse activities panel' : 'Expand activities panel'" title="Activities">
-          <app-icon name="activity" [size]="25" strokeWidth="2"></app-icon>
-          @if (!panelExpanded()) {
-            <span class="panel-handle-count">{{ totalRoutes() }}</span>
-          }
+<div
+  class="map-panel"
+  [class.map-panel--collapsed]="!panelExpanded()"
+  [class.map-panel--fullscreen]="isFullscreen()"
+  [class.map-panel--no-transition]="noTransition()"
+>
+  <div class="map-panel-side" [class.map-panel-side--hidden]="panelExpanded()">
+    <button
+      class="map-panel-handle"
+      type="button"
+      (click)="toggle()"
+      [attr.aria-label]="panelExpanded() ? 'Collapse activities panel' : 'Expand activities panel'"
+      title="Activities"
+    >
+      <app-icon name="activity" [size]="25" strokeWidth="2"></app-icon>
+      @if (!panelExpanded()) {
+        <span class="panel-handle-count">{{ totalRoutes() }}</span>
+      }
+    </button>
+  </div>
+
+  <div class="map-panel-inner">
+    <div class="panel-header">
+      <h2 class="panel-title">
+        Activities
+        <span class="panel-count">({{ filteredActivities().length }})</span>
+      </h2>
+      <button
+        class="panel-collapse-btn"
+        type="button"
+        (click)="toggle()"
+        aria-label="Collapse panel"
+      >
+        <app-icon name="x" [size]="16" strokeWidth="2"></app-icon>
+      </button>
+    </div>
+
+    <div class="panel-controls">
+      <div class="panel-search-wrap">
+        <app-icon
+          name="search"
+          [size]="14"
+          strokeWidth="2"
+          [class]="'panel-search-icon'"
+        ></app-icon>
+        <input
+          class="panel-search-input"
+          type="search"
+          placeholder="Search activities..."
+          [value]="searchQuery()"
+          (input)="onSearchInput($any($event.target).value)"
+          aria-label="Search activities"
+        />
+        @if (searchQuery()) {
+          <button
+            class="panel-search-clear"
+            type="button"
+            (click)="clearSearch()"
+            aria-label="Clear search"
+          >
+            <app-icon name="x" [size]="12" strokeWidth="2"></app-icon>
+          </button>
+        }
+      </div>
+
+      <div
+        class="panel-filters-header"
+        (click)="toggleFiltersExpanded()"
+        role="button"
+        tabindex="0"
+        (keydown.enter)="toggleFiltersExpanded()"
+        aria-label="Toggle filters"
+      >
+        <span class="panel-filters-toggle">{{ filtersExpanded() ? '&#9660;' : '&#9654;' }}</span>
+        <span class="panel-filters-title">Source filter</span>
+      </div>
+      @if (filtersExpanded()) {
+        <div class="panel-source-filter">
+          @let sf = sourceFilter();
+          <button
+            class="panel-source-chip"
+            [class.active]="sf.size === 0"
+            (click)="resetSourceFilter()"
+          >
+            All
+          </button>
+          <button
+            class="panel-source-chip"
+            [class.active]="sf.has('strava')"
+            (click)="toggleSourceFilter('strava')"
+          >
+            ⚡ Strava
+          </button>
+          <button
+            class="panel-source-chip"
+            [class.active]="sf.has('imported')"
+            (click)="toggleSourceFilter('imported')"
+          >
+            ⬆ Imported
+          </button>
+          <button
+            class="panel-source-chip"
+            [class.active]="sf.has('planned')"
+            (click)="toggleSourceFilter('planned')"
+          >
+            ◌ Planned
+          </button>
+        </div>
+      }
+
+      <label class="panel-visibility-toggle">
+        <input type="checkbox" [checked]="visibleOnMap()" (change)="toggleVisibleOnMap()" />
+        <span class="panel-toggle-label">Visible on map</span>
+      </label>
+
+      <div class="panel-sort-row">
+        <button
+          class="panel-sort-btn"
+          [class.active]="sortBy() === 'newest'"
+          type="button"
+          (click)="setSort('newest')"
+        >
+          Newest
+        </button>
+        <button
+          class="panel-sort-btn"
+          [class.active]="sortBy() === 'longest'"
+          type="button"
+          (click)="setSort('longest')"
+        >
+          Longest
+        </button>
+        <button
+          class="panel-sort-btn"
+          [class.active]="sortBy() === 'az'"
+          type="button"
+          (click)="setSort('az')"
+        >
+          A-Z
         </button>
       </div>
-
-      <div class="map-panel-inner">
-        <div class="panel-header">
-          <h2 class="panel-title">
-            Activities
-            <span class="panel-count">({{ filteredActivities().length }})</span>
-          </h2>
-          <button class="panel-collapse-btn" type="button" (click)="toggle()" aria-label="Collapse panel">
-            <app-icon name="x" [size]="16" strokeWidth="2"></app-icon>
-          </button>
-        </div>
-
-        <div class="panel-controls">
-          <div class="panel-search-wrap">
-            <app-icon name="search" [size]="14" strokeWidth="2" [class]="'panel-search-icon'"></app-icon>
-            <input
-              class="panel-search-input"
-              type="search"
-              placeholder="Search activities..."
-              [value]="searchQuery()"
-              (input)="onSearchInput($any($event.target).value)"
-              aria-label="Search activities"
-            />
-            @if (searchQuery()) {
-              <button class="panel-search-clear" type="button" (click)="clearSearch()" aria-label="Clear search">
-                <app-icon name="x" [size]="12" strokeWidth="2"></app-icon>
-              </button>
-            }
-          </div>
-
-          <div class="panel-filters-header" (click)="toggleFiltersExpanded()" role="button" tabindex="0" (keydown.enter)="toggleFiltersExpanded()" aria-label="Toggle filters">
-            <span class="panel-filters-toggle">{{ filtersExpanded() ? '&#9660;' : '&#9654;' }}</span>
-            <span class="panel-filters-title">Source filter</span>
-          </div>
-          @if (filtersExpanded()) {
-          <div class="panel-source-filter">
-            @let sf = sourceFilter();
-            <button class="panel-source-chip" [class.active]="sf.size === 0" (click)="resetSourceFilter()">All</button>
-            <button class="panel-source-chip" [class.active]="sf.has('strava')" (click)="toggleSourceFilter('strava')">⚡ Strava</button>
-            <button class="panel-source-chip" [class.active]="sf.has('imported')" (click)="toggleSourceFilter('imported')">⬆ Imported</button>
-            <button class="panel-source-chip" [class.active]="sf.has('planned')" (click)="toggleSourceFilter('planned')">◌ Planned</button>
-          </div>
-          }
-
-          <label class="panel-visibility-toggle">
-            <input type="checkbox" [checked]="visibleOnMap()" (change)="toggleVisibleOnMap()" />
-            <span class="panel-toggle-label">Visible on map</span>
-          </label>
-
-          <div class="panel-sort-row">
-            <button
-              class="panel-sort-btn"
-              [class.active]="sortBy() === 'newest'"
-              type="button"
-              (click)="setSort('newest')"
-            >Newest</button>
-            <button
-              class="panel-sort-btn"
-              [class.active]="sortBy() === 'longest'"
-              type="button"
-              (click)="setSort('longest')"
-            >Longest</button>
-            <button
-              class="panel-sort-btn"
-              [class.active]="sortBy() === 'az'"
-              type="button"
-              (click)="setSort('az')"
-            >A-Z</button>
-          </div>
-        </div>
-
-        <div class="panel-list">
-          @if (filteredActivities().length === 0) {
-            <div class="panel-empty">
-              <p>No matching activities</p>
-              <p class="panel-empty-hint">Try changing filters or zooming the map.</p>
-            </div>
-          }
-          @for (route of filteredActivities(); track route.activityId) {
-            <button
-              class="panel-item"
-              [class.panel-item--selected]="route.activityId === selectedActivityId()"
-              [class.panel-item--hovered]="route.activityId === hoveredActivityId()"
-              type="button"
-              (click)="selectActivity(route)"
-              (mouseenter)="hoverActivity(route)"
-              (mouseleave)="unhoverActivity()"
-            >
-              <span class="panel-item-emoji">{{ sportTypeEmojiFromString(route.activity.sportType) }}</span>
-              <div class="panel-item-body">
-                <div class="panel-item-name-row">
-                  <span class="panel-item-name">{{ route.activity.name }}</span>
-                  @let st = route.activity.activityStatus ?? 'completed';
-                  @if (st === 'completed') {
-                    <span class="panel-status-badge panel-status-badge--completed">&#10003;</span>
-                  } @else {
-                    <span class="panel-status-badge panel-status-badge--planned">&#9711;</span>
-                  }
-                </div>
-                <div class="panel-item-meta">
-                  {{ formatDistance(route.activity.distanceMeters) }} &middot; {{ formatDuration(route.activity.movingTimeSeconds) }}
-                </div>
-              </div>
-              <div class="panel-item-date">{{ formatDateShort(route.activity.startDate) }}</div>
-            </button>
-          }
-        </div>
-
-        <div class="panel-gpx-bar">
-          <button class="panel-gpx-btn" type="button" [disabled]="filteredActivities().length === 0" (click)="downloadPanelGpx.emit(filteredActivities())">
-            <app-icon name="download" [size]="16" strokeWidth="2"></app-icon>
-            Download GPX
-          </button>
-        </div>
-      </div>
     </div>
+
+    <div class="panel-list">
+      @if (filteredActivities().length === 0 && trails().length === 0) {
+        <div class="panel-empty">
+          <p>No matching activities</p>
+          <p class="panel-empty-hint">Try changing filters or zooming the map.</p>
+        </div>
+      }
+
+      <!-- Trail items -->
+      @for (t of trails(); track t.trail.id) {
+        <button
+          class="panel-item panel-item--trail"
+          [class.panel-item--selected]="t.trail.id === selectedTrailId()"
+          type="button"
+          (click)="selectTrail.emit(t.trail.id)"
+        >
+          <span class="panel-item-emoji panel-item-emoji--trail">
+            <app-icon name="mountain" [size]="16" strokeWidth="2"></app-icon>
+          </span>
+          <div class="panel-item-body">
+            <div class="panel-item-name-row">
+              <span class="panel-item-name panel-item-name--trail">{{ t.trail.name }}</span>
+              <span class="panel-trail-badge">Trail</span>
+            </div>
+            <div class="panel-item-meta">
+              {{ t.memberActivities.length }}
+              {{ t.memberActivities.length === 1 ? 'activity' : 'activities' }}
+              @if (t.totalDistanceMeters > 0) {
+                &middot; {{ formatDistance(t.totalDistanceMeters) }}
+              }
+            </div>
+            <div class="panel-item-meta">
+              {{ formatDateShort(t.firstDate) }}
+              @if (t.firstDate !== t.lastDate) {
+                – {{ formatDateShort(t.lastDate) }}
+              }
+            </div>
+          </div>
+        </button>
+      }
+
+      <!-- Activity items -->
+      @for (route of filteredActivities(); track route.activityId) {
+        <button
+          class="panel-item"
+          [class.panel-item--selected]="route.activityId === selectedActivityId()"
+          [class.panel-item--hovered]="route.activityId === hoveredActivityId()"
+          type="button"
+          (click)="selectActivity(route)"
+          (mouseenter)="hoverActivity(route)"
+          (mouseleave)="unhoverActivity()"
+        >
+          <span class="panel-item-emoji">{{
+            sportTypeEmojiFromString(route.activity.sportType)
+          }}</span>
+          <div class="panel-item-body">
+            <div class="panel-item-name-row">
+              <span class="panel-item-name">{{ route.activity.name }}</span>
+              @let st = route.activity.activityStatus ?? 'completed';
+              @if (st === 'completed') {
+                <span class="panel-status-badge panel-status-badge--completed">&#10003;</span>
+              } @else {
+                <span class="panel-status-badge panel-status-badge--planned">&#9711;</span>
+              }
+            </div>
+            <div class="panel-item-meta">
+              {{ formatDistance(route.activity.distanceMeters) }} &middot;
+              {{ formatDuration(route.activity.movingTimeSeconds) }}
+            </div>
+          </div>
+          <div class="panel-item-date">{{ formatDateShort(route.activity.startDate) }}</div>
+        </button>
+      }
+    </div>
+
+    <div class="panel-gpx-bar">
+      <button
+        class="panel-gpx-btn"
+        type="button"
+        [disabled]="filteredActivities().length === 0"
+        (click)="downloadPanelGpx.emit(filteredActivities())"
+      >
+        <app-icon name="download" [size]="16" strokeWidth="2"></app-icon>
+        Download GPX
+      </button>
+    </div>
+  </div>
+</div>

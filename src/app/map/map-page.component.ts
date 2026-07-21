@@ -43,6 +43,7 @@ import {
   formatSpeed,
   formatDuration,
   formatDate,
+  formatDateShort,
   fmtDate,
 } from '../shared/formatters';
 import { ToastService } from '../shared/toast.service';
@@ -59,7 +60,9 @@ import { MapPlacesPanelComponent } from './map-places-panel.component';
 import { MapAllPanelComponent } from './map-all-panel.component';
 import { SavedPlacesService } from './saved-places.service';
 import { GeocodingService } from './geocoding.service';
+import { sportTypeEmojiFromString } from '../shared/activity-display';
 import { TrailsService } from '../storage/trails.service';
+import type { SidebarTrailItem } from './map-activity-panel.component';
 import { logger } from '../shared/logger';
 
 const ROUTES_WARN_THRESHOLD = 1_000;
@@ -77,6 +80,7 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
     MapFilterOverlayComponent,
     MapPlacesPanelComponent,
     MapAllPanelComponent,
+    IconComponent,
   ],
   templateUrl: './map-page.component.html',
   styleUrl: './map-page.component.scss',
@@ -172,6 +176,37 @@ export class MapPage implements AfterViewInit {
   protected readonly standaloneRoutes = computed<MapRouteFeature[]>(() => {
     const trailed = this.trailedActivityIds();
     return this.filteredRoutes().filter((r) => !trailed.has(r.activityId));
+  });
+  /** Trail items computed for the sidebar, enriched with member route data. */
+  protected readonly sidebarTrailItems = computed<SidebarTrailItem[]>(() => {
+    const allRoutes = this.allRoutes();
+    const trails = this.trailsService.trails();
+    const result: SidebarTrailItem[] = [];
+    for (const trail of trails) {
+      const memberActivities = allRoutes.filter((r) => trail.activityIds.includes(r.activityId));
+      if (memberActivities.length < 2) continue;
+      const totalDistanceMeters = memberActivities.reduce(
+        (s, r) => s + (r.activity.distanceMeters ?? 0),
+        0,
+      );
+      const totalMovingSeconds = memberActivities.reduce(
+        (s, r) => s + (r.activity.movingTimeSeconds ?? 0),
+        0,
+      );
+      const dates = memberActivities
+        .map((r) => r.activity.startDate)
+        .filter(Boolean)
+        .sort();
+      result.push({
+        trail,
+        memberActivities,
+        totalDistanceMeters,
+        totalMovingSeconds,
+        firstDate: dates[0] ?? '',
+        lastDate: dates[dates.length - 1] ?? '',
+      });
+    }
+    return result;
   });
   /** The search result the user just selected (drives the save flow + "Saved" badge). */
   protected readonly selectedSearchResult = signal<GeocodeResult | null>(null);
@@ -598,24 +633,39 @@ export class MapPage implements AfterViewInit {
     this.selectedTrailId.set(trailId);
     this.selectedMapRoute.set(null);
     this.selectedRouteGeometry.set(null);
-    // Fit map to all routes in the trail
+    this.detailPanelOpen.set(true);
+    // Fit map to ALL routes in the trail (collective bounds)
     const trail = this.trailsService.trails().find((t) => t.id === trailId);
     if (trail) {
       const trailRoutes = this.allRoutes().filter((r) => trail.activityIds.includes(r.activityId));
       if (trailRoutes.length > 0) {
-        // Select the first route and fit to its bounds
-        this.routeRendererService.selectRoute(trailRoutes[0].activityId);
-        const bounds = trailRoutes[0].route.bounds;
-        if (bounds) {
-          this.routeRendererService.fitToRoute(trailRoutes[0].coordinates, bounds);
+        // Compute collective bounds from all member routes
+        const allCoords = trailRoutes.flatMap((r) => r.coordinates);
+        if (allCoords.length > 0) {
+          const lngs = allCoords.map((c) => c[0]);
+          const lats = allCoords.map((c) => c[1]);
+          const map = (this.mapComponent as any)?.mapInstance;
+          if (map?.isStyleLoaded?.()) {
+            map.fitBounds(
+              [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)],
+              { padding: 80, maxZoom: 15 },
+            );
+          }
         }
+        // Use emphasis/dim mechanism: trail routes stay full opacity, everything else dims
+        const trailActivityIds = new Set(trailRoutes.map((r) => r.activityId));
+        this.routeRendererService.setEmphasis(trailActivityIds, null);
       }
     }
   }
 
   protected clearSelectedTrail(): void {
     this.selectedTrailId.set(null);
-    this.routeRendererService.deselectRoute();
+    this.routeRendererService.clearEmphasis();
+  }
+
+  protected getSidebarTrail(trailId: string): SidebarTrailItem | undefined {
+    return this.sidebarTrailItems().find((t) => t.trail.id === trailId);
   }
 
   private async loadRoutes(): Promise<void> {
@@ -732,6 +782,11 @@ export class MapPage implements AfterViewInit {
   protected formatSportType = formatSportType;
   protected formatCategory = formatCategory;
   protected mapSportTypeToCategory = mapSportTypeToCategory;
+  protected readonly formatDurationHours = formatDurationHours;
+  protected readonly formatDate = formatDate;
+  protected readonly formatDateShort = formatDateShort;
+  protected readonly formatDistance = formatDistance;
+  protected readonly sportTypeEmojiFromString = sportTypeEmojiFromString;
 
   protected showBasemapError(): void {
     this.mapBasemapError.set(true);

@@ -342,3 +342,46 @@
 .place-dropdown-item--danger .place-dd-icon {
   color: #b8433a;
 }
+
+/* ── Trail item in All panel ─────────────────── */
+
+.panel-item--trail {
+  background: #f4faf6;
+  border-left: 4px solid #b7d9c4;
+  margin-bottom: 4px;
+  padding: 12px 12px 10px;
+}
+.panel-item--trail:hover {
+  background: #eaf5ee;
+}
+.panel-item--trail.panel-item--selected {
+  background: #dff0e5;
+  border-left-color: #15803d;
+}
+.panel-item-emoji--trail {
+  align-items: center;
+  background: #e0f2e6;
+  border-radius: 8px;
+  color: #15803d;
+  display: flex;
+  height: 32px;
+  justify-content: center;
+  width: 32px;
+}
+.panel-item-name--trail {
+  font-weight: 700;
+  font-size: 0.875rem;
+  color: #14211b;
+}
+.panel-trail-badge {
+  background: #15803d;
+  border-radius: 3px;
+  color: #fff;
+  font-size: 0.5625rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin-left: auto;
+  padding: 1px 5px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}

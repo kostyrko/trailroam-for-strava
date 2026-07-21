@@ -99,15 +99,16 @@
           (downloadGpx)="downloadSelectedGpx()"
           (deleteSelected)="deleteSelected()"
           (clearSelection)="clearSelection()"
+          (createTrail)="onCreateTrail()"
         />
 
         @if (status() !== 'empty') {
           <p class="activities-count">
-            @if (totalFilteredCount() > pageSize()) {
+            @if (totalFilteredRowCount() > pageSize()) {
               Showing page {{ currentPage() }} of {{ totalPages() }} ·
-              {{ totalFilteredCount() }} activities
+              {{ totalFilteredRowCount() }} items
             } @else {
-              {{ totalFilteredCount() }} activities
+              {{ totalFilteredRowCount() }} items
             }
           </p>
         }
@@ -201,194 +202,360 @@
               </tr>
             </thead>
             <tbody>
-              @for (activity of filteredActivities(); track activity.id) {
-                <tr
-                  class="activity-row"
-                  [class.clickable]="activity.hasRoute"
-                  [class.no-route]="!activity.hasRoute"
-                  [class.focus-highlight]="highlightActivityId() === activity.id"
-                  [class.row-selected]="selectedIds().has(activity.id)"
-                  [class.panel-open]="selectedActivity()?.id === activity.id"
-                  [attr.data-activity-id]="activity.id"
-                  (click)="navigateToActivity(activity)"
-                >
-                  <td class="cell-checkbox" (click)="$event.stopPropagation()">
-                    <input
-                      type="checkbox"
-                      [checked]="selectedIds().has(activity.id)"
-                      (change)="toggleSelection(activity.id)"
-                      [attr.aria-label]="'Select ' + activity.name"
-                    />
-                  </td>
-                  <td class="cell-date cell-date-secondary">
-                    {{ formatDate(activity.startDate) }}
-                  </td>
-                  <td class="cell-sparkline" (click)="$event.stopPropagation()">
-                    @if (!routesCacheFilled() && activity.hasRoute) {
-                      <span class="sparkline-loading" aria-label="Loading route preview"></span>
-                    }
-                    <app-route-sparkline [coordinates]="getRouteCoords(activity.id)" />
-                  </td>
-                  <td class="cell-name cell-name-bold">{{ activity.name }}</td>
-                  <td class="cell-source">
-                    @if (activity.provider === 'strava') {
-                      <span class="source-badge source-badge--strava">⚡ Strava</span>
-                    } @else {
-                      <span class="source-badge source-badge--imported">⬆ Imported</span>
-                    }
-                  </td>
-                  <td class="cell-status">
-                    @let st = activity.activityStatus ?? 'completed';
-                    @if (st === 'completed') {
-                      <span class="status-badge status-badge--completed">✓ Completed</span>
-                    } @else {
-                      <span class="status-badge status-badge--planned">◌ Planned</span>
-                    }
-                  </td>
-                  <td>
-                    <span
-                      class="category-tag"
-                      [style.background]="categoryTagBg(activity.activityCategory)"
-                      [style.color]="categoryTagFg(activity.activityCategory)"
-                      ><span class="cat-emoji">{{ sportTypeEmoji(activity) }}</span
-                      >{{ formatSportType(activity.sportType) }}</span
-                    >
-                  </td>
-                  <td class="cell-num cell-distance-bold">
-                    {{ formatDistance(activity.distanceMeters) }}
-                  </td>
-                  <td class="cell-num">
-                    {{
-                      formatSpeed(
-                        computeSpeed(
-                          activity.averageSpeedMetersPerSecond,
-                          activity.distanceMeters,
-                          activity.movingTimeSeconds
-                        )
-                      )
-                    }}
-                  </td>
-                  <td class="cell-num">{{ formatDuration(activity.movingTimeSeconds) }}</td>
-                  <td>
-                    <span
-                      class="route-badge"
-                      [class.route-ok]="activity.routeSyncStatus === 'route_synced'"
-                      >{{ routeStatusLabel(activity.routeSyncStatus) }}</span
-                    >
-                  </td>
-                  <td class="cell-actions">
-                    <div class="activity-actions-cell">
-                      @if (activity.hasRoute) {
+              @for (
+                row of pagedRows();
+                track row.kind === 'trail' ? row.trail.id : row.activity.id
+              ) {
+                @if (row.kind === 'trail') {
+                  <!-- Trail row -->
+                  <tr
+                    class="trail-row"
+                    [class.trail-row--selected]="selectedTrail()?.id === row.trail.id"
+                    (click)="onSelectTrail(row.trail)"
+                  >
+                    <td class="cell-checkbox" (click)="$event.stopPropagation()">
+                      <input
+                        type="checkbox"
+                        checked
+                        disabled
+                        aria-label="Trail activities selected"
+                      />
+                    </td>
+                    <td class="cell-date cell-date-secondary">
+                      {{ formatDate(row.firstDate) }}
+                      @if (row.firstDate !== row.lastDate) {
+                        <span class="trail-date-range"> – {{ formatDateShort(row.lastDate) }}</span>
+                      }
+                    </td>
+                    <td class="cell-sparkline">
+                      <button
+                        class="trail-expand-btn"
+                        [class.trail-expand-btn--open]="expandedTrailIds().has(row.trail.id)"
+                        [class.trail-expand-btn--closed]="!expandedTrailIds().has(row.trail.id)"
+                        type="button"
+                        (click)="toggleExpandTrail(row.trail.id); $event.stopPropagation()"
+                        attr.aria-label="{{
+                          expandedTrailIds().has(row.trail.id) ? 'Collapse' : 'Expand'
+                        }} trail"
+                      >
+                        <app-icon
+                          [name]="
+                            expandedTrailIds().has(row.trail.id) ? 'chevron-down' : 'chevron-right'
+                          "
+                          [size]="14"
+                          strokeWidth="3"
+                        ></app-icon>
+                      </button>
+                    </td>
+                    <td class="cell-name">
+                      <span class="trail-row-main">
+                        <span class="trail-row-name">{{ row.trail.name }}</span>
+                      </span>
+                      <div class="trail-subtitle">
+                        {{ row.memberActivities.length }}
+                        {{ row.memberActivities.length === 1 ? 'activity' : 'activities' }}
+                        @if (row.totalDistanceMeters > 0) {
+                          · {{ formatDistance(row.totalDistanceMeters) }}
+                        }
+                        @if (row.firstDate !== row.lastDate) {
+                          · {{ formatDateShort(row.firstDate) }} –
+                          {{ formatDateShort(row.lastDate) }}
+                        } @else {
+                          · {{ formatDateShort(row.firstDate) }}
+                        }
+                      </div>
+                    </td>
+                    <td class="cell-source"></td>
+                    <td class="cell-status"></td>
+                    <td>
+                      <span class="source-badge source-badge--trail">Trail</span>
+                    </td>
+                    <td class="cell-num cell-distance-bold">
+                      {{ formatDistance(row.totalDistanceMeters) }}
+                    </td>
+                    <td class="cell-num">{{ formatDurationHours(row.totalMovingSeconds) }}</td>
+                    <td class="cell-num">{{ formatDuration(row.totalMovingSeconds) }}</td>
+                    <td></td>
+                    <td class="cell-actions">
+                      <div class="activity-actions-cell">
                         <button
                           class="map-nav-btn"
                           type="button"
-                          (click)="navigateToMap($event, activity)"
-                          attr.aria-label="View '{{ activity.name }}' on map"
+                          (click)="navigateToTrailOnMap(row.trail); $event.stopPropagation()"
                           title="View on map"
+                          attr.aria-label="View '{{ row.trail.name }}' on map"
                         >
                           <app-icon name="map" [size]="16" strokeWidth="2"></app-icon>
                         </button>
-                      }
-                      <div class="activity-menu-wrapper">
-                        <button
-                          class="activity-menu-trigger"
-                          type="button"
-                          aria-haspopup="menu"
-                          [attr.aria-expanded]="openMenuId() === activity.id"
-                          (click)="toggleActivityMenu($event, activity.id)"
-                        >
-                          ⋮
-                        </button>
-                        @if (openMenuId() === activity.id) {
-                          <ul
-                            class="activity-dropdown"
-                            [style]="menuStyle()"
-                            role="menu"
-                            (click)="$event.stopPropagation()"
+                        <div class="activity-menu-wrapper">
+                          <button
+                            class="activity-menu-trigger"
+                            type="button"
+                            aria-haspopup="menu"
+                            [attr.aria-expanded]="openMenuId() === row.trail.id"
+                            (click)="toggleActivityMenu($event, row.trail.id)"
                           >
-                            <li role="none">
-                              <button
-                                class="act-dropdown-item"
-                                role="menuitem"
-                                (click)="openOnStrava($event, activity)"
-                              >
-                                <app-icon
-                                  name="external-link"
-                                  [size]="16"
-                                  strokeWidth="2"
-                                  [class]="'act-dropdown-icon'"
-                                ></app-icon>
-                                Strava
-                              </button>
-                            </li>
-                            <li role="none">
-                              <button
-                                class="act-dropdown-item"
-                                [class.act-dropdown-item-disabled]="!activity.hasRoute"
-                                [disabled]="!activity.hasRoute"
-                                role="menuitem"
-                                (click)="downloadGpx($event, activity)"
-                              >
-                                <app-icon
-                                  name="download"
-                                  [size]="16"
-                                  strokeWidth="2"
-                                  [class]="'act-dropdown-icon'"
-                                ></app-icon>
-                                Download GPX
-                              </button>
-                            </li>
-                            <li role="none">
-                              <button
-                                class="act-dropdown-item"
-                                role="menuitem"
-                                (click)="editActivity($event, activity)"
-                              >
-                                <app-icon
-                                  name="pencil"
-                                  [size]="16"
-                                  strokeWidth="2"
-                                  [class]="'act-dropdown-icon'"
-                                ></app-icon>
-                                Edit
-                              </button>
-                            </li>
-                            <li role="none">
-                              <button
-                                class="act-dropdown-item act-dropdown-item-danger"
-                                role="menuitem"
-                                (click)="deleteActivity($event, activity)"
-                              >
-                                <app-icon
-                                  name="trash-2"
-                                  [size]="16"
-                                  strokeWidth="2"
-                                  [class]="'act-dropdown-icon'"
-                                ></app-icon>
-                                Delete
-                              </button>
-                            </li>
-                            <li role="none">
-                              <button
-                                class="act-dropdown-item"
-                                role="menuitem"
-                                (click)="retrySyncRoute($event, activity)"
-                              >
-                                <app-icon
-                                  name="rotate-ccw"
-                                  [size]="16"
-                                  strokeWidth="2"
-                                  [class]="'act-dropdown-icon'"
-                                ></app-icon>
-                                Retry sync
-                              </button>
-                            </li>
-                          </ul>
-                        }
+                            ⋮
+                          </button>
+                          @if (openMenuId() === row.trail.id) {
+                            <ul
+                              class="activity-dropdown"
+                              [style]="menuStyle()"
+                              role="menu"
+                              (click)="$event.stopPropagation()"
+                            >
+                              <li role="none">
+                                <button
+                                  class="act-dropdown-item"
+                                  role="menuitem"
+                                  (click)="onRenameTrail(row.trail); openMenuId.set(null)"
+                                >
+                                  <app-icon
+                                    name="pencil"
+                                    [size]="16"
+                                    strokeWidth="2"
+                                    [class]="'act-dropdown-icon'"
+                                  ></app-icon>
+                                  Rename
+                                </button>
+                              </li>
+                              <li role="none">
+                                <button
+                                  class="act-dropdown-item act-dropdown-item-danger"
+                                  role="menuitem"
+                                  (click)="onDeleteTrail(row.trail); openMenuId.set(null)"
+                                >
+                                  <app-icon
+                                    name="trash-2"
+                                    [size]="16"
+                                    strokeWidth="2"
+                                    [class]="'act-dropdown-icon'"
+                                  ></app-icon>
+                                  Delete
+                                </button>
+                              </li>
+                            </ul>
+                          }
+                        </div>
                       </div>
-                    </div>
-                  </td>
-                </tr>
+                    </td>
+                  </tr>
+                } @else {
+                  <!-- Activity row (standalone or expanded trail child) -->
+                  <tr
+                    class="activity-row"
+                    [class.clickable]="row.activity.hasRoute"
+                    [class.no-route]="!row.activity.hasRoute"
+                    [class.focus-highlight]="highlightActivityId() === row.activity.id"
+                    [class.row-selected]="selectedIds().has(row.activity.id)"
+                    [class.panel-open]="selectedActivity()?.id === row.activity.id"
+                    [class.activity-row--child]="trailedActivityIds().has(row.activity.id)"
+                    [attr.data-activity-id]="row.activity.id"
+                    (click)="navigateToActivity(row.activity)"
+                  >
+                    <td class="cell-checkbox" (click)="$event.stopPropagation()">
+                      <input
+                        type="checkbox"
+                        [checked]="selectedIds().has(row.activity.id)"
+                        (change)="toggleSelection(row.activity.id)"
+                        [attr.aria-label]="'Select ' + row.activity.name"
+                      />
+                    </td>
+                    <td class="cell-date cell-date-secondary">
+                      {{ formatDate(row.activity.startDate) }}
+                    </td>
+                    <td class="cell-sparkline" (click)="$event.stopPropagation()">
+                      @if (!routesCacheFilled() && row.activity.hasRoute) {
+                        <span class="sparkline-loading" aria-label="Loading route preview"></span>
+                      }
+                      <app-route-sparkline [coordinates]="getRouteCoords(row.activity.id)" />
+                    </td>
+                    <td class="cell-name cell-name-bold">{{ row.activity.name }}</td>
+                    <td class="cell-source">
+                      @if (row.activity.provider === 'strava') {
+                        <span class="source-badge source-badge--strava">⚡ Strava</span>
+                      } @else {
+                        <span class="source-badge source-badge--imported">⬆ Imported</span>
+                      }
+                    </td>
+                    <td class="cell-status">
+                      @let st = row.activity.activityStatus ?? 'completed';
+                      @if (st === 'completed') {
+                        <span class="status-badge status-badge--completed">✓ Completed</span>
+                      } @else {
+                        <span class="status-badge status-badge--planned">◌ Planned</span>
+                      }
+                    </td>
+                    <td>
+                      <span
+                        class="category-tag"
+                        [style.background]="categoryTagBg(row.activity.activityCategory)"
+                        [style.color]="categoryTagFg(row.activity.activityCategory)"
+                        ><span class="cat-emoji">{{ sportTypeEmoji(row.activity) }}</span
+                        >{{ formatSportType(row.activity.sportType) }}</span
+                      >
+                    </td>
+                    <td class="cell-num cell-distance-bold">
+                      {{ formatDistance(row.activity.distanceMeters) }}
+                    </td>
+                    <td class="cell-num">
+                      {{
+                        formatSpeed(
+                          computeSpeed(
+                            row.activity.averageSpeedMetersPerSecond,
+                            row.activity.distanceMeters,
+                            row.activity.movingTimeSeconds
+                          )
+                        )
+                      }}
+                    </td>
+                    <td class="cell-num">{{ formatDuration(row.activity.movingTimeSeconds) }}</td>
+                    <td>
+                      <span
+                        class="route-badge"
+                        [class.route-ok]="row.activity.routeSyncStatus === 'route_synced'"
+                        >{{ routeStatusLabel(row.activity.routeSyncStatus) }}</span
+                      >
+                    </td>
+                    <td class="cell-actions">
+                      <div class="activity-actions-cell">
+                        @if (row.activity.hasRoute) {
+                          <button
+                            class="map-nav-btn"
+                            type="button"
+                            (click)="navigateToMap($event, row.activity)"
+                            attr.aria-label="View '{{ row.activity.name }}' on map"
+                            title="View on map"
+                          >
+                            <app-icon name="map" [size]="16" strokeWidth="2"></app-icon>
+                          </button>
+                        }
+                        <div class="activity-menu-wrapper">
+                          <button
+                            class="activity-menu-trigger"
+                            type="button"
+                            aria-haspopup="menu"
+                            [attr.aria-expanded]="openMenuId() === row.activity.id"
+                            (click)="toggleActivityMenu($event, row.activity.id)"
+                          >
+                            ⋮
+                          </button>
+                          @if (openMenuId() === row.activity.id) {
+                            <ul
+                              class="activity-dropdown"
+                              [style]="menuStyle()"
+                              role="menu"
+                              (click)="$event.stopPropagation()"
+                            >
+                              @if (trailedActivityIds().has(row.activity.id)) {
+                                <!-- Child activity in a trail -->
+                                @let parentTrail = trailsService.findForActivity(row.activity.id);
+                                @if (parentTrail) {
+                                  <li role="none">
+                                    <button
+                                      class="act-dropdown-item"
+                                      role="menuitem"
+                                      (click)="
+                                        onRemoveFromTrail(row.activity.id, parentTrail);
+                                        openMenuId.set(null)
+                                      "
+                                    >
+                                      <app-icon
+                                        name="x"
+                                        [size]="16"
+                                        strokeWidth="2"
+                                        [class]="'act-dropdown-icon'"
+                                      ></app-icon>
+                                      Remove from Trail
+                                    </button>
+                                  </li>
+                                }
+                              } @else {
+                                <li role="none">
+                                  <button
+                                    class="act-dropdown-item"
+                                    role="menuitem"
+                                    (click)="openOnStrava($event, row.activity)"
+                                  >
+                                    <app-icon
+                                      name="external-link"
+                                      [size]="16"
+                                      strokeWidth="2"
+                                      [class]="'act-dropdown-icon'"
+                                    ></app-icon>
+                                    Strava
+                                  </button>
+                                </li>
+                                <li role="none">
+                                  <button
+                                    class="act-dropdown-item"
+                                    [class.act-dropdown-item-disabled]="!row.activity.hasRoute"
+                                    [disabled]="!row.activity.hasRoute"
+                                    role="menuitem"
+                                    (click)="downloadGpx($event, row.activity)"
+                                  >
+                                    <app-icon
+                                      name="download"
+                                      [size]="16"
+                                      strokeWidth="2"
+                                      [class]="'act-dropdown-icon'"
+                                    ></app-icon>
+                                    Download GPX
+                                  </button>
+                                </li>
+                                <li role="none">
+                                  <button
+                                    class="act-dropdown-item"
+                                    role="menuitem"
+                                    (click)="editActivity($event, row.activity)"
+                                  >
+                                    <app-icon
+                                      name="pencil"
+                                      [size]="16"
+                                      strokeWidth="2"
+                                      [class]="'act-dropdown-icon'"
+                                    ></app-icon>
+                                    Edit
+                                  </button>
+                                </li>
+                                <li role="none">
+                                  <button
+                                    class="act-dropdown-item act-dropdown-item-danger"
+                                    role="menuitem"
+                                    (click)="deleteActivity($event, row.activity)"
+                                  >
+                                    <app-icon
+                                      name="trash-2"
+                                      [size]="16"
+                                      strokeWidth="2"
+                                      [class]="'act-dropdown-icon'"
+                                    ></app-icon>
+                                    Delete
+                                  </button>
+                                </li>
+                                <li role="none">
+                                  <button
+                                    class="act-dropdown-item"
+                                    role="menuitem"
+                                    (click)="retrySyncRoute($event, row.activity)"
+                                  >
+                                    <app-icon
+                                      name="rotate-ccw"
+                                      [size]="16"
+                                      strokeWidth="2"
+                                      [class]="'act-dropdown-icon'"
+                                    ></app-icon>
+                                    Retry sync
+                                  </button>
+                                </li>
+                              }
+                            </ul>
+                          }
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                }
               }
             </tbody>
           </table>
@@ -503,6 +670,89 @@
           [route]="selectedRoute()"
           (close)="clearSelectedActivity()"
         />
+      }
+      @if (selectedTrail(); as selTrail) {
+        @let stats = getTrailStats(selTrail);
+        <aside class="trail-detail-panel">
+          <div class="trail-detail-panel__header">
+            <app-icon
+              name="map"
+              [size]="20"
+              strokeWidth="2"
+              [class]="'trail-detail-panel__icon'"
+            ></app-icon>
+            <h3 class="trail-detail-panel__title">{{ selTrail.name }}</h3>
+            <span class="trail-badge">Trail</span>
+            <button
+              class="trail-detail-panel__close"
+              type="button"
+              (click)="clearSelectedTrail()"
+              aria-label="Close trail detail panel"
+            >
+              <app-icon name="x" [size]="16" strokeWidth="2"></app-icon>
+            </button>
+          </div>
+          <div class="trail-detail-panel__stats">
+            <div class="trail-detail-stat">
+              <span class="trail-detail-stat__value">{{ stats.activityCount }}</span>
+              <span class="trail-detail-stat__label">{{
+                stats.activityCount === 1 ? 'activity' : 'activities'
+              }}</span>
+            </div>
+            @if (stats.totalDistanceMeters > 0) {
+              <div class="trail-detail-stat">
+                <span class="trail-detail-stat__value">{{
+                  formatDistance(stats.totalDistanceMeters)
+                }}</span>
+                <span class="trail-detail-stat__label">distance</span>
+              </div>
+            }
+            @if (stats.totalMovingSeconds > 0) {
+              <div class="trail-detail-stat">
+                <span class="trail-detail-stat__value">{{
+                  formatDurationHours(stats.totalMovingSeconds)
+                }}</span>
+                <span class="trail-detail-stat__label">moving</span>
+              </div>
+            }
+            @if (stats.totalElevationGainMeters > 0) {
+              <div class="trail-detail-stat">
+                <span class="trail-detail-stat__value">{{
+                  formatElevation(stats.totalElevationGainMeters)
+                }}</span>
+                <span class="trail-detail-stat__label">elevation</span>
+              </div>
+            }
+          </div>
+          <div class="trail-detail-panel__dates">
+            {{ formatDate(stats.firstDate) }} – {{ formatDateShort(stats.lastDate) }}
+          </div>
+          <div class="trail-detail-panel__section-title">Activities</div>
+          <div class="trail-detail-panel__activities">
+            @for (memberId of selTrail.activityIds; track memberId) {
+              @let member = getActivityById(memberId);
+              @if (member) {
+                <div class="trail-detail-member" (click)="navigateToActivity(member)">
+                  <span class="trail-detail-member__emoji">{{ sportTypeEmoji(member) }}</span>
+                  <span class="trail-detail-member__name">{{ member.name }}</span>
+                  <span class="trail-detail-member__date">{{
+                    formatDateShort(member.startDate)
+                  }}</span>
+                </div>
+              }
+            }
+          </div>
+          <div class="trail-detail-panel__actions">
+            <button
+              class="trail-detail-panel__btn"
+              type="button"
+              (click)="navigateToTrailOnMap(selTrail)"
+            >
+              <app-icon name="map" [size]="14" strokeWidth="2"></app-icon>
+              Show on Map Explorer
+            </button>
+          </div>
+        </aside>
       }
     }
 

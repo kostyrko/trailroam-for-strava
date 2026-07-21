@@ -45,12 +45,12 @@
                 {
                   "type": "initial",
                   "maximumWarning": "900kB",
-                  "maximumError": "1140kB"
+                  "maximumError": "1200kB"
                 },
                 {
                   "type": "anyComponentStyle",
                   "maximumWarning": "10kB",
-                  "maximumError": "22kB"
+                  "maximumError": "28kB"
                 }
               ],
               "outputHashing": "all"

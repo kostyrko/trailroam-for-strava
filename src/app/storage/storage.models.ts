@@ -1,4 +1,4 @@
-export const DATABASE_SCHEMA_VERSION = 5;
+export const DATABASE_SCHEMA_VERSION = 6;
 export const DEFAULT_RECORD_ID = 'default';
 
 export type ActivityCategory =
@@ -172,6 +172,25 @@ export interface SavedPlaceRecord {
   providerId?: string;
   /** How the place was created: 'search' (search panel) or 'map-context-menu' (right-click). */
   source?: 'search' | 'map-context-menu';
+  /** ISO 8601 UTC timestamp. */
+  createdAt: string;
+  /** ISO 8601 UTC timestamp. */
+  updatedAt: string;
+}
+
+/**
+ * A user-defined collection of existing activities that together represent a single adventure
+ * (for example, a multi-day hike or bikepacking trip). Stored locally only; never uploaded.
+ * Activities remain unchanged and independent — deleting a Trail never deletes activities.
+ */
+export interface TrailRecord {
+  id: string;
+  /** User-facing name for the trail (e.g. "Tatra Traverse"). */
+  name: string;
+  /** Optional free-text description. */
+  description?: string;
+  /** Ordered list of activity IDs that belong to this trail. Preserved in chronological order. */
+  activityIds: string[];
   /** ISO 8601 UTC timestamp. */
   createdAt: string;
   /** ISO 8601 UTC timestamp. */

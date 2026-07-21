@@ -9,6 +9,7 @@ import {
   type SettingsRecord,
   type SyncHistoryRecord,
   type SyncStateRecord,
+  type TrailRecord,
 } from './storage.models';
 
 export const DATABASE_NAME = 'trailroam_for_strava';
@@ -22,6 +23,7 @@ export class TrailroamDatabase extends Dexie {
   access_state!: Table<AccessStateRecord, string>;
   sync_history!: Table<SyncHistoryRecord, string>;
   saved_places!: Table<SavedPlaceRecord, string>;
+  trails!: Table<TrailRecord, string>;
 
   constructor(databaseName = DATABASE_NAME) {
     super(databaseName);
@@ -70,6 +72,19 @@ export class TrailroamDatabase extends Dexie {
       settings: 'id, mapProvider, updatedAt',
       access_state: 'id, status, updatedAt',
       sync_history: 'id, trigger, completedAt',
+    });
+
+    this.version(DATABASE_SCHEMA_VERSION).stores({
+      activities:
+        'id, providerActivityId, startDate, sportType, activityCategory, hasRoute, routeSyncStatus',
+      activity_routes: activityRoutesSchema,
+      route_geometry: 'activityId, providerActivityId, syncedAt',
+      sync_state: 'id, status, lastSuccessfulSyncAt',
+      settings: 'id, mapProvider, updatedAt',
+      access_state: 'id, status, updatedAt',
+      sync_history: 'id, trigger, completedAt',
+      saved_places: 'id, providerId, createdAt',
+      trails: 'id, createdAt',
     });
 
     this.version(DATABASE_SCHEMA_VERSION).stores({

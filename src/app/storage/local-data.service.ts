@@ -1,6 +1,16 @@
 import { Injectable, inject } from '@angular/core';
 import { TRAILROAM_REPOSITORIES } from './repositories/repositories.token';
-import { DATABASE_SCHEMA_VERSION, type ActivityRecord, type ActivityRouteRecord, type RouteGeometryRecord, type SavedPlaceRecord, type SettingsRecord, type AccessStateRecord, type SyncStateRecord } from './storage.models';
+import {
+  DATABASE_SCHEMA_VERSION,
+  type ActivityRecord,
+  type ActivityRouteRecord,
+  type RouteGeometryRecord,
+  type SavedPlaceRecord,
+  type SettingsRecord,
+  type AccessStateRecord,
+  type SyncStateRecord,
+  type TrailRecord,
+} from './storage.models';
 
 export const BACKUP_SCHEMA_VERSION = 1;
 export const MIN_SUPPORTED_SCHEMA_VERSION = 1;
@@ -16,6 +26,7 @@ export interface TrailroamBackupFile {
   activityRoutes: unknown[];
   routeGeometry?: unknown[];
   savedPlaces?: unknown[];
+  trails?: unknown[];
 }
 
 export interface RestoreResult {
@@ -26,6 +37,7 @@ export interface RestoreResult {
   activityRoutesCount: number;
   routeGeometryCount: number;
   savedPlacesCount: number;
+  trailsCount: number;
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -75,7 +87,11 @@ function validateSyncStateRecord(value: unknown): value is SyncStateRecord {
 function validateActivityRecord(value: unknown): value is ActivityRecord {
   if (!isObject(value)) return false;
   if (!isString(value['id'])) return false;
-  if (!isString(value['provider']) || (value['provider'] !== 'strava' && value['provider'] !== 'local')) return false;
+  if (
+    !isString(value['provider']) ||
+    (value['provider'] !== 'strava' && value['provider'] !== 'local')
+  )
+    return false;
   if (!isString(value['providerActivityId'])) return false;
   if (!isString(value['name'])) return false;
   if (!isString(value['sportType'])) return false;
@@ -121,6 +137,17 @@ function validateSavedPlaceRecord(value: unknown): value is SavedPlaceRecord {
   return true;
 }
 
+function validateTrailRecord(value: unknown): value is TrailRecord {
+  if (!isObject(value)) return false;
+  if (!isString(value['id'])) return false;
+  if (!isString(value['name'])) return false;
+  if (!Array.isArray(value['activityIds'])) return false;
+  if (!value['activityIds'].every((id: unknown) => isString(id))) return false;
+  if (!isString(value['createdAt'])) return false;
+  if (!isString(value['updatedAt'])) return false;
+  return true;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -145,8 +172,13 @@ export class LocalDataService {
     if (!isNumber(schemaVersion)) {
       throw new Error('Invalid backup file: missing or invalid schemaVersion.');
     }
-    if (schemaVersion < MIN_SUPPORTED_SCHEMA_VERSION || schemaVersion > MAX_SUPPORTED_SCHEMA_VERSION) {
-      throw new Error(`Unsupported backup schema version ${schemaVersion}. Expected ${MIN_SUPPORTED_SCHEMA_VERSION}.`);
+    if (
+      schemaVersion < MIN_SUPPORTED_SCHEMA_VERSION ||
+      schemaVersion > MAX_SUPPORTED_SCHEMA_VERSION
+    ) {
+      throw new Error(
+        `Unsupported backup schema version ${schemaVersion}. Expected ${MIN_SUPPORTED_SCHEMA_VERSION}.`,
+      );
     }
     if (!Array.isArray(data['settings'])) {
       throw new Error('Invalid backup file: missing or invalid settings.');
@@ -181,28 +213,39 @@ export class LocalDataService {
       this.repositories.activityRoutes.clear(),
       this.repositories.routeGeometry.clear(),
       this.repositories.savedPlaces.clear(),
+      this.repositories.trails.clear(),
     ]);
 
     const validSettings = this.filterValidRecords(backup.settings, validateSettingsRecord);
     const validAccessState = this.filterValidRecords(backup.accessState, validateAccessStateRecord);
     const validSyncState = this.filterValidRecords(backup.syncState, validateSyncStateRecord);
     const validActivities = this.filterValidRecords(backup.activities, validateActivityRecord);
-    const validActivityRoutes = this.filterValidRecords(backup.activityRoutes, validateActivityRouteRecord);
+    const validActivityRoutes = this.filterValidRecords(
+      backup.activityRoutes,
+      validateActivityRouteRecord,
+    );
     const validRouteGeometry = backup.routeGeometry
       ? this.filterValidRecords(backup.routeGeometry, validateRouteGeometryRecord)
       : [];
     const validSavedPlaces = backup.savedPlaces
       ? this.filterValidRecords(backup.savedPlaces, validateSavedPlaceRecord)
       : [];
+    const validTrails = backup.trails
+      ? this.filterValidRecords(backup.trails, validateTrailRecord)
+      : [];
 
-    const settingsCount = await Promise.all(validSettings.map((s) => this.repositories.settings.put(s)))
-      .then((r) => r.length);
-    const accessStateCount = await Promise.all(validAccessState.map((a) => this.repositories.accessState.put(a)))
-      .then((r) => r.length);
-    const syncStateCount = await Promise.all(validSyncState.map((s) => this.repositories.syncState.put(s)))
-      .then((r) => r.length);
-    const activitiesCount = await Promise.all(validActivities.map((a) => this.repositories.activities.put(a)))
-      .then((r) => r.length);
+    const settingsCount = await Promise.all(
+      validSettings.map((s) => this.repositories.settings.put(s)),
+    ).then((r) => r.length);
+    const accessStateCount = await Promise.all(
+      validAccessState.map((a) => this.repositories.accessState.put(a)),
+    ).then((r) => r.length);
+    const syncStateCount = await Promise.all(
+      validSyncState.map((s) => this.repositories.syncState.put(s)),
+    ).then((r) => r.length);
+    const activitiesCount = await Promise.all(
+      validActivities.map((a) => this.repositories.activities.put(a)),
+    ).then((r) => r.length);
     const activityRoutesCount = await Promise.all(
       validActivityRoutes.map((r) => this.repositories.activityRoutes.put(r)),
     ).then((r) => r.length);
@@ -212,12 +255,33 @@ export class LocalDataService {
     const savedPlacesCount = await Promise.all(
       validSavedPlaces.map((p) => this.repositories.savedPlaces.put(p)),
     ).then((r) => r.length);
+    const trailsCount = await Promise.all(
+      validTrails.map((t) => this.repositories.trails.put(t)),
+    ).then((r) => r.length);
 
-    return { settingsCount, accessStateCount, syncStateCount, activitiesCount, activityRoutesCount, routeGeometryCount, savedPlacesCount };
+    return {
+      settingsCount,
+      accessStateCount,
+      syncStateCount,
+      activitiesCount,
+      activityRoutesCount,
+      routeGeometryCount,
+      savedPlacesCount,
+      trailsCount,
+    };
   }
 
   async backup(): Promise<TrailroamBackupFile> {
-    const [settings, accessState, syncState, activities, activityRoutes, routeGeometry, savedPlaces] = await Promise.all([
+    const [
+      settings,
+      accessState,
+      syncState,
+      activities,
+      activityRoutes,
+      routeGeometry,
+      savedPlaces,
+      trails,
+    ] = await Promise.all([
       this.repositories.settings.list(),
       this.repositories.accessState.list(),
       this.repositories.syncState.list(),
@@ -225,6 +289,7 @@ export class LocalDataService {
       this.repositories.activityRoutes.list(),
       this.repositories.routeGeometry.list(),
       this.repositories.savedPlaces.list(),
+      this.repositories.trails.list(),
     ]);
 
     return {
@@ -237,6 +302,7 @@ export class LocalDataService {
       activityRoutes,
       routeGeometry,
       savedPlaces,
+      trails,
     };
   }
 }

@@ -59,6 +59,7 @@ import { MapPlacesPanelComponent } from './map-places-panel.component';
 import { MapAllPanelComponent } from './map-all-panel.component';
 import { SavedPlacesService } from './saved-places.service';
 import { GeocodingService } from './geocoding.service';
+import { TrailsService } from '../storage/trails.service';
 import { logger } from '../shared/logger';
 
 const ROUTES_WARN_THRESHOLD = 1_000;
@@ -94,6 +95,7 @@ export class MapPage implements AfterViewInit {
   private readonly destroyRef = inject(DestroyRef);
   protected readonly savedPlacesService = inject(SavedPlacesService);
   private readonly geocodingService = inject(GeocodingService);
+  protected readonly trailsService = inject(TrailsService);
 
   protected readonly CATEGORY_COLORS = CATEGORY_COLORS;
 
@@ -160,6 +162,17 @@ export class MapPage implements AfterViewInit {
   protected readonly leftPanelView = signal<'activities' | 'places' | 'all'>('activities');
   /** Id of the place currently focused on the map (for panel row highlight). */
   protected readonly selectedPlaceId = signal<string | null>(null);
+  /** Id of the currently selected trail. */
+  protected readonly selectedTrailId = signal<string | null>(null);
+  /** The set of activity IDs that belong to trails (used to filter them from standalone lists). */
+  protected readonly trailedActivityIds = computed<Set<string>>(() => {
+    return this.trailsService.allTrailedActivityIds();
+  });
+  /** Standalone routes (activities NOT in a trail) for the sidebar. */
+  protected readonly standaloneRoutes = computed<MapRouteFeature[]>(() => {
+    const trailed = this.trailedActivityIds();
+    return this.filteredRoutes().filter((r) => !trailed.has(r.activityId));
+  });
   /** The search result the user just selected (drives the save flow + "Saved" badge). */
   protected readonly selectedSearchResult = signal<GeocodeResult | null>(null);
   protected readonly panelVisibleOnMap = signal(false);
@@ -500,6 +513,7 @@ export class MapPage implements AfterViewInit {
     this.destroyRef.onDestroy(() => this.retryDestroyed.set(true));
     this.loadRoutes().then(() => this.restorePanelState());
     void this.savedPlacesService.load();
+    void this.trailsService.load();
     globalThis.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
       if (!target?.closest('.toolbar-select') && !target?.closest('app-date-range-picker')) {
@@ -578,6 +592,30 @@ export class MapPage implements AfterViewInit {
     this.mapReady.set(true);
     this.tryRenderRoutes('ngAfterViewInit');
     this.scheduleRenderRetry();
+  }
+
+  protected selectTrail(trailId: string): void {
+    this.selectedTrailId.set(trailId);
+    this.selectedMapRoute.set(null);
+    this.selectedRouteGeometry.set(null);
+    // Fit map to all routes in the trail
+    const trail = this.trailsService.trails().find((t) => t.id === trailId);
+    if (trail) {
+      const trailRoutes = this.allRoutes().filter((r) => trail.activityIds.includes(r.activityId));
+      if (trailRoutes.length > 0) {
+        // Select the first route and fit to its bounds
+        this.routeRendererService.selectRoute(trailRoutes[0].activityId);
+        const bounds = trailRoutes[0].route.bounds;
+        if (bounds) {
+          this.routeRendererService.fitToRoute(trailRoutes[0].coordinates, bounds);
+        }
+      }
+    }
+  }
+
+  protected clearSelectedTrail(): void {
+    this.selectedTrailId.set(null);
+    this.routeRendererService.deselectRoute();
   }
 
   private async loadRoutes(): Promise<void> {
@@ -847,6 +885,7 @@ export class MapPage implements AfterViewInit {
   }
 
   protected navigateToActivity(activity: import('../storage/storage.models').ActivityRecord): void {
+    this.toastService.show(`Viewing activities for "${activity.name}"`);
     this.router.navigate(['/logbook'], { queryParams: { focusActivityId: activity.id } });
   }
 

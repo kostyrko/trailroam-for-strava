@@ -45,6 +45,51 @@
   white-space: nowrap;
 }
 
+/* Tooltip icon on the Activities stat card */
+.stat-card--with-tooltip {
+  position: relative;
+}
+.stat-card__tooltip-icon {
+  align-items: center;
+  color: #9ca3af;
+  cursor: help;
+  display: flex;
+  flex-shrink: 0;
+  height: 20px;
+  justify-content: center;
+  margin-left: auto;
+  width: 20px;
+}
+.stat-card__tooltip-icon:hover {
+  color: #63746a;
+}
+/* Custom tooltip on hover */
+.stat-card--with-tooltip::after {
+  background: #14211b;
+  border-radius: 6px;
+  color: #fff;
+  content: attr(title);
+  font-size: 0.75rem;
+  font-weight: 500;
+  max-width: 260px;
+  opacity: 0;
+  padding: 8px 12px;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  transform: translateY(-4px);
+  transition:
+    opacity 0.15s,
+    transform 0.15s;
+  white-space: normal;
+  z-index: 100;
+}
+.stat-card--with-tooltip:hover::after {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 .stat-card__label {
   color: #63746a;
   font-size: 0.75rem;

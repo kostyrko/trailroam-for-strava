@@ -8,7 +8,9 @@
   justify-content: space-between;
   margin-bottom: 0;
   padding: 10px 16px;
-  transition: background 0.2s, border-color 0.2s;
+  transition:
+    background 0.2s,
+    border-color 0.2s;
 }
 
 .selected-actions-bar.selected-actions-bar--active {
@@ -54,6 +56,27 @@
   min-height: 36px;
   padding: 0 14px;
   white-space: nowrap;
+}
+
+.selected-action--primary {
+  background: #15803d;
+  border-color: #15803d;
+  color: #fff;
+}
+.selected-action--primary:hover:not(:disabled) {
+  background: #166534;
+  border-color: #166534;
+}
+.selected-action--primary:disabled {
+  background: #9dc9ad;
+  border-color: #9dc9ad;
+  color: #fff;
+}
+
+.selected-action:disabled {
+  cursor: default;
+  opacity: 0.4;
+  pointer-events: none;
 }
 
 .selected-action:hover {

@@ -7,6 +7,7 @@ import { SavedPlacesRepository } from './saved-places.repository';
 import { SettingsRepository } from './settings.repository';
 import { SyncHistoryRepository } from './sync-history.repository';
 import { SyncStateRepository } from './sync-state.repository';
+import { TrailsRepository } from './trails.repository';
 
 export interface TrailroamRepositories {
   activities: ActivitiesRepository;
@@ -17,6 +18,7 @@ export interface TrailroamRepositories {
   settings: SettingsRepository;
   accessState: AccessStateRepository;
   savedPlaces: SavedPlacesRepository;
+  trails: TrailsRepository;
 }
 
 export function createRepositories(db: TrailroamDatabase): TrailroamRepositories {
@@ -29,5 +31,6 @@ export function createRepositories(db: TrailroamDatabase): TrailroamRepositories
     settings: new SettingsRepository(db),
     accessState: new AccessStateRepository(db),
     savedPlaces: new SavedPlacesRepository(db),
+    trails: new TrailsRepository(db),
   };
 }

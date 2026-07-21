@@ -60,6 +60,7 @@ import {
   type ActivityRouteRecord,
   type RouteGeometryRecord,
   type SavedPlaceRecord,
+  type TrailRecord,
 } from '../storage/storage.models';
 import {
   formatSportType,
@@ -70,6 +71,7 @@ import { SPORT_TYPE_EMOJI, sportTypeEmoji } from '../shared/activity-display';
 import { SavedPlacesService } from '../map/saved-places.service';
 import { SavePlaceDialog, type SavePlaceDialogData } from '../shared/save-place-dialog.component';
 import { LogbookNavComponent, type LogbookNavItem } from './logbook-nav.component';
+import { TrailsService } from '../storage/trails.service';
 
 const PAGE_SIZE_OPTIONS = [5, 10, 25, 50, 100];
 
@@ -77,6 +79,39 @@ const PAGE_SIZE_OPTIONS = [5, 10, 25, 50, 100];
 export type AllLogbookRow =
   | { kind: 'activity'; activity: ActivityRecord; ts: number }
   | { kind: 'place'; place: SavedPlaceRecord; ts: number };
+
+/**
+ * A single row in the Activities tab, which can be a standalone activity or a collapsed Trail
+ * containing multiple activities. Trail rows are rendered with expand/collapse, aggregation
+ * stats, and a visual badge.
+ */
+export type VisibleLogbookRow =
+  | { kind: 'activity'; activity: ActivityRecord }
+  | {
+      kind: 'trail';
+      trail: TrailRecord;
+      /** Filtered activities that belong to this trail (visible when expanded). */
+      memberActivities: ActivityRecord[];
+      /** Total distance of all member activities in metres. */
+      totalDistanceMeters: number;
+      /** Total moving time of all member activities in seconds. */
+      totalMovingSeconds: number;
+      /** Earliest start date among member activities. */
+      firstDate: string;
+      /** Latest start date among member activities. */
+      lastDate: string;
+      /** Sort key: timestamp of the first activity. */
+      ts: number;
+    };
+
+export interface TrailStats {
+  totalDistanceMeters: number;
+  totalMovingSeconds: number;
+  totalElevationGainMeters: number;
+  activityCount: number;
+  firstDate: string;
+  lastDate: string;
+}
 
 export type SortColumn =
   | 'date'
@@ -171,6 +206,7 @@ export class ActivitiesPageComponent {
   private readonly parserService = inject(ActivityParserService);
   private readonly activatedRoute = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
+  protected readonly trailsService = inject(TrailsService);
 
   /** Tabbed view state for the Logbook page. */
   protected readonly logbookView = signal<string>('activities');
@@ -197,6 +233,222 @@ export class ActivitiesPageComponent {
       count: this.totalCount() + this.savedPlacesService.places().length,
     },
   ]);
+
+  /** Trail expand/collapse session state. */
+  protected readonly expandedTrailIds = signal<Set<string>>(new Set());
+  protected readonly selectedTrail = signal<TrailRecord | null>(null);
+
+  /**
+   * Set of all activity IDs that belong to any trail. These activities are hidden behind
+   * their trail container and only visible when the trail is expanded.
+   */
+  protected readonly trailedActivityIds = computed<Set<string>>(() => {
+    return this.trailsService.allTrailedActivityIds();
+  });
+
+  /**
+   * Returns the trail stats for a given trail by computing across its member activities.
+   */
+  protected getTrailStats(trail: TrailRecord): TrailStats {
+    const all = this.activities();
+    const members = trail.activityIds
+      .map((id) => all?.find((a) => a.id === id))
+      .filter((a): a is ActivityRecord => a !== undefined);
+    return {
+      totalDistanceMeters: members.reduce((s, a) => s + (a.distanceMeters ?? 0), 0),
+      totalMovingSeconds: members.reduce((s, a) => s + (a.movingTimeSeconds ?? 0), 0),
+      totalElevationGainMeters: members.reduce((s, a) => s + (a.totalElevationGainMeters ?? 0), 0),
+      activityCount: members.length,
+      firstDate:
+        members.length > 0
+          ? members.reduce(
+              (earliest, a) => (a.startDate < earliest ? a.startDate : earliest),
+              members[0].startDate,
+            )
+          : '',
+      lastDate:
+        members.length > 0
+          ? members.reduce(
+              (latest, a) => (a.startDate > latest ? a.startDate : latest),
+              members[0].startDate,
+            )
+          : '',
+    };
+  }
+
+  /**
+   * Visible rows for the Activities tab: a mix of Trail containers and standalone activities.
+   * Activities belonging to a trail are hidden behind the trail row unless expanded.
+   */
+  protected readonly visibleRows = computed<VisibleLogbookRow[]>(() => {
+    const all = this.activities();
+    const trails = this.trailsService.trails();
+    const trailedIds = this.trailedActivityIds();
+    const expanded = this.expandedTrailIds();
+
+    if (!all) return [];
+
+    // Build a lookup: activityId → trail
+    const trailByActivity = new Map<string, TrailRecord>();
+    for (const trail of trails) {
+      for (const aid of trail.activityIds) {
+        trailByActivity.set(aid, trail);
+      }
+    }
+
+    // Separate activities into trailed (grouped by trail) and standalone
+    const trailActivities = new Map<string, ActivityRecord[]>();
+    const standalone: ActivityRecord[] = [];
+
+    for (const activity of all) {
+      const trail = trailByActivity.get(activity.id);
+      if (trail) {
+        let members = trailActivities.get(trail.id);
+        if (!members) {
+          members = [];
+          trailActivities.set(trail.id, members);
+        }
+        members.push(activity);
+      } else {
+        standalone.push(activity);
+      }
+    }
+
+    // Build top-level items: trail rows + standalone activities (no child rows yet)
+    const topLevel: { kind: 'trail' | 'activity'; data: VisibleLogbookRow; ts: number }[] = [];
+
+    for (const trail of trails) {
+      const members = trailActivities.get(trail.id);
+      if (!members || members.length < 2) continue; // skip invalid trails
+
+      const totalDistanceMeters = members.reduce((s, a) => s + (a.distanceMeters ?? 0), 0);
+      const totalMovingSeconds = members.reduce((s, a) => s + (a.movingTimeSeconds ?? 0), 0);
+      // Sort members newest-first by default (matching descending date sort)
+      const sorted = [...members].sort(
+        (a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime(),
+      );
+      const dates = sorted.map((a) => a.startDate).sort();
+      const firstDate = dates[0];
+      const lastDate = dates[dates.length - 1];
+
+      topLevel.push({
+        kind: 'trail',
+        ts: new Date(firstDate).getTime(),
+        data: {
+          kind: 'trail',
+          trail,
+          memberActivities: sorted,
+          totalDistanceMeters,
+          totalMovingSeconds,
+          firstDate,
+          lastDate,
+          ts: new Date(firstDate).getTime(),
+        },
+      });
+    }
+
+    // Add standalone activities
+    for (const act of standalone) {
+      topLevel.push({
+        kind: 'activity',
+        ts: new Date(act.startDate).getTime(),
+        data: { kind: 'activity', activity: act },
+      });
+    }
+
+    // Sort only top-level items (trail rows + standalone activities)
+    const dir = this.sortDirection();
+    topLevel.sort((a, b) => dir * (a.ts - b.ts));
+
+    // Build final rows: insert expanded children directly below their parent trail
+    const rows: VisibleLogbookRow[] = [];
+    for (const item of topLevel) {
+      rows.push(item.data);
+      // If this is an expanded trail row, insert its children immediately below
+      if (item.kind === 'trail') {
+        const trailData = item.data as Extract<VisibleLogbookRow, { kind: 'trail' }>;
+        if (expanded.has(trailData.trail.id)) {
+          for (const child of trailData.memberActivities) {
+            rows.push({ kind: 'activity', activity: child });
+          }
+        }
+      }
+    }
+
+    return rows;
+  });
+
+  /** Apply sport/date/name/source filters on the visible rows (used for pagination). */
+  protected readonly filteredVisibleRows = computed<VisibleLogbookRow[]>(() => {
+    const rows = this.visibleRows();
+    const sportFilter = this.sportTypeFilter();
+    const fromDate = this.dateFrom();
+    const toDate = this.dateTo();
+    const search = this.nameSearch().toLowerCase().trim();
+    const srcFilter = this.sourceFilter();
+
+    return rows.filter((row) => {
+      if (row.kind === 'trail') {
+        // A trail is visible if any member activity passes the filter
+        const members = row.memberActivities;
+        return members.some((a) =>
+          this.activityPassesFilter(a, sportFilter, fromDate, toDate, search, srcFilter),
+        );
+      }
+      return this.activityPassesFilter(
+        row.activity,
+        sportFilter,
+        fromDate,
+        toDate,
+        search,
+        srcFilter,
+      );
+    });
+  });
+
+  /** Helper: checks if an activity passes the current filter criteria. */
+  private activityPassesFilter(
+    a: ActivityRecord,
+    sportFilter: string | null,
+    fromDate: string | null,
+    toDate: string | null,
+    search: string,
+    srcFilter: Set<string>,
+  ): boolean {
+    if (srcFilter.size > 0) {
+      const isStrava = a.provider === 'strava';
+      const isPlanned = a.activityStatus === 'planned';
+      const matchesAny =
+        (srcFilter.has('strava') && isStrava) ||
+        (srcFilter.has('imported-completed') && !isStrava && !isPlanned) ||
+        (srcFilter.has('imported-planned') && isPlanned);
+      if (!matchesAny) return false;
+    }
+    if (sportFilter) {
+      if (sportFilter.startsWith('__cat__')) {
+        const cat = sportFilter.slice(7) as ActivityCategory;
+        if (mapSportTypeToCategory(a.sportType) !== cat) return false;
+      } else {
+        if (a.sportType !== sportFilter) return false;
+      }
+    }
+    if (fromDate && a.startDate && !isAfterOrEqual(a.startDate, fromDate)) return false;
+    if (toDate && a.startDate && !isBeforeOrEqual(a.startDate, toDate)) return false;
+    if (search && !a.name.toLowerCase().includes(search)) return false;
+    return true;
+  }
+
+  /** Paginated slice of filtered visible rows for the current page. */
+  protected readonly pagedRows = computed<VisibleLogbookRow[]>(() => {
+    const all = this.filteredVisibleRows();
+    const page = this.currentPage();
+    const size = this.pageSize();
+    const start = (page - 1) * size;
+    return all.slice(start, start + size);
+  });
+
+  /** Total filtered visible row count (for pagination). */
+  protected readonly totalFilteredRowCount = computed(() => this.filteredVisibleRows().length);
 
   /** Search query for the Places tab. */
   protected readonly placesSearchQuery = signal('');
@@ -689,6 +941,7 @@ export class ActivitiesPageComponent {
     this.loadPage(1);
     this.initLocalNotice();
     this.savedPlacesService.load();
+    void this.trailsService.load();
     globalThis.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
       if (!target?.closest('.toolbar-select') && !target?.closest('.drp-overlay')) {
@@ -1302,6 +1555,7 @@ export class ActivitiesPageComponent {
   protected readonly formatSpeedKmh = formatSpeedKmh;
   protected readonly formatDate = formatDate;
   protected readonly formatDateShort = formatDateShort;
+  protected readonly formatElevation = formatElevation;
   protected readonly routeStatusLabel = routeStatusLabel;
   protected readonly formatDateInput = formatDateInput;
   protected readonly formatSportType = formatSportType;
@@ -1424,6 +1678,142 @@ export class ActivitiesPageComponent {
       row?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 100);
     setTimeout(() => this.highlightActivityId.set(null), 3000);
+  }
+
+  // ── Trail methods ───────────────────────────────────────
+
+  protected toggleExpandTrail(trailId: string): void {
+    this.expandedTrailIds.update((ids) => {
+      const next = new Set(ids);
+      if (next.has(trailId)) {
+        next.delete(trailId);
+      } else {
+        next.add(trailId);
+      }
+      return next;
+    });
+  }
+
+  protected onSelectTrail(trail: TrailRecord): void {
+    this.selectedTrail.set(trail);
+    this.clearSelectedActivity();
+  }
+
+  protected clearSelectedTrail(): void {
+    this.selectedTrail.set(null);
+  }
+
+  protected async onCreateTrail(): Promise<void> {
+    const selectedIds = this.selectedIds();
+    const all = this.activities();
+    if (!all || selectedIds.size < 2) {
+      this.toastService.show('Select at least 2 activities to create a Trail.');
+      return;
+    }
+
+    // Chronologically sort the selected activities
+    const selected = all
+      .filter((a) => selectedIds.has(a.id))
+      .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+
+    const { CreateTrailDialog } = await import('./create-trail-dialog.component');
+    const ref = this.dialog.open(CreateTrailDialog, {
+      data: {
+        activities: selected,
+        suggestedName:
+          (selected[0]?.name?.split(' ').slice(0, 2).join(' ') ?? 'New') + ' Adventure',
+      },
+      disableClose: true,
+    });
+    const result: { name: string } | undefined = await ref.afterClosed().toPromise();
+    if (!result) return;
+
+    try {
+      const trail = await this.trailsService.create(
+        result.name,
+        selected.map((a) => a.id),
+      );
+      if (trail) {
+        this.toastService.show(`Trail "${trail.name}" created with ${selected.length} activities.`);
+        this.clearSelection();
+      } else {
+        this.toastService.show(
+          'Could not create Trail. One or more activities may already belong to another Trail.',
+        );
+      }
+    } catch {
+      this.toastService.show('Failed to create Trail. Please try again.');
+    }
+  }
+
+  protected async onRenameTrail(trail: TrailRecord): Promise<void> {
+    const { RenameTrailDialog } = await import('./rename-trail-dialog.component');
+    const ref = this.dialog.open(RenameTrailDialog, {
+      data: { currentName: trail.name },
+      disableClose: true,
+    });
+    const result: { name: string } | undefined = await ref.afterClosed().toPromise();
+    if (!result || result.name === trail.name) return;
+
+    try {
+      await this.trailsService.rename(trail.id, result.name);
+      this.toastService.show(`Trail renamed to "${result.name}".`);
+    } catch {
+      this.toastService.show('Failed to rename Trail. Please try again.');
+    }
+  }
+
+  protected async onDeleteTrail(trail: TrailRecord): Promise<void> {
+    const confirmed = await this.confirmService.confirm({
+      title: 'Delete Trail?',
+      message: `This removes the grouping only. Activities will remain in your library.`,
+      confirmLabel: 'Delete Trail',
+      danger: true,
+    });
+    if (!confirmed) return;
+
+    try {
+      await this.trailsService.remove(trail.id);
+      this.toastService.show(`Trail "${trail.name}" deleted.`);
+      if (this.selectedTrail()?.id === trail.id) {
+        this.clearSelectedTrail();
+      }
+    } catch {
+      this.toastService.show('Failed to delete Trail. Please try again.');
+    }
+  }
+
+  protected async onRemoveFromTrail(activityId: string, trail: TrailRecord): Promise<void> {
+    // Check if this would dissolve the trail (only 1 activity remaining)
+    if (trail.activityIds.filter((id) => id !== activityId).length < 2) {
+      const confirmed = await this.confirmService.confirm({
+        title: 'Dissolve Trail?',
+        message: `Trails require at least two activities. Removing this activity will dissolve the "${trail.name}" Trail, but the remaining activity will be kept in your logbook.`,
+        confirmLabel: 'Dissolve Trail',
+        danger: true,
+      });
+      if (!confirmed) return;
+    }
+    const action = await this.trailsService.removeFromTrail(trail.id, activityId);
+    if (action === 'dissolved') {
+      this.toastService.show(`"${trail.name}" has been dissolved.`);
+      if (this.selectedTrail()?.id === trail.id) {
+        this.clearSelectedTrail();
+      }
+    } else {
+      this.toastService.show('Activity removed from Trail.');
+    }
+  }
+
+  protected navigateToTrailOnMap(trail: TrailRecord): void {
+    if (trail.activityIds.length > 0) {
+      this.router.navigate(['/map'], { queryParams: { activityId: trail.activityIds[0] } });
+    }
+  }
+
+  /** Finds an activity by ID from the loaded activities list. */
+  protected getActivityById(id: string): ActivityRecord | undefined {
+    return this.activities()?.find((a) => a.id === id);
   }
 }
 

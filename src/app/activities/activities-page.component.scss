@@ -560,6 +560,7 @@ app-logbook-nav {
 
 .cell-checkbox {
   padding: 4px 8px;
+  position: relative;
   text-align: center;
   width: 48px;
 }
@@ -1482,4 +1483,244 @@ app-logbook-nav {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ── Trail rows ─────────────────────────────── */
+
+.trail-row {
+  background: #f8faf9;
+  border-bottom: 1px solid #dce6df;
+  border-left: 4px solid #b7d9c4;
+  cursor: pointer;
+}
+.trail-row:hover {
+  background: #f0f6f2;
+}
+.trail-row--selected {
+  background: #e5f0ea;
+}
+.trail-row td {
+  padding: 12px 6px;
+}
+.trail-row-main {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 0.9375rem;
+  color: #14211b;
+}
+.trail-row-name {
+  color: #14211b;
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+.trail-row-icon {
+  color: #15803d;
+  flex-shrink: 0;
+}
+.trail-badge {
+  background: #15803d;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.3;
+  padding: 2px 7px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.trail-subtitle {
+  color: #63746a;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+.trail-date-range {
+  color: #63746a;
+  font-size: 0.75rem;
+}
+.trail-expand-btn {
+  align-items: center;
+  background: #eef5f0;
+  border: 1px solid #dce6df;
+  border-radius: 4px;
+  color: #63746a;
+  cursor: pointer;
+  display: inline-flex;
+  flex-shrink: 0;
+  height: 22px;
+  justify-content: center;
+  padding: 0;
+  transition:
+    transform 0.2s ease,
+    background 0.15s,
+    color 0.15s;
+  width: 22px;
+}
+.trail-expand-btn:hover {
+  background: #dce6df;
+  color: #14211b;
+}
+.trail-expand-btn--open svg {
+  transform: rotate(0deg);
+}
+.trail-expand-btn--closed svg {
+  transform: rotate(-90deg);
+}
+
+/* Child activity rows inside an expanded trail — bolder green to stand out */
+.activity-row--child {
+  border-left: 4px solid #15803d;
+}
+/* Remove any padding/shift from the name cell for child rows */
+.activity-row--child .cell-name {
+  padding-left: 0;
+}
+.activity-row--child .cell-name::before {
+  display: none;
+}
+
+/* Source badge for trail row */
+.source-badge--trail {
+  background: #e0f2e6;
+  color: #15803d;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+/* ── Trail Detail Panel ─────────────────────── */
+
+.trail-detail-panel {
+  background: #fff;
+  border: 1px solid #dce6df;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  margin-top: 16px;
+  padding: 20px;
+}
+.trail-detail-panel__header {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.trail-detail-panel__icon {
+  color: #15803d;
+  flex-shrink: 0;
+}
+.trail-detail-panel__title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #14211b;
+  margin: 0;
+  flex: 1;
+}
+.trail-detail-panel__close {
+  align-items: center;
+  background: none;
+  border: 0;
+  color: #9ca3af;
+  cursor: pointer;
+  display: inline-flex;
+  height: 24px;
+  justify-content: center;
+  padding: 0;
+  width: 24px;
+}
+.trail-detail-panel__close:hover {
+  color: #374151;
+}
+.trail-detail-panel__stats {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 12px;
+}
+.trail-detail-stat {
+  display: flex;
+  flex-direction: column;
+}
+.trail-detail-stat__value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #14211b;
+}
+.trail-detail-stat__label {
+  font-size: 0.6875rem;
+  color: #63746a;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.trail-detail-panel__dates {
+  color: #63746a;
+  font-size: 0.8125rem;
+  margin-bottom: 16px;
+}
+.trail-detail-panel__section-title {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #63746a;
+  margin-bottom: 8px;
+}
+.trail-detail-panel__activities {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+.trail-detail-member {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+}
+.trail-detail-member:hover {
+  background: #f4faf6;
+}
+.trail-detail-member__emoji {
+  flex-shrink: 0;
+  font-size: 1rem;
+}
+.trail-detail-member__name {
+  color: #14211b;
+  font-weight: 500;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.trail-detail-member__date {
+  color: #9ca3af;
+  font-size: 0.75rem;
+  flex-shrink: 0;
+}
+.trail-detail-panel__actions {
+  display: flex;
+  gap: 8px;
+}
+.trail-detail-panel__btn {
+  align-items: center;
+  background: #15803d;
+  border: 0;
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  gap: 6px;
+  height: 36px;
+  padding: 0 16px;
+}
+.trail-detail-panel__btn:hover {
+  background: #166534;
 }

@@ -126,6 +126,10 @@ export class MapPage implements AfterViewInit {
     ),
     { initialValue: null },
   );
+  private readonly trailIdParam = toSignal(
+    this.route.queryParamMap.pipe(map((params) => params.get('trailId'))),
+    { initialValue: null },
+  );
   private readonly basemapErrorParam = toSignal(
     this.route.queryParamMap.pipe(map((params) => params.get('basemapError') === 'true')),
     { initialValue: false },
@@ -621,6 +625,20 @@ export class MapPage implements AfterViewInit {
         this.pendingPlaceSource.set(null);
       }
     });
+    // Auto-select trail from URL param (navigated from Logbook trail row)
+    effect(() => {
+      const trailId = this.trailIdParam();
+      const trails = this.trailsService.trails();
+      const ready = this.mapReady();
+      const loaded = this.dataLoaded();
+      if (!trailId || !ready || !loaded) return;
+      const exists = trails.some((t) => t.id === trailId);
+      if (exists) {
+        this.selectTrail(trailId);
+        // Navigate clean URL after processing
+        this.router.navigate(['/map'], { queryParams: {}, replaceUrl: true });
+      }
+    });
   }
 
   ngAfterViewInit(): void {
@@ -641,22 +659,31 @@ export class MapPage implements AfterViewInit {
       if (trailRoutes.length > 0) {
         // Compute collective bounds from all member routes
         const allCoords = trailRoutes.flatMap((r) => r.coordinates);
-        if (allCoords.length > 0) {
-          const lngs = allCoords.map((c) => c[0]);
-          const lats = allCoords.map((c) => c[1]);
-          const map = (this.mapComponent as any)?.mapInstance;
-          if (map?.isStyleLoaded?.()) {
-            map.fitBounds(
-              [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)],
-              { padding: 80, maxZoom: 15 },
-            );
-          }
-        }
-        // Use emphasis/dim mechanism: trail routes stay full opacity, everything else dims
         const trailActivityIds = new Set(trailRoutes.map((r) => r.activityId));
+        // Set emphasis/hide non-trail routes via the renderer's emphasis mechanism.
+        // This stores the state; syncRouteSource applies it when the map source exists.
         this.routeRendererService.setEmphasis(trailActivityIds, null);
+        // Fit the map to trail bounds. The map may not be fully initialized yet
+        // (MapLibreMapComponent.ngAfterViewInit is async), so retry until the
+        // route renderer has a map reference and the style is loaded.
+        if (allCoords.length > 0) {
+          this.fitToTrailBoundsWithRetry(allCoords);
+        }
       }
     }
+  }
+
+  /**
+   * Fits the map to the given coordinates, retrying until the route renderer's
+   * map reference is available and the style is loaded. This handles the race
+   * where selectTrail runs before MapLibreMapComponent's async ngAfterViewInit
+   * has finished creating the map instance.
+   */
+  private fitToTrailBoundsWithRetry(coords: [number, number][], attempt = 0): void {
+    if (attempt >= 100) return; // ~3 seconds max
+    this.routeRendererService.fitToRoute(coords);
+    // fitToRoute is a no-op when the renderer's map ref is null, so retry
+    setTimeout(() => this.fitToTrailBoundsWithRetry(coords, attempt + 1), 30);
   }
 
   protected clearSelectedTrail(): void {
@@ -1234,6 +1261,12 @@ export class MapPage implements AfterViewInit {
 
   private updateEmphasis(): void {
     if (!this.dataLoaded()) {
+      return;
+    }
+    // When a trail is selected, preserve trail emphasis — don't let the
+    // filter-based emphasis logic override it. The trail emphasis is set
+    // by selectTrail() and cleared by clearSelectedTrail().
+    if (this.selectedTrailId()) {
       return;
     }
     const filtered = this.filteredRoutes();

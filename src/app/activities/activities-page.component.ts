@@ -1806,9 +1806,7 @@ export class ActivitiesPageComponent {
   }
 
   protected navigateToTrailOnMap(trail: TrailRecord): void {
-    if (trail.activityIds.length > 0) {
-      this.router.navigate(['/map'], { queryParams: { activityId: trail.activityIds[0] } });
-    }
+    this.router.navigate(['/map'], { queryParams: { trailId: trail.id } });
   }
 
   /** Finds an activity by ID from the loaded activities list. */

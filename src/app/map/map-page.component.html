@@ -86,6 +86,19 @@
           (removePlace)="onRemovePlace($event)"
         />
       }
+
+      <!-- Sidebar collapse handle on the right edge — only visible when expanded -->
+      <button
+        class="sidebar-collapse-handle"
+        [class.sidebar-collapse-handle--hidden]="!panelExpanded()"
+        type="button"
+        (click)="onPanelExpandedChange(false)"
+        aria-label="Collapse sidebar"
+      >
+        <span class="sidebar-collapse-icon-bubble">
+          <app-icon name="chevron-left" [size]="20" strokeWidth="2.5"></app-icon>
+        </span>
+      </button>
     }
     <app-map-filter-overlay
       [sportTypeFilter]="sportTypeFilter()"

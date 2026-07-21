@@ -7,6 +7,7 @@ const ICONS: Record<string, string> = {
   'check-circle':
     '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',
   'chevron-down': '<polyline points="6 9 12 15 18 9"/>',
+  'chevron-left': '<polyline points="15 18 9 12 15 6"/>',
   'chevron-right': '<polyline points="9 18 15 12 9 6"/>',
   clock: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
   route:

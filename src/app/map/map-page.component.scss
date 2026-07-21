@@ -569,3 +569,75 @@
 .map-trail-drawer__btn:hover {
   background: #166534;
 }
+
+/* ── Sidebar Collapse Handle ──────────────────────
+   Positioned on the right edge of the sidebar panel (at 340px). When
+   collapsed, it shifts to sit next to the activity panel's side handle
+   (at 75px) so the "View on map" button + route count indicator is
+   still visible. On Places / All tabs the handle sits at left: 0 when
+   collapsed (those panels have no side indicator). */
+
+.sidebar-collapse-handle {
+  align-items: center;
+  appearance: none;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  justify-content: center;
+  left: 336px;
+  margin: 0;
+  padding: 0;
+  position: absolute;
+  top: 0;
+  width: 24px;
+  z-index: 151;
+}
+
+.sidebar-collapse-handle:hover {
+  background: transparent;
+}
+
+.sidebar-collapse-handle:focus-visible {
+  outline: 0;
+}
+
+.sidebar-collapse-icon-bubble {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #dce6df;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgb(20 33 27 / 10%);
+  color: #63746a;
+  display: inline-flex;
+  height: 60px;
+  justify-content: center;
+  width: 24px;
+  flex-shrink: 0;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.sidebar-collapse-handle:hover .sidebar-collapse-icon-bubble {
+  background: #eef5f0;
+  border-color: #1f6f50;
+  color: #1f6f50;
+}
+
+.sidebar-collapse-handle:focus-visible .sidebar-collapse-icon-bubble {
+  background: #eef5f0;
+  border-color: #1f6f50;
+  color: #1f6f50;
+}
+
+/* Hidden state — handle is only shown when the sidebar is expanded as a
+   collapse affordance. The existing side indicator on the Activities tab
+   (activity icon + route count) remains the way to expand. */
+.sidebar-collapse-handle--hidden {
+  display: none;
+}

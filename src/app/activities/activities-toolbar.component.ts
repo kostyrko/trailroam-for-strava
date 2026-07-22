@@ -29,6 +29,8 @@ export class ActivitiesToolbarComponent {
   @Input() filterMenuOpen!: boolean;
   @Input() sportTypeGroups!: { category: string; sportTypes: string[] }[];
   @Input() CATEGORY_COLORS!: Record<string, string>;
+  @Input() hasTrails = false;
+  @Input() trailCount = 0;
 
   @Output() nameSearchChange = new EventEmitter<string>();
   @Output() sportTypeChange = new EventEmitter<string>();

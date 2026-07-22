@@ -63,6 +63,8 @@
           [filterMenuOpen]="filterMenuOpen()"
           [sportTypeGroups]="sportTypeGroups()"
           [CATEGORY_COLORS]="CATEGORY_COLORS"
+          [hasTrails]="hasTrails()"
+          [trailCount]="trailCount()"
           (nameSearchChange)="onNameSearchChange($event)"
           (sportTypeChange)="onSportTypeChange($event)"
           (categoryFilterChange)="onCategoryFilterChange($event)"
@@ -1016,23 +1018,6 @@
               </button>
             }
           </div>
-          <div class="logbook-places__sort">
-            <span class="logbook-places__sort-label">Sort by</span>
-            <button
-              class="logbook-places__sort-btn"
-              [class.logbook-places__sort-btn--active]="placesSortColumn() === 'date'"
-              (click)="onPlacesSort('date')"
-            >
-              Date
-            </button>
-            <button
-              class="logbook-places__sort-btn"
-              [class.logbook-places__sort-btn--active]="placesSortColumn() === 'name'"
-              (click)="onPlacesSort('name')"
-            >
-              Name
-            </button>
-          </div>
         </div>
 
         @if (filteredPlaces().length === 0) {
@@ -1063,7 +1048,7 @@
                 </tr>
               </thead>
               <tbody>
-                @for (place of filteredPlaces(); track place.id) {
+                @for (place of pagedPlaces(); track place.id) {
                   <tr class="logbook-place-row" (click)="onSelectPlace(place)">
                     <td class="cell-date-secondary">{{ formatDateShort(place.createdAt) }}</td>
                     <td>
@@ -1150,19 +1135,103 @@
               </tbody>
             </table>
           </div>
+
+          @if (filteredPlaces().length > pageSize()) {
+            <nav class="pagination" aria-label="Activities pagination">
+              <button
+                class="page-btn"
+                [disabled]="currentPage() <= 1"
+                (click)="goToPage(currentPage() - 1)"
+              >
+                Previous
+              </button>
+              @for (p of pageNumbers(); track p) {
+                @if (typeof p === 'string') {
+                  <span class="page-ellipsis">…</span>
+                } @else {
+                  <button
+                    class="page-btn page-num"
+                    [class.page-active]="p === currentPage()"
+                    (click)="goToPage(p)"
+                  >
+                    {{ p }}
+                  </button>
+                }
+              }
+              <button
+                class="page-btn"
+                [disabled]="currentPage() >= totalPages()"
+                (click)="goToPage(currentPage() + 1)"
+              >
+                Next
+              </button>
+            </nav>
+          }
+          <div class="page-size-control">
+            <span class="filter-label">Per page</span>
+            <div
+              class="custom-select page-size-select"
+              tabindex="0"
+              (click)="pageSizeMenuOpen.set(!pageSizeMenuOpen())"
+              (keydown.enter)="pageSizeMenuOpen.set(!pageSizeMenuOpen())"
+              (blur)="pageSizeMenuOpen.set(false)"
+            >
+              <span class="custom-select-trigger"
+                >{{ pageSize() }}<span class="select-arrow">▾</span></span
+              >
+              @if (pageSizeMenuOpen()) {
+                <ul class="custom-select-options" (mousedown)="$event.preventDefault()">
+                  @for (size of PAGE_SIZE_OPTIONS; track size) {
+                    <li
+                      role="option"
+                      (click)="onPageSizeChange(size)"
+                      [class.active]="pageSize() === size"
+                    >
+                      {{ size }}
+                    </li>
+                  }
+                </ul>
+              }
+            </div>
+          </div>
         }
       </div>
     }
 
     @case ('all') {
-      <div class="logbook-all">
-        <div class="logbook-all__controls">
-          <div class="logbook-all__count">
-            All
-            <span class="logbook-all__count-num">({{ allRows().length }})</span>
-          </div>
-        </div>
+      <app-activities-toolbar
+        [nameSearch]="nameSearch()"
+        [sportTypeFilter]="sportTypeFilter()"
+        [datePresetLabel]="datePresetLabel()"
+        [datePresetOpen]="datePresetOpen()"
+        [dateFrom]="dateFrom()"
+        [dateTo]="dateTo()"
+        [filterMenuOpen]="filterMenuOpen()"
+        [sportTypeGroups]="sportTypeGroups()"
+        [CATEGORY_COLORS]="CATEGORY_COLORS"
+        [hasTrails]="hasTrails()"
+        [trailCount]="trailCount()"
+        (nameSearchChange)="onNameSearchChange($event)"
+        (sportTypeChange)="onSportTypeChange($event)"
+        (categoryFilterChange)="onCategoryFilterChange($event)"
+        (toggleFilterMenu)="toggleFilterMenu()"
+        (closeFilterMenu)="closeFilterMenu()"
+        (toggleDatePreset)="datePresetOpen.set(!datePresetOpen())"
+        (datePresetClose)="datePresetOpen.set(false)"
+        (rangeApplied)="onRangeApplied($event)"
+        (importClick)="showImportOverlay()"
+        (fileSelected)="onFileSelected($event)"
+        (clearFilters)="clearAllFilters()"
+      />
 
+      <app-activities-stats
+        [statCount]="statCount()"
+        [statDistance]="statDistance()"
+        [statMovingTime]="statMovingTime()"
+        [statAvgSpeed]="statAvgSpeed()"
+      />
+
+      <div class="logbook-all">
         @if (allRows().length === 0) {
           <div class="empty-state">
             <p class="empty-state-kicker">No activities or places yet</p>
@@ -1184,7 +1253,7 @@
               </thead>
               <tbody>
                 @for (
-                  row of allRows();
+                  row of pagedAllRows();
                   track row.kind === 'activity' ? row.activity.id : row.place.id
                 ) {
                   @if (row.kind === 'activity') {
@@ -1265,6 +1334,65 @@
                 }
               </tbody>
             </table>
+          </div>
+
+          @if (allRows().length > pageSize()) {
+            <nav class="pagination" aria-label="Activities pagination">
+              <button
+                class="page-btn"
+                [disabled]="currentPage() <= 1"
+                (click)="goToPage(currentPage() - 1)"
+              >
+                Previous
+              </button>
+              @for (p of pageNumbers(); track p) {
+                @if (typeof p === 'string') {
+                  <span class="page-ellipsis">…</span>
+                } @else {
+                  <button
+                    class="page-btn page-num"
+                    [class.page-active]="p === currentPage()"
+                    (click)="goToPage(p)"
+                  >
+                    {{ p }}
+                  </button>
+                }
+              }
+              <button
+                class="page-btn"
+                [disabled]="currentPage() >= totalPages()"
+                (click)="goToPage(currentPage() + 1)"
+              >
+                Next
+              </button>
+            </nav>
+          }
+          <div class="page-size-control">
+            <span class="filter-label">Per page</span>
+            <div
+              class="custom-select page-size-select"
+              tabindex="0"
+              (click)="pageSizeMenuOpen.set(!pageSizeMenuOpen())"
+              (keydown.enter)="pageSizeMenuOpen.set(!pageSizeMenuOpen())"
+              (blur)="pageSizeMenuOpen.set(false)"
+            >
+              <span class="custom-select-trigger"
+                >{{ pageSize() }}<span class="select-arrow">▾</span></span
+              >
+              @if (pageSizeMenuOpen()) {
+                <ul class="custom-select-options" (mousedown)="$event.preventDefault()">
+                  @for (size of PAGE_SIZE_OPTIONS; track size) {
+                    <li
+                      role="option"
+                      (click)="onPageSizeChange(size)"
+                      [class.active]="pageSize() === size"
+                    >
+                      {{ size }}
+                    </li>
+                  }
+                </ul>
+              }
+            </div>
           </div>
         }
       </div>

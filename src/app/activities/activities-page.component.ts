@@ -261,6 +261,12 @@ export class ActivitiesPageComponent {
     return this.trailsService.allTrailedActivityIds();
   });
 
+  /** Number of active trails (groups with 2+ activities). */
+  protected readonly trailCount = computed(() => this.trailsService.trails().length);
+
+  /** Whether at least one trail exists. */
+  protected readonly hasTrails = computed(() => this.trailCount() > 0);
+
   /**
    * Returns the trail stats for a given trail by computing across its member activities.
    */
@@ -440,7 +446,9 @@ export class ActivitiesPageComponent {
       if (!matchesAny) return false;
     }
     if (sportFilter) {
-      if (sportFilter.startsWith('__cat__')) {
+      if (sportFilter === '__trails__') {
+        if (!this.trailedActivityIds().has(a.id)) return false;
+      } else if (sportFilter.startsWith('__cat__')) {
         const cat = sportFilter.slice(7) as ActivityCategory;
         if (mapSportTypeToCategory(a.sportType) !== cat) return false;
       } else {
@@ -456,6 +464,24 @@ export class ActivitiesPageComponent {
   /** Paginated slice of filtered visible rows for the current page. */
   protected readonly pagedRows = computed<VisibleLogbookRow[]>(() => {
     const all = this.filteredVisibleRows();
+    const page = this.currentPage();
+    const size = this.pageSize();
+    const start = (page - 1) * size;
+    return all.slice(start, start + size);
+  });
+
+  /** Paginated slice of filtered places for the current page. */
+  protected readonly pagedPlaces = computed(() => {
+    const all = this.filteredPlaces();
+    const page = this.currentPage();
+    const size = this.pageSize();
+    const start = (page - 1) * size;
+    return all.slice(start, start + size);
+  });
+
+  /** Paginated slice of all rows for the current page. */
+  protected readonly pagedAllRows = computed(() => {
+    const all = this.allRows();
     const page = this.currentPage();
     const size = this.pageSize();
     const start = (page - 1) * size;
@@ -819,7 +845,11 @@ export class ActivitiesPageComponent {
         if (!matchesAny) return false;
       }
       if (sportFilter) {
-        if (sportFilter.startsWith('__cat__')) {
+        if (sportFilter === '__trails__') {
+          if (!this.trailedActivityIds().has(a.id)) {
+            return false;
+          }
+        } else if (sportFilter.startsWith('__cat__')) {
           const cat = sportFilter.slice(7) as ActivityCategory;
           if (mapSportTypeToCategory(a.sportType) !== cat) {
             return false;

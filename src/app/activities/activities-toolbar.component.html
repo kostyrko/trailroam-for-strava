@@ -31,7 +31,9 @@
   >
     <span class="toolbar-select__trigger">
       @if (sportTypeFilter; as sel) {
-        @if (sel.startsWith('__cat__')) {
+        @if (sel === '__trails__') {
+          <span class="cat-dot" style="background: #7c3aed"></span>TRAILS
+        } @else if (sel.startsWith('__cat__')) {
           <span class="cat-dot" [style.background]="CATEGORY_COLORS[sel.slice(7)]"></span
           >{{ formatCategory(sel.slice(7)) }}
         } @else {
@@ -60,6 +62,16 @@
         <li role="option" (click)="sportTypeChange.emit('')" [class.active]="!sportTypeFilter">
           All Activities
         </li>
+        @if (hasTrails) {
+          <li
+            class="sport-type-group-header"
+            role="option"
+            (click)="sportTypeChange.emit('__trails__')"
+            [class.active]="sportTypeFilter === '__trails__'"
+          >
+            <span class="cat-dot" style="background: #7c3aed"></span>TRAILS
+          </li>
+        }
         @for (group of sportTypeGroups; track group.category) {
           <li
             class="sport-type-group-header"
@@ -122,7 +134,7 @@
     (click)="clearFilters.emit()"
     aria-label="Clear all filters"
   >
-    <app-icon name="square" [size]="14" strokeWidth="2"></app-icon>
+    <app-icon name="x" [size]="16" strokeWidth="2"></app-icon>
     Clear filters
   </button>
 

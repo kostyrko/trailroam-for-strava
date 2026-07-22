@@ -1260,43 +1260,6 @@ app-logbook-nav {
 .logbook-places__search-clear:hover {
   color: #63746a;
 }
-.logbook-places__sort {
-  align-items: center;
-  display: flex;
-  gap: 6px;
-}
-.logbook-places__sort-label {
-  color: #63746a;
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-.logbook-places__sort-btn {
-  background: #fff;
-  border: 1px solid #dce6df;
-  border-radius: 6px;
-  color: #63746a;
-  cursor: pointer;
-  font: inherit;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  min-height: 32px;
-  padding: 4px 12px;
-  transition:
-    background 120ms ease,
-    border-color 120ms ease;
-}
-.logbook-places__sort-btn:hover {
-  background: #f4f9f6;
-  border-color: #b6cdbe;
-}
-.logbook-places__sort-btn--active {
-  background: #1f6f50;
-  border-color: #1f6f50;
-  color: #fff;
-}
-.logbook-places__sort-btn--active:hover {
-  background: #185940;
-}
 .logbook-places__table-wrap {
   border: 1px solid #dce6df;
   border-radius: 8px;

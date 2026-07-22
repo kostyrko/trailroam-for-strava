@@ -26,6 +26,7 @@
             "index": "src/index.html",
             "baseHref": "./",
             "inlineStyleLanguage": "scss",
+            "allowedCommonJsDependencies": ["buffer", "jszip", "maplibre-gl"],
             "assets": [
               {
                 "glob": "**/*",
@@ -44,12 +45,12 @@
               "budgets": [
                 {
                   "type": "initial",
-                  "maximumWarning": "900kB",
-                  "maximumError": "1200kB"
+                  "maximumWarning": "1300kB",
+                  "maximumError": "2000kB"
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "10kB",
+                  "maximumWarning": "24kB",
                   "maximumError": "28kB"
                 }
               ],

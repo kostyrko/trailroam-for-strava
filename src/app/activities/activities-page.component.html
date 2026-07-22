@@ -303,7 +303,7 @@
                                 <button
                                   class="act-dropdown-item"
                                   role="menuitem"
-                                  (click)="onRenameTrail(row.trail); openMenuId.set(null)"
+                                  (click)="onEditTrail(row.trail); openMenuId.set(null)"
                                 >
                                   <app-icon
                                     name="pencil"
@@ -311,7 +311,7 @@
                                     strokeWidth="2"
                                     [class]="'act-dropdown-icon'"
                                   ></app-icon>
-                                  Rename
+                                  Edit
                                 </button>
                               </li>
                               <li role="none">

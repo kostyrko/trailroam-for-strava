@@ -1720,6 +1720,7 @@ export class ActivitiesPageComponent {
     const ref = this.dialog.open(CreateTrailDialog, {
       data: {
         activities: selected,
+        allActivities: all,
         suggestedName:
           (selected[0]?.name?.split(' ').slice(0, 2).join(' ') ?? 'New') + ' Adventure',
       },
@@ -1747,20 +1748,51 @@ export class ActivitiesPageComponent {
     }
   }
 
-  protected async onRenameTrail(trail: TrailRecord): Promise<void> {
-    const { RenameTrailDialog } = await import('./rename-trail-dialog.component');
-    const ref = this.dialog.open(RenameTrailDialog, {
-      data: { currentName: trail.name },
+  protected async onEditTrail(trail: TrailRecord): Promise<void> {
+    const all = this.activities();
+    if (!all) return;
+
+    // Resolve member activities from IDs, sorted chronologically
+    const memberActivities = trail.activityIds
+      .map((id) => all.find((a) => a.id === id))
+      .filter((a): a is ActivityRecord => a !== undefined)
+      .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+
+    const { CreateTrailDialog } = await import('./create-trail-dialog.component');
+    const ref = this.dialog.open(CreateTrailDialog, {
+      data: {
+        activities: memberActivities,
+        allActivities: all,
+        suggestedName: trail.name,
+        trail,
+      },
       disableClose: true,
     });
-    const result: { name: string } | undefined = await ref.afterClosed().toPromise();
-    if (!result || result.name === trail.name) return;
+    const result: { name: string; activityIds: string[]; trailId?: string } | undefined = await ref
+      .afterClosed()
+      .toPromise();
+    if (!result) return;
 
     try {
-      await this.trailsService.rename(trail.id, result.name);
-      this.toastService.show(`Trail renamed to "${result.name}".`);
+      const nameChanged = result.name !== trail.name;
+      const oldIds = new Set(trail.activityIds);
+      const newIdsSet = new Set(result.activityIds);
+      const toRemove = trail.activityIds.filter((id) => !newIdsSet.has(id));
+      const toAdd = result.activityIds.filter((id) => !oldIds.has(id));
+
+      if (nameChanged) {
+        await this.trailsService.rename(trail.id, result.name);
+      }
+      for (const id of toRemove) {
+        await this.trailsService.removeFromTrail(trail.id, id);
+      }
+      for (const id of toAdd) {
+        await this.trailsService.addToTrail(trail.id, id);
+      }
+
+      this.toastService.show(`Trail "${result.name}" updated.`);
     } catch {
-      this.toastService.show('Failed to rename Trail. Please try again.');
+      this.toastService.show('Failed to update Trail. Please try again.');
     }
   }
 

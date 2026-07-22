@@ -39,6 +39,7 @@ describe('TrailroamDatabase', () => {
       'settings',
       'sync_history',
       'sync_state',
+      'trails',
     ]);
   });
 

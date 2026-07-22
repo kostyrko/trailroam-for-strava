@@ -176,7 +176,7 @@ describe('ActivitiesPageComponent', () => {
     expect(rows[0].textContent).toContain('Evening Hike');
     expect(rows[1].textContent).toContain('Morning Ride');
 
-    expect(compiled.querySelector('.activities-count')?.textContent).toContain('2 activities');
+    expect(compiled.querySelector('.activities-count')?.textContent).toContain('2 items');
   });
 
   it('should show pagination when more than PAGE_SIZE activities exist', async () => {

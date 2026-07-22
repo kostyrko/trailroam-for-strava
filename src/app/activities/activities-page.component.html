@@ -208,11 +208,7 @@
               ) {
                 @if (row.kind === 'trail') {
                   <!-- Trail row -->
-                  <tr
-                    class="trail-row"
-                    [class.trail-row--selected]="selectedTrail()?.id === row.trail.id"
-                    (click)="onSelectTrail(row.trail)"
-                  >
+                  <tr class="trail-row" (click)="toggleExpandTrail(row.trail.id)">
                     <td class="cell-checkbox" (click)="$event.stopPropagation()">
                       <input
                         type="checkbox"
@@ -231,20 +227,13 @@
                       <button
                         class="trail-expand-btn"
                         [class.trail-expand-btn--open]="expandedTrailIds().has(row.trail.id)"
-                        [class.trail-expand-btn--closed]="!expandedTrailIds().has(row.trail.id)"
                         type="button"
                         (click)="toggleExpandTrail(row.trail.id); $event.stopPropagation()"
                         attr.aria-label="{{
                           expandedTrailIds().has(row.trail.id) ? 'Collapse' : 'Expand'
                         }} trail"
                       >
-                        <app-icon
-                          [name]="
-                            expandedTrailIds().has(row.trail.id) ? 'chevron-down' : 'chevron-right'
-                          "
-                          [size]="14"
-                          strokeWidth="3"
-                        ></app-icon>
+                        <app-icon name="chevron-right" [size]="14" strokeWidth="3"></app-icon>
                       </button>
                     </td>
                     <td class="cell-name">
@@ -268,13 +257,19 @@
                     <td class="cell-source"></td>
                     <td class="cell-status"></td>
                     <td>
-                      <span class="source-badge source-badge--trail">Trail</span>
+                      <span class="source-badge source-badge--trail">🌍 Trail</span>
                     </td>
                     <td class="cell-num cell-distance-bold">
                       {{ formatDistance(row.totalDistanceMeters) }}
                     </td>
                     <td class="cell-num">{{ formatDurationHours(row.totalMovingSeconds) }}</td>
-                    <td class="cell-num">{{ formatDuration(row.totalMovingSeconds) }}</td>
+                    <td class="cell-num">
+                      {{
+                        formatSpeed(
+                          computeSpeed(undefined, row.totalDistanceMeters, row.totalMovingSeconds)
+                        )
+                      }}
+                    </td>
                     <td></td>
                     <td class="cell-actions">
                       <div class="activity-actions-cell">

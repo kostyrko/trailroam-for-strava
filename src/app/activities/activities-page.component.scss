@@ -672,7 +672,7 @@ app-logbook-nav {
 }
 
 .cell-date-secondary {
-  color: #a0b4a6;
+  color: #63746a;
   font-size: 0.8125rem;
 }
 
@@ -1500,7 +1500,7 @@ app-logbook-nav {
   background: #e5f0ea;
 }
 .trail-row td {
-  padding: 12px 6px;
+  padding: 12px 12px;
 }
 .trail-row-main {
   align-items: center;
@@ -1537,8 +1537,8 @@ app-logbook-nav {
   font-weight: 500;
 }
 .trail-date-range {
-  color: #63746a;
-  font-size: 0.75rem;
+  color: inherit;
+  font-size: inherit;
 }
 .trail-expand-btn {
   align-items: center;
@@ -1562,15 +1562,26 @@ app-logbook-nav {
   background: #dce6df;
   color: #14211b;
 }
-.trail-expand-btn--open svg {
-  transform: rotate(0deg);
+.trail-expand-btn--open {
+  transform: rotate(90deg);
 }
-.trail-expand-btn--closed svg {
-  transform: rotate(-90deg);
+
+/* ── Expand/collapse animations ───────────────── */
+
+@keyframes trail-child-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Child activity rows inside an expanded trail — bolder green to stand out */
 .activity-row--child {
+  animation: trail-child-fade-in 0.2s ease both;
   border-left: 4px solid #15803d;
 }
 /* Remove any padding/shift from the name cell for child rows */
@@ -1581,14 +1592,17 @@ app-logbook-nav {
   display: none;
 }
 
-/* Source badge for trail row */
+/* Source badge for trail row — styled to match .category-tag */
 .source-badge--trail {
+  align-items: center;
   background: #e0f2e6;
+  border-radius: 5px;
   color: #15803d;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 4px;
+  display: inline-flex;
+  font-size: 0.875rem;
+  font-weight: 700;
+  gap: 5px;
+  padding: 4px 9px;
   white-space: nowrap;
 }
 

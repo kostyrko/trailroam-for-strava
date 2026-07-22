@@ -37,6 +37,7 @@ function categoryColor(cat: string): string {
     `
       :host {
         display: block;
+        width: 520px;
         max-width: 520px;
         padding: 24px;
         font-family:
@@ -453,33 +454,31 @@ function categoryColor(cat: string): string {
         Add more activities
       </button>
 
-      @if (pickerOpen()) {
-        <div class="picker-section">
-          <div class="picker-search">
-            <input
-              type="text"
-              [(ngModel)]="pickerQuery"
-              placeholder="Search activities…"
-              aria-label="Search activities to add"
-            />
-          </div>
-          <div class="picker-list">
-            @let avail = availableActivities();
-            @if (avail.length === 0) {
-              <div class="picker-empty">
-                {{ pickerQuery() ? 'No matching activities' : 'All activities already selected' }}
-              </div>
-            }
-            @for (a of avail; track a.id) {
-              <button class="picker-item" type="button" (click)="onAddActivity(a)">
-                <span class="picker-item__emoji">{{ sportTypeEmoji(a) }}</span>
-                <span class="picker-item__name">{{ a.name }}</span>
-                <span class="picker-item__date">{{ formatDateShort(a.startDate) }}</span>
-              </button>
-            }
-          </div>
+      <div class="picker-section" [style.display]="pickerOpen() ? '' : 'none'">
+        <div class="picker-search">
+          <input
+            type="text"
+            [(ngModel)]="pickerQuery"
+            placeholder="Search activities…"
+            aria-label="Search activities to add"
+          />
         </div>
-      }
+        <div class="picker-list">
+          @let avail = availableActivities();
+          @if (avail.length === 0) {
+            <div class="picker-empty">
+              {{ pickerQuery() ? 'No matching activities' : 'All activities already selected' }}
+            </div>
+          }
+          @for (a of avail; track a.id) {
+            <button class="picker-item" type="button" (click)="onAddActivity(a)">
+              <span class="picker-item__emoji">{{ sportTypeEmoji(a) }}</span>
+              <span class="picker-item__name">{{ a.name }}</span>
+              <span class="picker-item__date">{{ formatDateShort(a.startDate) }}</span>
+            </button>
+          }
+        </div>
+      </div>
     }
 
     <!-- Footer -->

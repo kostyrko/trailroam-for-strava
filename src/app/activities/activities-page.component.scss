@@ -1490,7 +1490,7 @@ app-logbook-nav {
 .trail-row {
   background: #f8faf9;
   border-bottom: 1px solid #dce6df;
-  border-left: 4px solid #b7d9c4;
+  border-left: 3px solid #b7d9c4;
   cursor: pointer;
 }
 .trail-row:hover {
@@ -1582,7 +1582,11 @@ app-logbook-nav {
 /* Child activity rows inside an expanded trail — bolder green to stand out */
 .activity-row--child {
   animation: trail-child-fade-in 0.2s ease both;
-  border-left: 4px solid #15803d;
+  border-left: 2px solid #b7d9c4;
+}
+
+.activity-row--child:last-child {
+  border-bottom: 2px solid #b7d9c4;
 }
 /* Remove any padding/shift from the name cell for child rows */
 .activity-row--child .cell-name {
@@ -1605,6 +1609,17 @@ app-logbook-nav {
   padding: 4px 9px;
   white-space: nowrap;
 }
+
+/* ── Trail group container ─────────────────── */
+
+.trail-group {
+  border-left: 3px solid #15803d;
+}
+.trail-group + .trail-group {
+  margin-top: 8px;
+}
+
+/* ── Trail Detail Panel ─────────────────────── */
 
 /* ── Trail Detail Panel ─────────────────────── */
 

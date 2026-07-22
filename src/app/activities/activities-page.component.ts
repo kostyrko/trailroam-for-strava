@@ -113,6 +113,21 @@ export interface TrailStats {
   lastDate: string;
 }
 
+/**
+ * A pre-grouped display unit for the template — either a trail group (header + children)
+ * or a single standalone activity row.
+ */
+export type DisplayGroup =
+  | {
+      kind: 'trail-group';
+      trailRow: VisibleLogbookRow & { kind: 'trail' };
+      childActivities: ActivityRecord[];
+    }
+  | {
+      kind: 'single';
+      activity: ActivityRecord;
+    };
+
 export type SortColumn =
   | 'date'
   | 'name'
@@ -449,6 +464,36 @@ export class ActivitiesPageComponent {
 
   /** Total filtered visible row count (for pagination). */
   protected readonly totalFilteredRowCount = computed(() => this.filteredVisibleRows().length);
+
+  /**
+   * Groups the paginated rows into trail-group containers and standalone rows,
+   * so the template can wrap each trail group in a distinct <tbody>.
+   */
+  protected readonly groupedRows = computed<DisplayGroup[]>(() => {
+    const rows = this.pagedRows();
+    const groups: DisplayGroup[] = [];
+
+    for (const row of rows) {
+      if (row.kind === 'trail') {
+        groups.push({
+          kind: 'trail-group',
+          trailRow: row,
+          childActivities: [...row.memberActivities],
+        });
+      } else if (!this.trailedActivityIds().has(row.activity.id)) {
+        groups.push({ kind: 'single', activity: row.activity });
+      }
+    }
+
+    return groups;
+  });
+
+  /** Returns the 1-based index of an activity within its parent trail. */
+  protected childActivityIndex(trailId: string, activityId: string): number {
+    const trail = this.trailsService.trails().find((t) => t.id === trailId);
+    if (!trail) return 0;
+    return trail.activityIds.indexOf(activityId) + 1;
+  }
 
   /** Search query for the Places tab. */
   protected readonly placesSearchQuery = signal('');

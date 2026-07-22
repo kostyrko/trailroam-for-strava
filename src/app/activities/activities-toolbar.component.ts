@@ -1,7 +1,11 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { IconComponent } from '../shared/icon.component';
 import { DateRangePickerComponent } from '../shared/date-range-picker.component';
-import { formatSportType, formatCategory, mapSportTypeToCategory } from '../shared/activity-category';
+import {
+  formatSportType,
+  formatCategory,
+  mapSportTypeToCategory,
+} from '../shared/activity-category';
 import type { ActivityCategory } from '../storage/storage.models';
 
 @Component({
@@ -36,4 +40,5 @@ export class ActivitiesToolbarComponent {
   @Output() rangeApplied = new EventEmitter<{ dateFrom: string; dateTo: string }>();
   @Output() importClick = new EventEmitter<void>();
   @Output() fileSelected = new EventEmitter<Event>();
+  @Output() clearFilters = new EventEmitter<void>();
 }

@@ -712,6 +712,11 @@ export class ActivitiesPageComponent {
     localStorage.getItem('trailroam_activities_source_filter_expanded') !== 'false',
   );
 
+  protected clearAllFilters(): void {
+    this.filtersService.clearAll();
+    this.resetSourceFilter();
+  }
+
   protected resetSourceFilter(): void {
     this.sourceFilter.set(new Set());
   }

@@ -6,6 +6,29 @@
   margin-bottom: 16px;
 }
 
+.clear-filters-btn {
+  align-items: center;
+  background: transparent;
+  border: 1px solid #dce6df;
+  border-radius: 6px;
+  color: #314b3f;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  gap: 6px;
+  height: 36px;
+  justify-content: center;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
+.clear-filters-btn:hover {
+  background: #eef5f0;
+  color: #14211b;
+}
+
 .import-btn {
   align-items: center;
   background: #1f6f50;
@@ -21,7 +44,9 @@
   height: 36px;
   margin-left: auto;
   padding: 0 14px;
-  transition: background 120ms ease, border-color 120ms ease;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease;
   white-space: nowrap;
 }
 

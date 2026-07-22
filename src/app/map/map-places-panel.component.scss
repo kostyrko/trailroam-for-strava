@@ -1,22 +1,92 @@
-.places-panel {
+/* Outer shell — replaces the old absolute positioning that was on .places-panel.
+   Now wraps the panel so collapse/expand can slide it. */
+.map-panel {
+  bottom: 0;
   display: flex;
-  flex-direction: column;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  z-index: 100;
 }
 
-/* Full-height absolute shell, mirroring .map-panel from the activity panel. */
-:host:not(.places-host--compact) .places-panel {
+.map-panel--collapsed .map-panel-inner {
+  transform: translateX(-100%);
+  pointer-events: none;
+}
+
+.map-panel--no-transition .map-panel-inner {
+  transition: none;
+}
+
+.map-panel-side {
+  pointer-events: auto;
+  position: relative;
+  width: 0;
+}
+
+.map-panel-side--hidden {
+  display: none;
+}
+
+.map-panel-handle {
+  align-items: center;
+  background: #ffffff;
+  border: 2px solid #1f6f50;
+  border-left: 0;
+  border-radius: 0 6px 6px 0;
+  box-shadow: 0 2px 6px rgb(20 33 27 / 18%);
+  color: #1f6f50;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  height: 60px;
+  justify-content: center;
+  left: 0;
+  margin-top: 0;
+  padding: 0;
+  position: absolute;
+  top: 12px;
+  width: 75px;
+  z-index: 200;
+}
+
+.map-panel-handle:hover {
+  background: #e6f7ef;
+}
+
+.panel-handle-count {
+  background: #1f6f50;
+  border-radius: 999px;
+  color: #ffffff;
+  font-size: 0.625rem;
+  font-weight: 800;
+  line-height: 1;
+  min-width: 18px;
+  padding: 2px 4px;
+  text-align: center;
+}
+
+.map-panel-inner {
   background: #ffffff;
   border-right: 1px solid #dce6df;
-  bottom: 0;
   display: flex;
   flex-direction: column;
   height: 100%;
-  left: 0;
   pointer-events: auto;
-  position: absolute;
-  top: 0;
+  position: relative;
+  transform: translateX(0);
+  transition: transform 200ms ease;
   width: 340px;
-  z-index: 100;
+  z-index: 1;
+}
+
+.places-panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .places-panel--compact {

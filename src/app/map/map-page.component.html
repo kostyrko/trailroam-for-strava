@@ -66,9 +66,12 @@
         <app-map-places-panel
           [places]="savedPlaces()"
           [selectedPlaceId]="selectedPlaceId()"
+          [panelExpanded]="panelExpanded()"
+          [noTransition]="panelNoTransition()"
           (selectPlace)="onSelectPlace($event)"
           (editPlace)="onEditPlace($event)"
           (removePlace)="onRemovePlace($event)"
+          (panelExpandedChange)="onPanelExpandedChange($event)"
         />
       } @else {
         <app-map-all-panel
@@ -78,12 +81,15 @@
           [selectedActivityId]="selectedActivityId()"
           [selectedTrailId]="selectedTrailId()"
           [selectedPlaceId]="selectedPlaceId()"
+          [panelExpanded]="panelExpanded()"
+          [noTransition]="panelNoTransition()"
           (selectRoute)="onPanelSelectRoute($event)"
           (selectTrail)="selectTrail($event)"
           (hoverRoute)="onPanelHoverRoute($event)"
           (selectPlace)="onSelectPlace($event)"
           (editPlace)="onEditPlace($event)"
           (removePlace)="onRemovePlace($event)"
+          (panelExpandedChange)="onPanelExpandedChange($event)"
         />
       }
 

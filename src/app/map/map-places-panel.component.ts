@@ -26,10 +26,16 @@ export class MapPlacesPanelComponent {
   readonly selectedPlaceId = input<string | null>(null);
   /** Section mode for the "All" view: bounded height, no absolute shells. */
   readonly compact = input(false);
+  /** Whether the panel is expanded (visible) or collapsed. */
+  readonly panelExpanded = input(true);
+  /** Skip the slide transition (used on initial render). */
+  readonly noTransition = input(false);
 
   readonly selectPlace = output<SavedPlaceRecord>();
   readonly editPlace = output<SavedPlaceRecord>();
   readonly removePlace = output<SavedPlaceRecord>();
+  /** Emits the new expanded state when the user toggles the panel. */
+  readonly panelExpandedChange = output<boolean>();
 
   protected readonly searchQuery = signal('');
   /** Id of the place whose overflow menu is currently open (one menu at a time). */
@@ -53,7 +59,9 @@ export class MapPlacesPanelComponent {
   protected readonly filteredPlaces = computed(() => {
     const query = this.searchQuery().toLowerCase().trim();
     const list = this.places();
-    if (!query) { return list; }
+    if (!query) {
+      return list;
+    }
     return list.filter(
       (p) =>
         p.name.toLowerCase().includes(query) ||
@@ -61,8 +69,14 @@ export class MapPlacesPanelComponent {
     );
   });
 
+  protected toggle(): void {
+    this.panelExpandedChange.emit(!this.panelExpanded());
+  }
+
   protected onSearchInput(value: string): void {
-    if (this.searchInputTimeout) { clearTimeout(this.searchInputTimeout); }
+    if (this.searchInputTimeout) {
+      clearTimeout(this.searchInputTimeout);
+    }
     this.searchInputTimeout = setTimeout(() => this.searchQuery.set(value), 150);
   }
 

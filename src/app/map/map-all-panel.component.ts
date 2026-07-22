@@ -39,6 +39,10 @@ export class MapAllPanelComponent {
   readonly selectedTrailId = input<string | null>(null);
   /** Currently focused place id (for highlight). */
   readonly selectedPlaceId = input<string | null>(null);
+  /** Whether the panel is expanded (visible) or collapsed. */
+  readonly panelExpanded = input(true);
+  /** Skip the slide transition (used on initial render). */
+  readonly noTransition = input(false);
 
   readonly selectRoute = output<MapRouteFeature>();
   readonly selectTrail = output<string>();
@@ -46,6 +50,8 @@ export class MapAllPanelComponent {
   readonly selectPlace = output<SavedPlaceRecord>();
   readonly editPlace = output<SavedPlaceRecord>();
   readonly removePlace = output<SavedPlaceRecord>();
+  /** Emits the new expanded state when the user toggles the panel. */
+  readonly panelExpandedChange = output<boolean>();
 
   protected readonly searchQuery = signal('');
   protected readonly openMenuId = signal<string | null>(null);
@@ -136,6 +142,10 @@ export class MapAllPanelComponent {
 
   protected clearSearch(): void {
     this.searchQuery.set('');
+  }
+
+  protected toggle(): void {
+    this.panelExpandedChange.emit(!this.panelExpanded());
   }
 
   protected onSelectActivity(route: MapRouteFeature): void {

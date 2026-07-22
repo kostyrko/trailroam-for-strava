@@ -1,4 +1,24 @@
-<div class="map-panel" [class.map-panel--fullscreen]="false">
+<div
+  class="map-panel"
+  [class.map-panel--fullscreen]="false"
+  [class.map-panel--collapsed]="!panelExpanded()"
+  [class.map-panel--no-transition]="noTransition()"
+>
+  <div class="map-panel-side" [class.map-panel-side--hidden]="panelExpanded()">
+    <button
+      class="map-panel-handle"
+      type="button"
+      (click)="toggle()"
+      [attr.aria-label]="panelExpanded() ? 'Collapse panel' : 'Expand panel'"
+      title="All"
+    >
+      <app-icon name="layers" [size]="25" strokeWidth="2"></app-icon>
+      @if (!panelExpanded()) {
+        <span class="panel-handle-count">{{ activityCount() + placeCount() }}</span>
+      }
+    </button>
+  </div>
+
   <div class="map-panel-inner">
     <div class="panel-header">
       <h2 class="panel-title">

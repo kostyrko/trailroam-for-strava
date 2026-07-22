@@ -7,14 +7,28 @@ function createMockRepositories(
   overrides: Partial<TrailroamRepositories> = {},
 ): TrailroamRepositories {
   return {
-    activities: { put: vi.fn(), get: vi.fn(), list: vi.fn(), count: vi.fn().mockResolvedValue(0), clear: vi.fn(), upsert: vi.fn() } as any,
-    activityRoutes: { put: vi.fn(), get: vi.fn(), list: vi.fn(), count: vi.fn().mockResolvedValue(0), clear: vi.fn() } as any,
+    activities: {
+      put: vi.fn(),
+      get: vi.fn(),
+      list: vi.fn(),
+      count: vi.fn().mockResolvedValue(0),
+      clear: vi.fn(),
+      upsert: vi.fn(),
+    } as any,
+    activityRoutes: {
+      put: vi.fn(),
+      get: vi.fn(),
+      list: vi.fn(),
+      count: vi.fn().mockResolvedValue(0),
+      clear: vi.fn(),
+    } as any,
     syncState: { put: vi.fn(), get: vi.fn(), clear: vi.fn() } as any,
     syncHistory: { put: vi.fn(), list: vi.fn(), clear: vi.fn() } as any,
     settings: { put: vi.fn(), get: vi.fn(), clear: vi.fn(), getOrCreateDefault: vi.fn() } as any,
     accessState: { put: vi.fn(), get: vi.fn(), clear: vi.fn(), getOrCreateDefault: vi.fn() } as any,
     routeGeometry: { put: vi.fn(), get: vi.fn(), clear: vi.fn() } as any,
     savedPlaces: { put: vi.fn(), get: vi.fn(), list: vi.fn(), clear: vi.fn() } as any,
+    trails: { put: vi.fn(), get: vi.fn(), list: vi.fn(), clear: vi.fn(), getAll: vi.fn() } as any,
     ...overrides,
   };
 }
@@ -25,7 +39,11 @@ describe('SyncSummaryService', () => {
 
   function configure(syncStateGet: () => any): void {
     mockRepositories = createMockRepositories({
-      syncState: { put: vi.fn(), get: vi.fn().mockImplementation(syncStateGet), clear: vi.fn() } as any,
+      syncState: {
+        put: vi.fn(),
+        get: vi.fn().mockImplementation(syncStateGet),
+        clear: vi.fn(),
+      } as any,
     });
 
     TestBed.configureTestingModule({

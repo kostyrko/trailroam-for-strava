@@ -63,6 +63,7 @@ import { GeocodingService } from './geocoding.service';
 import { sportTypeEmojiFromString } from '../shared/activity-display';
 import { TrailsService } from '../storage/trails.service';
 import type { SidebarTrailItem } from './map-activity-panel.component';
+import { TrailDetailPanelComponent } from './trail-detail-panel.component';
 import { logger } from '../shared/logger';
 
 const ROUTES_WARN_THRESHOLD = 1_000;
@@ -80,6 +81,7 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
     MapFilterOverlayComponent,
     MapPlacesPanelComponent,
     MapAllPanelComponent,
+    TrailDetailPanelComponent,
     IconComponent,
   ],
   templateUrl: './map-page.component.html',
@@ -686,9 +688,60 @@ export class MapPage implements AfterViewInit {
     setTimeout(() => this.fitToTrailBoundsWithRetry(coords, attempt + 1), 30);
   }
 
+  /** State preserved when user drills from trail panel into an activity. */
+  private readonly trailViewState = signal<{
+    scrollTop: number;
+    selectedActivityId: string | null;
+  } | null>(null);
+
+  /** When an activity was opened from a trail, show "Back to <trail name>". */
+  protected readonly trailBackLabel = computed<string | null>(() => {
+    const state = this.trailViewState();
+    if (!state) return null;
+    const trail = this.trailsService
+      .trails()
+      .find((t) => t.activityIds.includes(state.selectedActivityId ?? ''));
+    return trail?.name ?? null;
+  });
+
+  /** Called when user clicks an itinerary item in the trail panel. */
+  protected onTrailSelectActivity(route: MapRouteFeature): void {
+    // Preserve scroll position of the trail panel
+    const el = document.querySelector('.trail-detail-panel');
+    this.trailViewState.set({
+      scrollTop: el?.scrollTop ?? 0,
+      selectedActivityId: route.activityId,
+    });
+    // Close trail emphasis, open activity
+    this.routeRendererService.clearEmphasis();
+    this.selectRoute(route);
+    // Select the route on the main map
+    this.onPanelSelectRoute(route);
+  }
+
+  /** Called when user clicks "Back to Trail" in the activity detail panel. */
+  protected onBackToTrail(): void {
+    const state = this.trailViewState();
+    if (!state) return;
+    // Re-select the trail
+    const trailId = this.trailsService
+      .trails()
+      .find((t) => t.activityIds.includes(state.selectedActivityId ?? ''))?.id;
+    if (trailId) {
+      this.selectTrail(trailId);
+      // Restore scroll position after the panel re-renders
+      setTimeout(() => {
+        const el = document.querySelector('.trail-detail-panel');
+        if (el) el.scrollTop = state.scrollTop;
+      }, 0);
+    }
+    this.trailViewState.set(null);
+  }
+
   protected clearSelectedTrail(): void {
     this.selectedTrailId.set(null);
     this.routeRendererService.clearEmphasis();
+    this.trailViewState.set(null);
   }
 
   protected getSidebarTrail(trailId: string): SidebarTrailItem | undefined {

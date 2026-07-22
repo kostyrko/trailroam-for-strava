@@ -83,8 +83,12 @@ export class ActivityDetailPanelComponent {
   >(null);
   readonly pushMode = input(false);
   readonly showInActivities = input(false);
+  /** When set, replaces the close button with a "← Back to {label}" link. */
+  readonly backLabel = input<string | null>(null);
   readonly close = output<void>();
   readonly panelExpand = output<boolean>();
+  /** Emitted when the user clicks "Back to Trail". */
+  readonly backToTrail = output<void>();
 
   protected readonly routeLoading = signal(false);
   protected readonly speedLegend = signal(false);

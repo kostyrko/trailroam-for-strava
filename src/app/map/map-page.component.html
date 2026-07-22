@@ -212,79 +212,12 @@
           @if (selectedTrailId(); as trailId) {
             @let trail = getSidebarTrail(trailId);
             @if (trail) {
-              <aside class="map-trail-drawer">
-                <div class="map-trail-drawer__header">
-                  <app-icon
-                    name="mountain"
-                    [size]="20"
-                    strokeWidth="2"
-                    [class]="'map-trail-drawer__icon'"
-                  ></app-icon>
-                  <h3 class="map-trail-drawer__title">{{ trail.trail.name }}</h3>
-                  <span class="map-trail-drawer__badge">Trail</span>
-                  <button
-                    class="map-trail-drawer__close"
-                    type="button"
-                    (click)="closeDetailPanel(); clearSelectedTrail()"
-                    aria-label="Close trail drawer"
-                  >
-                    <app-icon name="x" [size]="16" strokeWidth="2"></app-icon>
-                  </button>
-                </div>
-                <div class="map-trail-drawer__stats">
-                  <div class="map-trail-drawer-stat">
-                    <span class="map-trail-drawer-stat__value">{{
-                      trail.memberActivities.length
-                    }}</span>
-                    <span class="map-trail-drawer-stat__label">{{
-                      trail.memberActivities.length === 1 ? 'activity' : 'activities'
-                    }}</span>
-                  </div>
-                  @if (trail.totalDistanceMeters > 0) {
-                    <div class="map-trail-drawer-stat">
-                      <span class="map-trail-drawer-stat__value">{{
-                        formatDistance(trail.totalDistanceMeters)
-                      }}</span>
-                      <span class="map-trail-drawer-stat__label">distance</span>
-                    </div>
-                  }
-                  @if (trail.totalMovingSeconds > 0) {
-                    <div class="map-trail-drawer-stat">
-                      <span class="map-trail-drawer-stat__value">{{
-                        formatDurationHours(trail.totalMovingSeconds)
-                      }}</span>
-                      <span class="map-trail-drawer-stat__label">moving</span>
-                    </div>
-                  }
-                </div>
-                <div class="map-trail-drawer__dates">
-                  {{ formatDate(trail.firstDate) }} – {{ formatDateShort(trail.lastDate) }}
-                </div>
-                <div class="map-trail-drawer__section-title">Activities</div>
-                <div class="map-trail-drawer__activities">
-                  @for (member of trail.memberActivities; track member.activityId) {
-                    <div
-                      class="map-trail-drawer-member"
-                      (click)="navigateToActivity(member.activity)"
-                    >
-                      <span class="map-trail-drawer-member__emoji">{{
-                        sportTypeEmojiFromString(member.activity.sportType)
-                      }}</span>
-                      <span class="map-trail-drawer-member__name">{{ member.activity.name }}</span>
-                    </div>
-                  }
-                </div>
-                <div class="map-trail-drawer__actions">
-                  <button
-                    class="map-trail-drawer__btn"
-                    type="button"
-                    (click)="navigateToActivity(trail.memberActivities[0].activity)"
-                  >
-                    <app-icon name="list" [size]="14" strokeWidth="2"></app-icon>
-                    Open in Activities
-                  </button>
-                </div>
-              </aside>
+              <app-trail-detail-panel
+                [trail]="trail"
+                [allRoutes]="allRoutes()"
+                (selectActivity)="onTrailSelectActivity($event)"
+                (close)="closeDetailPanel(); clearSelectedTrail()"
+              />
             }
           } @else {
             <app-activity-detail-panel
@@ -292,6 +225,8 @@
               [route]="detailPanelRoute()"
               [pushMode]="true"
               [showInActivities]="true"
+              [backLabel]="trailBackLabel()"
+              (backToTrail)="onBackToTrail()"
               (panelExpand)="detailPanelExpanded.set($event)"
               (close)="closeDetailPanel(); clearSelectedRoute()"
             />

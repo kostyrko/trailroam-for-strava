@@ -1725,16 +1725,17 @@ export class ActivitiesPageComponent {
       },
       disableClose: true,
     });
-    const result: { name: string } | undefined = await ref.afterClosed().toPromise();
+    const result: { name: string; activityIds: string[] } | undefined = await ref
+      .afterClosed()
+      .toPromise();
     if (!result) return;
 
     try {
-      const trail = await this.trailsService.create(
-        result.name,
-        selected.map((a) => a.id),
-      );
+      const trail = await this.trailsService.create(result.name, result.activityIds);
       if (trail) {
-        this.toastService.show(`Trail "${trail.name}" created with ${selected.length} activities.`);
+        this.toastService.show(
+          `Trail "${trail.name}" created with ${result.activityIds.length} activities.`,
+        );
         this.clearSelection();
       } else {
         this.toastService.show(

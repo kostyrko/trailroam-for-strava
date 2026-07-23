@@ -10,9 +10,12 @@ import {
   inject,
   effect,
 } from '@angular/core';
+import { MatDialog } from '@angular/material/dialog';
 import type { Map as MapLibreMap, ExpressionSpecification } from 'maplibre-gl';
 import { IconComponent } from '../shared/icon.component';
 import { RouteSparklineComponent } from '../activities/route-sparkline.component';
+import { CreateTrailDialog } from '../activities/create-trail-dialog.component';
+import type { ActivityRecord } from '../storage/storage.models';
 import type { SidebarTrailItem } from './map-activity-panel.component';
 import type { MapRouteFeature } from './mock-routes';
 import {
@@ -25,7 +28,13 @@ import {
 } from '../shared/formatters';
 import { sportTypeEmojiFromString } from '../shared/activity-display';
 import { MapLibreService } from './maplibre.service';
-import { BasemapProviderService } from './basemap-provider.service';
+import { BasemapProviderService, AVAILABLE_PROVIDERS } from './basemap-provider.service';
+import type { BasemapProviderConfig } from './basemap-provider';
+import { TrailsService } from '../storage/trails.service';
+import { ConfirmService } from '../shared/confirm.service';
+import { ToastService } from '../shared/toast.service';
+import { DataRefreshService } from '../shared/data-refresh.service';
+import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
 
 /* ── Speed-colour helpers (mirrored from activity-detail-panel) ──── */
 
@@ -108,6 +117,12 @@ function dayCount(a: string, b: string): number {
 export class TrailDetailPanelComponent {
   private readonly mapLibreService = inject(MapLibreService);
   private readonly basemapProviderService = inject(BasemapProviderService);
+  private readonly trailsService = inject(TrailsService);
+  private readonly confirmService = inject(ConfirmService);
+  private readonly toastService = inject(ToastService);
+  private readonly dialog = inject(MatDialog);
+  private readonly dataRefresh = inject(DataRefreshService);
+  private readonly repositories = inject(TRAILROAM_REPOSITORIES);
 
   readonly trail = input.required<SidebarTrailItem>();
   readonly allRoutes = input<MapRouteFeature[]>([]);
@@ -121,6 +136,11 @@ export class TrailDetailPanelComponent {
   private mapInstance: MapLibreMap | null = null;
   private readonly mapReady = signal(false);
   protected readonly mapExpanded = signal(false);
+  protected readonly speedLegend = signal(false);
+  protected readonly menuOpen = signal(false);
+  protected readonly layerMenuOpen = signal(false);
+  protected readonly activeLayerId = signal('openfreemap');
+  protected readonly AVAILABLE_PROVIDERS = AVAILABLE_PROVIDERS;
 
   /* ── Computed ─────────────────────────────────── */
 
@@ -190,9 +210,15 @@ export class TrailDetailPanelComponent {
 
     effect(() => {
       this.trail();
+      this.allRoutes();
       if (this.mapReady() && this.mapInstance) {
         this.renderMiniMapRoutes();
       }
+    });
+
+    globalThis.addEventListener('click', () => {
+      this.layerMenuOpen.set(false);
+      this.menuOpen.set(false);
     });
   }
 
@@ -240,6 +266,106 @@ export class TrailDetailPanelComponent {
     setTimeout(() => this.mapInstance?.resize(), 100);
   }
 
+  protected toggleMenu(event: MouseEvent): void {
+    event.stopPropagation();
+    this.menuOpen.update((v) => !v);
+  }
+
+  protected toggleLayerMenu(event: MouseEvent): void {
+    event.stopPropagation();
+    this.layerMenuOpen.update((v) => !v);
+  }
+
+  protected selectLayer(config: BasemapProviderConfig): void {
+    this.layerMenuOpen.set(false);
+    if (config.id === this.activeLayerId()) return;
+
+    this.activeLayerId.set(config.id);
+    this.basemapProviderService.setProvider(config);
+    const map = this.mapInstance;
+    if (map) {
+      const center = map.getCenter();
+      const zoom = map.getZoom();
+      const pitch = map.getPitch();
+      const bearing = map.getBearing();
+      map.setStyle(config.styleUrl!);
+      map.once('style.load', () => {
+        this.renderMiniMapRoutes();
+        map.jumpTo({ center, zoom, pitch, bearing });
+        import('maplibre-gl').then((ml) => {
+          map.addControl(new ml.NavigationControl({ showCompass: false }), 'top-left');
+          map.addControl(new ml.ScaleControl({ unit: 'metric' }), 'bottom-left');
+        });
+      });
+    }
+  }
+
+  protected async onEditTrail(): Promise<void> {
+    this.menuOpen.set(false);
+    const t = this.trail();
+    const trailRec = t.trail;
+    const memberActivities = t.memberActivities.map((m) => m.activity);
+    const allActivities: ActivityRecord[] = (await this.repositories.activities.list()) ?? [];
+
+    const { CreateTrailDialog } = await import('../activities/create-trail-dialog.component');
+    const ref = this.dialog.open(CreateTrailDialog, {
+      data: {
+        activities: memberActivities,
+        allActivities,
+        suggestedName: trailRec.name,
+        trail: trailRec,
+      },
+      disableClose: true,
+    });
+    const result: { name: string; activityIds: string[]; trailId?: string } | undefined = await ref
+      .afterClosed()
+      .toPromise();
+    if (!result) return;
+
+    try {
+      const nameChanged = result.name !== trailRec.name;
+      const oldIds = new Set(trailRec.activityIds);
+      const newIdsSet = new Set(result.activityIds);
+      const toRemove = trailRec.activityIds.filter((id) => !newIdsSet.has(id));
+      const toAdd = result.activityIds.filter((id) => !oldIds.has(id));
+
+      if (nameChanged) {
+        await this.trailsService.rename(trailRec.id, result.name);
+      }
+      for (const id of toRemove) {
+        await this.trailsService.removeFromTrail(trailRec.id, id);
+      }
+      for (const id of toAdd) {
+        await this.trailsService.addToTrail(trailRec.id, id);
+      }
+
+      this.dataRefresh.emitRefresh();
+      this.toastService.show(`Trail "${result.name}" updated.`);
+    } catch {
+      this.toastService.show('Failed to update Trail.');
+    }
+  }
+
+  protected async onDeleteTrail(): Promise<void> {
+    this.menuOpen.set(false);
+    const t = this.trail().trail;
+    const confirmed = await this.confirmService.confirm({
+      title: 'Delete Trail?',
+      message: 'This removes the grouping only. Activities will remain in your library.',
+      confirmLabel: 'Delete Trail',
+      danger: true,
+    });
+    if (!confirmed) return;
+    try {
+      await this.trailsService.remove(t.id);
+      this.dataRefresh.emitRefresh();
+      this.toastService.show(`Trail "${t.name}" deleted.`);
+      this.close.emit();
+    } catch {
+      this.toastService.show('Failed to delete trail.');
+    }
+  }
+
   protected getRouteCoords(activityId: string): [number, number][] | null {
     return this.routeLookup().get(activityId)?.coordinates ?? null;
   }
@@ -272,6 +398,18 @@ export class TrailDetailPanelComponent {
     map.doubleClickZoom.enable();
     map.touchZoomRotate.enable();
     map.keyboard.enable();
+
+    // Add navigation controls (zoom +/-) and scale
+    import('maplibre-gl').then((ml) => {
+      const NavControl = (ml as any).NavigationControl ?? (ml as any).default?.NavigationControl;
+      const ScaleControl = (ml as any).ScaleControl ?? (ml as any).default?.ScaleControl;
+      if (NavControl) {
+        map.addControl(new NavControl({ showCompass: false }), 'top-left');
+      }
+      if (ScaleControl) {
+        map.addControl(new ScaleControl({ unit: 'metric' }), 'bottom-left');
+      }
+    });
 
     this.mapReady.set(true);
 
@@ -315,7 +453,12 @@ export class TrailDetailPanelComponent {
       }
     }
 
-    if (allSegments.length === 0) return;
+    if (allSegments.length === 0) {
+      this.speedLegend.set(false);
+      return;
+    }
+
+    this.speedLegend.set(allSegments.length > 0);
 
     // Compute global min/max speed ratios for the color ramp
     const ratios = allSegments
@@ -380,7 +523,7 @@ export class TrailDetailPanelComponent {
         Math.max(...coords.map((c) => c[0])),
         Math.max(...coords.map((c) => c[1])),
       ],
-      { padding: 20, maxZoom: 15, duration: 0 },
+      { padding: 10, maxZoom: 15, duration: 0 },
     );
   }
 }

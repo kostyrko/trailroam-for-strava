@@ -30,7 +30,9 @@ export class MapLibreService {
       transformRequest: (url, resourceType) => {
         if (resourceType === 'Style' || resourceType === 'Source' || resourceType === 'Tile') {
           const host = new URL(url).hostname;
-          if (ALLOWED_TILE_HOSTS.some((allowed) => host === allowed || host.endsWith('.' + allowed))) {
+          if (
+            ALLOWED_TILE_HOSTS.some((allowed) => host === allowed || host.endsWith('.' + allowed))
+          ) {
             return { url, credentials: 'same-origin' };
           }
         }
@@ -38,21 +40,41 @@ export class MapLibreService {
       },
     });
 
+    // Suppress missing-sprite-icon warnings by adding a transparent 1×1 pixel fallback for
+    // any icon referenced by the vector tiles but absent from the style sprite sheet. Without
+    // this handler the console is flooded with "Image 'xxx' could not be loaded" for every
+    // POI icon (sports_centre, cycling, office, gate, etc.) that the style omits.
+    map.on('styleimagemissing', (e: { id: string }) => {
+      if (map.hasImage(e.id)) {
+        return;
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = 1;
+      canvas.height = 1;
+      map.addImage(e.id, canvas as unknown as HTMLImageElement | ImageData);
+    });
+
     return map;
   }
 
   private async getBrowserLocation(): Promise<{ center: [number, number]; zoom: number }> {
     const gps = await this.tryGeolocation();
-    if (gps) { return { center: gps, zoom: 12 }; }
+    if (gps) {
+      return { center: gps, zoom: 12 };
+    }
 
     const tz = this.tzEstimateCenter();
-    if (tz) { return { center: tz, zoom: 5 }; }
+    if (tz) {
+      return { center: tz, zoom: 5 };
+    }
 
     return { center: DEFAULT_CENTER, zoom: DEFAULT_ZOOM };
   }
 
   private async tryGeolocation(): Promise<[number, number] | null> {
-    if (!navigator.geolocation) { return null; }
+    if (!navigator.geolocation) {
+      return null;
+    }
     try {
       const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, {
@@ -69,7 +91,9 @@ export class MapLibreService {
   private tzEstimateCenter(): [number, number] | null {
     try {
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      if (!tz || tz === 'UTC') { return null; }
+      if (!tz || tz === 'UTC') {
+        return null;
+      }
 
       const offset = -new Date().getTimezoneOffset() / 60;
 

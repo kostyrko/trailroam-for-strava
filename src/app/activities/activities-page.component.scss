@@ -1584,13 +1584,12 @@ app-logbook-nav {
 
 /* ── Trail Detail Panel ─────────────────────── */
 
-/* ── Trail Detail Panel ─────────────────────── */
-
 .trail-detail-panel {
-  background: #fff;
+  background: #ffffff;
   border: 1px solid #dce6df;
+  border-left: 3px solid #cbd8d0;
   border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: -4px 0 24px rgb(20 33 27 / 12%);
   margin-top: 16px;
   padding: 20px;
 }
@@ -1598,53 +1597,69 @@ app-logbook-nav {
   align-items: center;
   display: flex;
   gap: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 .trail-detail-panel__icon {
-  color: #15803d;
+  color: #1f6f50;
   flex-shrink: 0;
 }
 .trail-detail-panel__title {
-  font-size: 1.125rem;
+  font-size: 1rem;
   font-weight: 700;
   color: #14211b;
   margin: 0;
   flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .trail-detail-panel__close {
   align-items: center;
-  background: none;
-  border: 0;
-  color: #9ca3af;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: #63746a;
   cursor: pointer;
   display: inline-flex;
-  height: 24px;
+  font-size: 1.25rem;
+  font-weight: 700;
   justify-content: center;
+  line-height: 1;
+  min-height: 32px;
+  min-width: 32px;
   padding: 0;
-  width: 24px;
 }
 .trail-detail-panel__close:hover {
-  color: #374151;
+  background: #eef5f0;
+  color: #14211b;
 }
 .trail-detail-panel__stats {
-  display: flex;
-  gap: 24px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(4, 1fr);
   margin-bottom: 12px;
 }
 .trail-detail-stat {
+  background: #f4f9f6;
+  border-radius: 8px;
   display: flex;
   flex-direction: column;
+  gap: 2px;
+  padding: 10px 8px;
+  text-align: center;
 }
 .trail-detail-stat__value {
-  font-size: 1.25rem;
+  font-size: 0.8125rem;
   font-weight: 700;
   color: #14211b;
+  line-height: 1.2;
 }
 .trail-detail-stat__label {
-  font-size: 0.6875rem;
+  font-size: 0.625rem;
+  font-weight: 700;
   color: #63746a;
-  text-transform: uppercase;
   letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 .trail-detail-panel__dates {
   color: #63746a;
@@ -1652,11 +1667,11 @@ app-logbook-nav {
   margin-bottom: 16px;
 }
 .trail-detail-panel__section-title {
-  font-size: 0.6875rem;
-  font-weight: 700;
+  font-size: 0.75rem;
+  font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #63746a;
+  color: #314b3f;
   margin-bottom: 8px;
 }
 .trail-detail-panel__activities {
@@ -1700,19 +1715,25 @@ app-logbook-nav {
 }
 .trail-detail-panel__btn {
   align-items: center;
-  background: #15803d;
-  border: 0;
+  border: 1px solid transparent;
   border-radius: 8px;
-  color: #fff;
   cursor: pointer;
   display: inline-flex;
   font: inherit;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  gap: 6px;
-  height: 36px;
-  padding: 0 16px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  gap: 8px;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 20px;
+  white-space: nowrap;
+  width: 100%;
+}
+.trail-detail-panel__btn {
+  background: #1f6f50;
+  border-color: #1f6f50;
+  color: #ffffff;
 }
 .trail-detail-panel__btn:hover {
-  background: #166534;
+  background: #185940;
 }

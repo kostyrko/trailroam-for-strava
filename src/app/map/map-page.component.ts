@@ -707,7 +707,7 @@ export class MapPage implements AfterViewInit {
   /** Called when user clicks an itinerary item in the trail panel. */
   protected onTrailSelectActivity(route: MapRouteFeature): void {
     // Preserve scroll position of the trail panel
-    const el = document.querySelector('.trail-detail-panel');
+    const el = document.querySelector('.tdp-body');
     this.trailViewState.set({
       scrollTop: el?.scrollTop ?? 0,
       selectedActivityId: route.activityId,
@@ -731,7 +731,7 @@ export class MapPage implements AfterViewInit {
       this.selectTrail(trailId);
       // Restore scroll position after the panel re-renders
       setTimeout(() => {
-        const el = document.querySelector('.trail-detail-panel');
+        const el = document.querySelector('.tdp-body');
         if (el) el.scrollTop = state.scrollTop;
       }, 0);
     }

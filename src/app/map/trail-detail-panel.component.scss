@@ -1,35 +1,50 @@
 .trail-detail-panel {
   background: #ffffff;
+  border-left: 3px solid #cbd8d0;
+  box-shadow: -4px 0 24px rgb(20 33 27 / 12%);
+  display: flex;
+  flex-direction: column;
   height: 100%;
-  overflow-y: auto;
-  padding: 20px;
+  overflow: hidden;
 }
 
-/* ── Section title ───────────────────────────── */
+/* ── Scrollable body ────────────────────────── */
+
+.tdp-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 16px;
+  overflow-y: auto;
+  padding: 0 16px 16px;
+}
+
+/* ── Section title ──────────────────────────── */
 
 .tdp-section-title {
-  font-size: 0.6875rem;
-  font-weight: 700;
+  color: #314b3f;
+  font-size: 0.75rem;
+  font-weight: 800;
   letter-spacing: 0.06em;
+  margin: 0 0 10px;
   text-transform: uppercase;
-  color: #63746a;
-  margin: 0 0 12px;
 }
 
-/* ── Header ──────────────────────────────────── */
+/* ── Header ─────────────────────────────────── */
 
 .tdp-header {
-  margin-bottom: 16px;
+  flex-shrink: 0;
+  padding: 6px 16px 6px;
 }
 
-.tdp-header__top {
+.tdp-header__main {
   align-items: center;
   display: flex;
   gap: 8px;
 }
 
 .tdp-header__title {
-  font-size: 1.125rem;
+  font-size: 1rem;
   font-weight: 700;
   color: #14211b;
   margin: 0;
@@ -53,19 +68,24 @@
 
 .tdp-header__close {
   align-items: center;
-  background: none;
-  border: 0;
-  color: #9ca3af;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: #63746a;
   cursor: pointer;
   display: inline-flex;
-  height: 24px;
+  font-size: 1.25rem;
+  font-weight: 700;
   justify-content: center;
+  line-height: 1;
+  min-height: 32px;
+  min-width: 32px;
   padding: 0;
-  width: 24px;
 }
 
 .tdp-header__close:hover {
-  color: #374151;
+  background: #eef5f0;
+  color: #14211b;
 }
 
 .tdp-header__meta {
@@ -74,40 +94,108 @@
   margin-top: 4px;
 }
 
-/* ── Summary statistics ──────────────────────── */
+/* ── 3-dot menu ─────────────────────────────── */
 
-.tdp-stats {
-  display: flex;
-  gap: 24px;
-  margin-bottom: 16px;
+.tdp-menu-wrapper {
+  position: relative;
 }
 
-.tdp-stat {
-  display: flex;
-  flex-direction: column;
-}
-
-.tdp-stat__value {
-  font-size: 1.25rem;
+.tdp-menu-trigger {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: #63746a;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 1.1rem;
   font-weight: 700;
+  justify-content: center;
+  letter-spacing: 2px;
+  line-height: 1;
+  min-height: 32px;
+  min-width: 32px;
+  padding: 0;
+}
+
+.tdp-menu-trigger:hover {
+  background: #eef5f0;
   color: #14211b;
 }
 
-.tdp-stat__label {
-  font-size: 0.6875rem;
-  color: #63746a;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+.tdp-menu-dropdown {
+  background: #ffffff;
+  border: 1px solid #dce6df;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 10%);
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 200;
+  min-width: 140px;
 }
 
-/* ── Mini overview map ───────────────────────── */
+.tdp-menu-item {
+  align-items: center;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #14211b;
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  font-size: 0.8125rem;
+  gap: 8px;
+  padding: 8px 12px;
+  width: 100%;
+}
+
+.tdp-menu-item:hover {
+  background: #eef5f0;
+}
+
+.tdp-menu-item--danger {
+  color: #b8433a;
+}
+
+.tdp-menu-item--danger:hover {
+  background: #fdf0ef;
+}
+
+/* ── Speed legend ───────────────────────────── */
+
+.tdp-speed-legend {
+  align-items: center;
+  display: flex;
+  flex-shrink: 0;
+  gap: 12px;
+  padding: 6px 16px 0;
+  position: relative;
+  z-index: 0;
+}
+
+.tdp-legend-gradient {
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.tdp-speed-legend span {
+  color: #63746a;
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+/* ── Mini overview map ──────────────────────── */
 
 .tdp-minimap {
   background: #f4f9f6;
   border: 1px solid #dce6df;
   border-radius: 8px;
-  height: 180px;
-  margin-bottom: 20px;
+  flex-shrink: 0;
+  height: 375px;
   overflow: hidden;
   position: relative;
   transition:
@@ -116,7 +204,7 @@
 }
 
 .tdp-minimap--expanded {
-  height: 420px;
+  height: 600px;
 }
 
 .tdp-minimap__map {
@@ -125,10 +213,19 @@
 }
 
 .tdp-minimap__controls {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   position: absolute;
-  right: 8px;
+  right: 10px;
   top: 8px;
   z-index: 30;
+}
+
+.tdp-minimap__controls .tdp-minimap__btn {
+  position: relative !important;
+  right: auto !important;
+  top: auto !important;
 }
 
 .tdp-minimap__btn {
@@ -152,11 +249,119 @@
   background: #e6f7ef;
 }
 
-/* ── Itinerary / Timeline ────────────────────── */
-
-.tdp-itinerary {
-  margin-bottom: 24px;
+.tdp-minimap__btn svg {
+  display: block;
 }
+
+.tdp-minimap__btn[data-tooltip]::after {
+  background: #14211b;
+  border-radius: 4px;
+  color: #ffffff;
+  content: attr(data-tooltip);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  opacity: 0;
+  padding: 4px 8px;
+  pointer-events: none;
+  position: absolute;
+  right: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  transition: opacity 0s 0.5s;
+  white-space: nowrap;
+  z-index: 100;
+}
+
+.tdp-minimap__btn[data-tooltip]:hover::after {
+  opacity: 1;
+}
+
+/* ── Map layer switcher ─────────────────────── */
+
+.tdp-layer-menu {
+  background: #ffffff;
+  border: 1px solid #dce6df;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgb(20 33 27 / 15%);
+  position: absolute;
+  right: 0;
+  top: 70px;
+  z-index: 30;
+  min-width: 160px;
+  padding: 4px;
+}
+
+.tdp-layer-item {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: #314b3f;
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  gap: 8px;
+  min-height: 34px;
+  padding: 6px 12px;
+  text-align: left;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.tdp-layer-item:hover,
+.tdp-layer-item.active {
+  background: #eef5f0;
+}
+
+/* ── MapLibre control overrides ─────────────── */
+
+:host ::ng-deep .tdp-minimap__map .maplibregl-ctrl-top-left {
+  top: auto !important;
+}
+
+:host ::ng-deep .tdp-minimap__map .maplibregl-ctrl-top-left .maplibregl-ctrl-group {
+  background: #ffffff;
+  border: 2px solid #1f6f50;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgb(20 33 27 / 18%);
+  overflow: hidden;
+}
+
+:host ::ng-deep .tdp-minimap__map .maplibregl-ctrl-top-left .maplibregl-ctrl-group button {
+  background: #ffffff;
+  border-color: transparent;
+  color: #1f6f50;
+  height: 27px !important;
+  width: 27px !important;
+}
+
+:host ::ng-deep .tdp-minimap__map .maplibregl-ctrl-top-left .maplibregl-ctrl-group button:hover {
+  background: #e6f7ef;
+}
+
+:host
+  ::ng-deep
+  .tdp-minimap__map
+  .maplibregl-ctrl-top-left
+  .maplibregl-ctrl-group
+  button:not(:last-child) {
+  border-bottom: 1px solid #dce6df;
+}
+
+:host
+  ::ng-deep
+  .tdp-minimap__map
+  .maplibregl-ctrl-top-left
+  .maplibregl-ctrl-group
+  button
+  .maplibregl-ctrl-icon {
+  background-color: transparent;
+  background-size: 18px;
+}
+
+/* ── Itinerary / Timeline ───────────────────── */
 
 .tdp-timeline {
   display: flex;
@@ -268,11 +473,7 @@
   font-weight: 500;
 }
 
-/* ── Trail Insights ──────────────────────────── */
-
-.tdp-insights {
-  margin-bottom: 24px;
-}
+/* ── Trail Insights ─────────────────────────── */
 
 .tdp-insights__grid {
   display: grid;
@@ -281,13 +482,13 @@
 }
 
 .tdp-insight-card {
-  background: #f7faf8;
-  border: 1px solid #eef5f0;
-  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid #dce6df;
+  border-radius: 10px;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 12px;
+  padding: 14px 16px;
 }
 
 .tdp-insight-card__label {
@@ -304,47 +505,56 @@
   font-weight: 700;
 }
 
-/* ── Footer ──────────────────────────────────── */
+/* ── Footer ─────────────────────────────────── */
 
 .tdp-footer {
   border-top: 1px solid #eef5f0;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding-top: 16px;
+  padding: 16px 16px 20px;
+  flex-shrink: 0;
 }
 
 .tdp-footer__btn {
   align-items: center;
-  border: 0;
+  border: 1px solid transparent;
   border-radius: 8px;
   cursor: pointer;
   display: inline-flex;
   font: inherit;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  gap: 6px;
-  height: 36px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  gap: 8px;
   justify-content: center;
-  padding: 0 16px;
-  transition: background 120ms ease;
+  min-height: 44px;
+  padding: 0 20px;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.tdp-footer__btn:disabled {
+  cursor: default;
+  opacity: 0.5;
 }
 
 .tdp-footer__btn--primary {
-  background: #15803d;
+  background: #1f6f50;
+  border-color: #1f6f50;
   color: #ffffff;
 }
 
 .tdp-footer__btn--primary:hover {
-  background: #166534;
+  background: #185940;
 }
 
 .tdp-footer__btn--secondary {
-  background: transparent;
-  border: 1px solid #dce6df;
-  color: #14211b;
+  background: #ffffff;
+  border-color: #dce6df;
+  color: #314b3f;
 }
 
 .tdp-footer__btn--secondary:hover {
-  background: #f4f9f6;
+  background: #eef5f0;
+  border-color: #cbd8d0;
 }

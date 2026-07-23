@@ -274,9 +274,6 @@
                       {{ formatDistance(group.trailRow.totalDistanceMeters) }}
                     </td>
                     <td class="cell-num">
-                      {{ formatDurationHours(group.trailRow.totalMovingSeconds) }}
-                    </td>
-                    <td class="cell-num">
                       {{
                         formatSpeed(
                           computeSpeed(
@@ -286,6 +283,9 @@
                           )
                         )
                       }}
+                    </td>
+                    <td class="cell-num">
+                      {{ formatDurationHours(group.trailRow.totalMovingSeconds) }}
                     </td>
                     <td></td>
                     <td class="cell-actions">

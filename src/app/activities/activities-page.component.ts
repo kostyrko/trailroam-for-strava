@@ -336,7 +336,11 @@ export class ActivitiesPageComponent {
     }
 
     // Build top-level items: trail rows + standalone activities (no child rows yet)
-    const topLevel: { kind: 'trail' | 'activity'; data: VisibleLogbookRow; ts: number }[] = [];
+    const topLevel: {
+      kind: 'trail' | 'activity';
+      data: VisibleLogbookRow;
+      ts: number;
+    }[] = [];
 
     for (const trail of trails) {
       const members = trailActivities.get(trail.id);
@@ -344,13 +348,15 @@ export class ActivitiesPageComponent {
 
       const totalDistanceMeters = members.reduce((s, a) => s + (a.distanceMeters ?? 0), 0);
       const totalMovingSeconds = members.reduce((s, a) => s + (a.movingTimeSeconds ?? 0), 0);
-      // Sort members newest-first by default (matching descending date sort)
-      const sorted = [...members].sort(
-        (a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime(),
-      );
-      const dates = sorted.map((a) => a.startDate).sort();
+      const dates = members.map((a) => a.startDate).sort();
       const firstDate = dates[0];
       const lastDate = dates[dates.length - 1];
+
+      // Sort members according to the current sort column
+      const col = this.sortColumn();
+      const sorted = [...members].sort(
+        (a, b) => this.sortDirection() * compareActivities(a, b, col),
+      );
 
       topLevel.push({
         kind: 'trail',
@@ -377,9 +383,17 @@ export class ActivitiesPageComponent {
       });
     }
 
-    // Sort only top-level items (trail rows + standalone activities)
+    // Sort top-level items (trail rows + standalone activities) by the selected column
+    const col = this.sortColumn();
     const dir = this.sortDirection();
-    topLevel.sort((a, b) => dir * (a.ts - b.ts));
+    topLevel.sort((a, b) => {
+      const valA = rowSortValue(a, col);
+      const valB = rowSortValue(b, col);
+      if (typeof valA === 'string') {
+        return dir * (valA as string).localeCompare(valB as string);
+      }
+      return dir * ((valA as number) - (valB as number));
+    });
 
     // Build final rows: insert expanded children directly below their parent trail
     const rows: VisibleLogbookRow[] = [];
@@ -1925,6 +1939,65 @@ export class ActivitiesPageComponent {
   /** Finds an activity by ID from the loaded activities list. */
   protected getActivityById(id: string): ActivityRecord | undefined {
     return this.activities()?.find((a) => a.id === id);
+  }
+}
+
+/**
+ * Returns a sortable value (number or string) for a top-level row (trail or standalone activity)
+ * based on the given column. Trail rows derive aggregate values from their member activities.
+ */
+function rowSortValue(
+  row: { kind: 'trail' | 'activity'; data: VisibleLogbookRow },
+  column: SortColumn,
+): number | string {
+  if (row.kind === 'trail') {
+    const t = row.data as Extract<VisibleLogbookRow, { kind: 'trail' }>;
+    switch (column) {
+      case 'date':
+        return t.ts;
+      case 'name':
+        return t.trail.name;
+      case 'source':
+        return t.memberActivities[0]?.provider ?? '';
+      case 'status':
+        return t.memberActivities.some((a) => (a.activityStatus ?? 'completed') !== 'completed')
+          ? 1
+          : 0;
+      case 'type':
+        return t.memberActivities[0]?.sportType ?? '';
+      case 'distance':
+        return t.totalDistanceMeters;
+      case 'speed':
+        return computeSpeed(undefined, t.totalDistanceMeters, t.totalMovingSeconds) ?? 0;
+      case 'time':
+        return t.totalMovingSeconds;
+      case 'route':
+        return Math.min(...t.memberActivities.map((a) => routeSortValue(a.routeSyncStatus)));
+    }
+  } else {
+    const a = (row.data as Extract<VisibleLogbookRow, { kind: 'activity' }>).activity;
+    switch (column) {
+      case 'date':
+        return new Date(a.startDate).getTime();
+      case 'name':
+        return a.name;
+      case 'source':
+        return activitySourceSortValue(a);
+      case 'status':
+        return activityStatusSortValue(a);
+      case 'type':
+        return a.sportType;
+      case 'distance':
+        return a.distanceMeters ?? 0;
+      case 'speed':
+        return (
+          computeSpeed(a.averageSpeedMetersPerSecond, a.distanceMeters, a.movingTimeSeconds) ?? 0
+        );
+      case 'time':
+        return a.movingTimeSeconds ?? 0;
+      case 'route':
+        return routeSortValue(a.routeSyncStatus);
+    }
   }
 }
 

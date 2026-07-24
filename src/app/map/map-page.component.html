@@ -230,25 +230,28 @@
 
           <!-- ── Activity panel (standalone or drill-down overlay) ── -->
           @if (selectedRoute()?.activity ?? null; as activity) {
-            @if (!selectedTrailId() || trailDrillDownActive()) {
-              <div
-                class="detail-panel-overlay"
-                [class.detail-panel-overlay--active]="trailDrillDownActive()"
-              >
+            @if (trailDrillDownActive()) {
+              <div class="detail-panel-overlay detail-panel-overlay--active">
                 <app-activity-detail-panel
                   [activity]="activity"
                   [route]="detailPanelRoute()"
-                  [pushMode]="!trailDrillDownActive()"
+                  [pushMode]="false"
                   [showInActivities]="true"
-                  [backLabel]="trailDrillDownActive() ? trailBackLabel() : null"
+                  [backLabel]="trailBackLabel()"
                   (backToTrail)="onBackToTrail()"
                   (panelExpand)="detailPanelExpanded.set($event)"
-                  (close)="
-                    trailDrillDownActive() ? onCloseDrillDown() : closeDetailPanel();
-                    clearSelectedRoute()
-                  "
+                  (close)="onCloseDrillDown()"
                 />
               </div>
+            } @else {
+              <app-activity-detail-panel
+                [activity]="activity"
+                [route]="detailPanelRoute()"
+                [pushMode]="true"
+                [showInActivities]="true"
+                (panelExpand)="detailPanelExpanded.set($event)"
+                (close)="closeDetailPanel(); clearSelectedRoute()"
+              />
             }
           }
         }

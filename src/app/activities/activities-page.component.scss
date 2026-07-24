@@ -1705,11 +1705,9 @@ app-logbook-nav {
   }
 }
 
-// ── Override minimap from shared — activities page has margin ──
+// ── Override minimap from shared — activities page ──
 
 .tdp-minimap {
-  margin: 0 16px;
-
   &__map {
     cursor: pointer;
   }

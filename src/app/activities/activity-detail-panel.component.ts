@@ -446,14 +446,28 @@ export class ActivityDetailPanelComponent {
       const pitch = map.getPitch();
       const bearing = map.getBearing();
       map.setStyle(config.styleUrl!);
-      map.once('style.load', () => {
-        this.renderRouteOnMap();
-        map.jumpTo({ center, zoom, pitch, bearing });
-        import('maplibre-gl').then((ml) => {
-          map.addControl(new ml.NavigationControl({ showCompass: false }), 'top-left');
-          map.addControl(new ml.ScaleControl({ unit: 'metric' }), 'bottom-left');
-        });
-      });
+
+      // Poll until style is loaded (avoids unreliable load event with data: URLs)
+      let attempts = 0;
+      const poll = setInterval(() => {
+        attempts++;
+        if (map.isStyleLoaded() || attempts > 100) {
+          clearInterval(poll);
+          this.renderRouteOnMap();
+          map.jumpTo({ center, zoom, pitch, bearing });
+          import('maplibre-gl').then((ml) => {
+            const NavControl =
+              (ml as any).NavigationControl ?? (ml as any).default?.NavigationControl;
+            const ScaleControl = (ml as any).ScaleControl ?? (ml as any).default?.ScaleControl;
+            if (NavControl) {
+              map.addControl(new NavControl({ showCompass: false }), 'top-left');
+            }
+            if (ScaleControl) {
+              map.addControl(new ScaleControl({ unit: 'metric' }), 'bottom-left');
+            }
+          });
+        }
+      }, 50);
     }
   }
 

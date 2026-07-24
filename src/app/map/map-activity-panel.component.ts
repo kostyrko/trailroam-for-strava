@@ -1,5 +1,6 @@
 import { Component, input, Output, EventEmitter, computed, signal } from '@angular/core';
 import { IconComponent } from '../shared/icon.component';
+import { TrailListItemComponent } from './trail-list-item.component';
 import { type MapRouteFeature } from './mock-routes';
 import { mapSportTypeToCategory } from '../shared/activity-category';
 import { formatDistance, formatDuration, formatDateShort } from '../shared/formatters';
@@ -18,10 +19,18 @@ export interface SidebarTrailItem {
   lastDate: string;
 }
 
+/**
+ * A merged item in the sorted Activities tab list — either a trail or a single activity.
+ * Trails are sorted by their firstDate, activities by their startDate, newest-first.
+ */
+export type MergedActivityItem =
+  | { kind: 'trail'; trailItem: SidebarTrailItem; ts: number }
+  | { kind: 'activity'; route: MapRouteFeature; ts: number };
+
 @Component({
   selector: 'app-map-activity-panel',
   standalone: true,
-  imports: [IconComponent],
+  imports: [IconComponent, TrailListItemComponent],
   templateUrl: './map-activity-panel.component.html',
   styleUrl: './map-activity-panel.component.scss',
 })
@@ -104,6 +113,25 @@ export class MapActivityPanelComponent {
       list = [...list].sort((a, b) => a.activity.name.localeCompare(b.activity.name));
     }
     return list;
+  });
+
+  /**
+   * Merges trails with filtered activities into one date-sorted list, newest-first.
+   * Trails are sorted by their firstDate (oldest activity in the trail) to match the
+   * All panel's sort behaviour.
+   */
+  protected readonly sortedItems = computed<MergedActivityItem[]>(() => {
+    const trailItems = this.trails().map((t) => ({
+      kind: 'trail' as const,
+      trailItem: t,
+      ts: new Date(t.firstDate).getTime(),
+    }));
+    const activityItems = this.filteredActivities().map((r) => ({
+      kind: 'activity' as const,
+      route: r,
+      ts: new Date(r.activity.startDate).getTime(),
+    }));
+    return [...trailItems, ...activityItems].sort((a, b) => b.ts - a.ts);
   });
 
   protected toggle(): void {

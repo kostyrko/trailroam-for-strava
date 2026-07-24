@@ -142,77 +142,54 @@
     </div>
 
     <div class="panel-list">
-      @if (filteredActivities().length === 0 && trails().length === 0) {
+      @if (sortedItems().length === 0) {
         <div class="panel-empty">
           <p>No matching activities</p>
           <p class="panel-empty-hint">Try changing filters or zooming the map.</p>
         </div>
       }
 
-      <!-- Trail items -->
-      @for (t of trails(); track t.trail.id) {
-        <button
-          class="panel-item panel-item--trail"
-          [class.panel-item--selected]="t.trail.id === selectedTrailId()"
-          type="button"
-          (click)="selectTrail.emit(t.trail.id)"
-        >
-          <span class="panel-item-emoji panel-item-emoji--trail">
-            <app-icon name="globe" [size]="16" strokeWidth="2"></app-icon>
-          </span>
-          <div class="panel-item-body">
-            <div class="panel-item-name-row">
-              <span class="panel-item-name panel-item-name--trail">{{ t.trail.name }}</span>
-              <span class="panel-trail-badge">Trail</span>
+      @for (
+        item of sortedItems();
+        track item.kind === 'trail' ? item.trailItem.trail.id : item.route.activityId
+      ) {
+        @if (item.kind === 'trail') {
+          <app-trail-list-item
+            [trailItem]="item.trailItem"
+            [selected]="item.trailItem.trail.id === selectedTrailId()"
+            (selectTrail)="selectTrail.emit($event)"
+          />
+        } @else {
+          <button
+            class="panel-item"
+            [class.panel-item--selected]="item.route.activityId === selectedActivityId()"
+            [class.panel-item--hovered]="item.route.activityId === hoveredActivityId()"
+            type="button"
+            (click)="selectActivity(item.route)"
+            (mouseenter)="hoverActivity(item.route)"
+            (mouseleave)="unhoverActivity()"
+          >
+            <span class="panel-item-emoji">{{
+              sportTypeEmojiFromString(item.route.activity.sportType)
+            }}</span>
+            <div class="panel-item-body">
+              <div class="panel-item-name-row">
+                <span class="panel-item-name">{{ item.route.activity.name }}</span>
+                @let st = item.route.activity.activityStatus ?? 'completed';
+                @if (st === 'completed') {
+                  <span class="panel-status-badge panel-status-badge--completed">&#10003;</span>
+                } @else {
+                  <span class="panel-status-badge panel-status-badge--planned">&#9711;</span>
+                }
+              </div>
+              <div class="panel-item-meta">
+                {{ formatDistance(item.route.activity.distanceMeters) }} &middot;
+                {{ formatDuration(item.route.activity.movingTimeSeconds) }}
+              </div>
             </div>
-            <div class="panel-item-meta">
-              {{ t.memberActivities.length }}
-              {{ t.memberActivities.length === 1 ? 'activity' : 'activities' }}
-              @if (t.totalDistanceMeters > 0) {
-                &middot; {{ formatDistance(t.totalDistanceMeters) }}
-              }
-            </div>
-            <div class="panel-item-meta">
-              {{ formatDateShort(t.firstDate) }}
-              @if (t.firstDate !== t.lastDate) {
-                – {{ formatDateShort(t.lastDate) }}
-              }
-            </div>
-          </div>
-        </button>
-      }
-
-      <!-- Activity items -->
-      @for (route of filteredActivities(); track route.activityId) {
-        <button
-          class="panel-item"
-          [class.panel-item--selected]="route.activityId === selectedActivityId()"
-          [class.panel-item--hovered]="route.activityId === hoveredActivityId()"
-          type="button"
-          (click)="selectActivity(route)"
-          (mouseenter)="hoverActivity(route)"
-          (mouseleave)="unhoverActivity()"
-        >
-          <span class="panel-item-emoji">{{
-            sportTypeEmojiFromString(route.activity.sportType)
-          }}</span>
-          <div class="panel-item-body">
-            <div class="panel-item-name-row">
-              <span class="panel-item-name">{{ route.activity.name }}</span>
-              @let st = route.activity.activityStatus ?? 'completed';
-              @if (st === 'completed') {
-                <span class="panel-status-badge panel-status-badge--completed">&#10003;</span>
-              } @else {
-                <span class="panel-status-badge panel-status-badge--planned">&#9711;</span>
-              }
-            </div>
-            <div class="panel-item-meta">
-              {{ formatDistance(route.activity.distanceMeters) }} &middot;
-              {{ formatDuration(route.activity.movingTimeSeconds) }}
-            </div>
-          </div>
-          <div class="panel-item-date">{{ formatDateShort(route.activity.startDate) }}</div>
-        </button>
+            <div class="panel-item-date">{{ formatDateShort(item.route.activity.startDate) }}</div>
+          </button>
+        }
       }
     </div>
 

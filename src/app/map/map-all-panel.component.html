@@ -73,30 +73,11 @@
             : row.id
       ) {
         @if (row.kind === 'trail') {
-          <button
-            class="panel-item panel-item--trail"
-            [class.panel-item--selected]="row.trailItem.trail.id === selectedTrailId()"
-            type="button"
-            (click)="selectTrail.emit(row.trailItem.trail.id)"
-          >
-            <span class="panel-item-emoji panel-item-emoji--trail">
-              <app-icon name="globe" [size]="16" strokeWidth="2"></app-icon>
-            </span>
-            <div class="panel-item-body">
-              <span class="panel-item-name panel-item-name--trail">{{
-                row.trailItem.trail.name
-              }}</span>
-              <span class="panel-trail-badge">Trail</span>
-              <div class="panel-item-meta">
-                {{ row.trailItem.memberActivities.length }}
-                {{ row.trailItem.memberActivities.length === 1 ? 'activity' : 'activities' }}
-                @if (row.trailItem.totalDistanceMeters > 0) {
-                  &middot; {{ formatDistance(row.trailItem.totalDistanceMeters) }}
-                }
-              </div>
-            </div>
-            <div class="panel-item-date">{{ formatDateShort(row.trailItem.firstDate) }}</div>
-          </button>
+          <app-trail-list-item
+            [trailItem]="row.trailItem"
+            [selected]="row.trailItem.trail.id === selectedTrailId()"
+            (selectTrail)="selectTrail.emit($event)"
+          />
         } @else if (row.kind === 'activity') {
           <button
             class="panel-item"

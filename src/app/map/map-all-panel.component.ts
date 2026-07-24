@@ -1,5 +1,6 @@
 import { Component, input, output, computed, signal, inject, DestroyRef } from '@angular/core';
 import { IconComponent } from '../shared/icon.component';
+import { TrailListItemComponent } from './trail-list-item.component';
 import { type MapRouteFeature } from './mock-routes';
 import { formatDistance, formatDuration, formatDateShort } from '../shared/formatters';
 import { sportTypeEmojiFromString } from '../shared/activity-display';
@@ -22,7 +23,7 @@ export type AllRow =
 @Component({
   selector: 'app-map-all-panel',
   standalone: true,
-  imports: [IconComponent],
+  imports: [IconComponent, TrailListItemComponent],
   templateUrl: './map-all-panel.component.html',
   styleUrl: './map-all-panel.component.scss',
 })

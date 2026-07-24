@@ -171,21 +171,6 @@
   white-space: nowrap;
 }
 
-.panel-item-name-row {
-  align-items: center;
-  display: flex;
-  gap: 4px;
-  min-width: 0;
-
-  .panel-item-name {
-    flex-shrink: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-}
-
 .panel-item-meta {
   color: $text-secondary;
   font-size: 0.6875rem;

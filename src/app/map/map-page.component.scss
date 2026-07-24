@@ -282,6 +282,7 @@
   position: relative;
   transition: width 0.25s ease;
   width: 0;
+  z-index: 101;
 }
 .detail-panel-wrapper--open {
   width: 520px;

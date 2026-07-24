@@ -224,6 +224,7 @@
                 [allRoutes]="allRoutes()"
                 (selectActivity)="onTrailSelectActivity($event)"
                 (close)="closeDetailPanel(); clearSelectedTrail()"
+                (mapExpandChange)="detailPanelExpanded.set($event)"
               />
             }
           }

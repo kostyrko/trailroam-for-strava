@@ -135,6 +135,7 @@ export class TrailDetailPanelComponent {
   readonly fitToTrail = output<void>();
   readonly close = output<void>();
   readonly hoveredActivityId = output<string | null>();
+  readonly mapExpandChange = output<boolean>();
 
   private readonly miniMapContainer = viewChild<ElementRef<HTMLDivElement>>('miniMapContainer');
   private mapInstance: MapLibreMap | null = null;
@@ -266,7 +267,9 @@ export class TrailDetailPanelComponent {
   }
 
   protected toggleMapExpand(): void {
-    this.mapExpanded.update((v) => !v);
+    const expanded = !this.mapExpanded();
+    this.mapExpanded.set(expanded);
+    this.mapExpandChange.emit(expanded);
     setTimeout(() => this.mapInstance?.resize(), 100);
   }
 

@@ -15,8 +15,10 @@
 .map-filters-row {
   align-items: center;
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   justify-content: center;
+  max-width: 100%;
   pointer-events: auto;
 }
 
@@ -34,7 +36,9 @@
 .toolbar-select.auto-filter-highlight .toolbar-select__trigger {
   border-color: #dc2626;
   box-shadow: 0 0 0 2px rgb(220 38 38 / 25%);
-  transition: border-color 0.5s ease, box-shadow 0.5s ease;
+  transition:
+    border-color 0.5s ease,
+    box-shadow 0.5s ease;
 }
 
 .toolbar-select__trigger {
@@ -122,7 +126,9 @@
   width: 8px;
 }
 
-.drp-trigger { position: relative; }
+.drp-trigger {
+  position: relative;
+}
 .drp-backdrop {
   background: transparent;
   left: 0;

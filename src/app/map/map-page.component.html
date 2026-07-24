@@ -222,6 +222,7 @@
               <app-trail-detail-panel
                 [trail]="trail"
                 [allRoutes]="allRoutes()"
+                [allActivities]="allRoutes().map((r) => r.activity)"
                 (selectActivity)="onTrailSelectActivity($event)"
                 (close)="closeDetailPanel(); clearSelectedTrail()"
                 (mapExpandChange)="detailPanelExpanded.set($event)"

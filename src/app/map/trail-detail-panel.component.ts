@@ -39,71 +39,7 @@ import { ToastService } from '../shared/toast.service';
 import { DataRefreshService } from '../shared/data-refresh.service';
 import { GpxExportService } from '../shared/gpx-export.service';
 import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
-
-/* ── Speed-colour helpers (mirrored from activity-detail-panel) ──── */
-
-const SPAN_SECONDS = 120;
-const SPEED_COLORS = [
-  { at: 0, color: '#3b82c4' },
-  { at: 0.5, color: '#5fb8a0' },
-  { at: 0.8, color: '#78c679' },
-  { at: 1.0, color: '#1f6f50' },
-  { at: 1.2, color: '#d9a23d' },
-  { at: 1.5, color: '#d9732b' },
-  { at: 2.0, color: '#b8433a' },
-];
-
-function haversineDistance(lng1: number, lat1: number, lng2: number, lat2: number): number {
-  const R = 6371000;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLng = ((lng2 - lng1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-function buildSpeedSegments(
-  coords: [number, number][],
-  avgSpeedMs: number,
-): GeoJSON.Feature<GeoJSON.LineString>[] {
-  if (coords.length < 2 || !avgSpeedMs || avgSpeedMs <= 0) return [];
-  const spanMeters = Math.max(50, avgSpeedMs * SPAN_SECONDS);
-  const spans: { startIdx: number; endIdx: number; dist: number }[] = [];
-  let spanStart = 0;
-  let spanDist = 0;
-  for (let i = 1; i < coords.length; i++) {
-    const segDist = haversineDistance(
-      coords[i - 1][0],
-      coords[i - 1][1],
-      coords[i][0],
-      coords[i][1],
-    );
-    spanDist += segDist;
-    if (spanDist >= spanMeters || i === coords.length - 1) {
-      spans.push({ startIdx: spanStart, endIdx: i, dist: spanDist });
-      spanStart = i;
-      spanDist = 0;
-    }
-  }
-  if (spans.length < 2) return [];
-  const pointCounts = spans.map((s) => s.endIdx - s.startIdx + 1);
-  const avgPoints = pointCounts.reduce((s, c) => s + c, 0) / pointCounts.length;
-  const features: GeoJSON.Feature<GeoJSON.LineString>[] = [];
-  for (const span of spans) {
-    const coordsInSpan = coords.slice(span.startIdx, span.endIdx + 1);
-    if (coordsInSpan.length < 2) continue;
-    const pointDensity = span.dist > 0 ? coordsInSpan.length / span.dist : 0;
-    const normDensity = avgPoints > 0 ? pointDensity / (avgPoints / spanMeters) : 1;
-    const speedRatio = normDensity > 0 ? 1 / normDensity : 2;
-    features.push({
-      type: 'Feature',
-      properties: { speedRatio: Math.max(0.1, Math.min(3, speedRatio)) },
-      geometry: { type: 'LineString', coordinates: coordsInSpan },
-    });
-  }
-  return features;
-}
+import { SPEED_COLORS, buildSpeedSegments } from '../shared/speed-segments';
 
 function dayCount(a: string, b: string): number {
   const d1 = new Date(a);
@@ -232,6 +168,9 @@ export class TrailDetailPanelComponent {
   protected readonly formatDateShort = formatDateShort;
   protected readonly sportTypeEmojiFromString = sportTypeEmojiFromString;
 
+  /** All activities (needed by onEditTrail to populate the dialog picker). */
+  readonly allActivities = input<ActivityRecord[]>([]);
+
   constructor() {
     afterNextRender(() => this.initMiniMap());
 
@@ -249,10 +188,13 @@ export class TrailDetailPanelComponent {
       this.loadTrailGeometry(t, routes);
     });
 
-    globalThis.addEventListener('click', () => {
+    // Close overflow menus when clicking outside — clean up on destroy.
+    const clickHandler = (): void => {
       this.layerMenuOpen.set(false);
       this.menuOpen.set(false);
-    });
+    };
+    globalThis.addEventListener('click', clickHandler);
+    this.destroyRef.onDestroy(() => globalThis.removeEventListener('click', clickHandler));
   }
 
   /* ── Trail elevation geometry loader ──────────── */
@@ -420,7 +362,7 @@ export class TrailDetailPanelComponent {
     const t = this.trail();
     const trailRec = t.trail;
     const memberActivities = t.memberActivities.map((m) => m.activity);
-    const allActivities: ActivityRecord[] = (await this.repositories.activities.list()) ?? [];
+    const allActivities = this.allActivities();
 
     const { CreateTrailDialog } = await import('../activities/create-trail-dialog.component');
     const ref = this.dialog.open(CreateTrailDialog, {

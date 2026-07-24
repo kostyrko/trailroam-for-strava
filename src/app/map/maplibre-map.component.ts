@@ -454,10 +454,12 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
    * its marker popup. If the marker does not exist yet (markers reconcile asynchronously after the
    * map style loads), retries opening the popup for up to 2 seconds.
    */
-  focusSavedPlace(place: SavedPlaceRecord): void {
+  focusSavedPlace(place: SavedPlaceRecord, attempt = 0): void {
     const center: [number, number] = [place.longitude, place.latitude];
     if (!this.mapInstance) {
-      setTimeout(() => this.focusSavedPlace(place), 100);
+      if (attempt < 20) {
+        setTimeout(() => this.focusSavedPlace(place, attempt + 1), 100);
+      }
       return;
     }
     this.flyTo(center);

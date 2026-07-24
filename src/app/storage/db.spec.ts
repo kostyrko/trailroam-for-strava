@@ -529,7 +529,7 @@ describe('TrailroamDatabase', () => {
   });
 
   describe('schema upgrades', () => {
-    it('upgrades an existing v3 database to v5 with saved_places available and prior data intact', async () => {
+    it('upgrades an existing v3 database to the current version with saved_places and prior data intact', async () => {
       const databaseName = `trailroam_upgrade_${Date.now()}_${Math.random()}`;
 
       // Seed a database at v3 (no route_geometry, no saved_places) with an activity.
@@ -561,12 +561,13 @@ describe('TrailroamDatabase', () => {
       });
       legacy.close();
 
-      // Reopen with the current schema; Dexie must run the v4 + v5 upgrade steps.
+      // Reopen with the current schema; Dexie must run the v4 + v5 + v6 upgrade steps.
       const upgraded = new TrailroamDatabase(databaseName);
       await upgraded.open();
       expect(upgraded.verno).toBe(DATABASE_SCHEMA_VERSION);
       expect(upgraded.tables.map((t) => t.name).sort()).toContain('saved_places');
       expect(upgraded.tables.map((t) => t.name).sort()).toContain('route_geometry');
+      expect(upgraded.tables.map((t) => t.name).sort()).toContain('trails');
 
       // Prior data survives the upgrade.
       const surviving = await createRepositories(upgraded).activities.get('strava:1');
@@ -583,6 +584,79 @@ describe('TrailroamDatabase', () => {
       };
       await createRepositories(upgraded).savedPlaces.put(place);
       expect(await createRepositories(upgraded).savedPlaces.list()).toHaveLength(1);
+
+      upgraded.close();
+      await upgraded.delete();
+    });
+
+    it('upgrades an existing v5 database to the current version with trails store created and prior data intact', async () => {
+      const databaseName = `trailroam_upgrade_v5_${Date.now()}_${Math.random()}`;
+
+      // Seed a database at v5 (saved_places exists, trails does not).
+      const legacy = new Dexie(databaseName);
+      legacy.version(5).stores({
+        activities:
+          'id, providerActivityId, startDate, sportType, activityCategory, hasRoute, routeSyncStatus',
+        activity_routes:
+          'activityId, providerActivityId, syncedAt, pointCount, simplifiedPointCount',
+        route_geometry: 'activityId, providerActivityId, syncedAt',
+        sync_state: 'id, status, lastSuccessfulSyncAt',
+        settings: 'id, mapProvider, updatedAt',
+        access_state: 'id, status, updatedAt',
+        sync_history: 'id, trigger, completedAt',
+        saved_places: 'id, providerId, createdAt',
+      });
+      await legacy.open();
+      const now = '2026-07-01T00:00:00.000Z';
+      await legacy.table('activities').put({
+        id: 'strava:1',
+        provider: 'strava',
+        providerActivityId: '1',
+        name: 'Existing Activity',
+        sportType: 'Ride',
+        activityCategory: 'ride',
+        startDate: now,
+        hasRoute: true,
+        routeSyncStatus: 'route_synced',
+        importedAt: now,
+        updatedAt: now,
+      });
+      await legacy.table('saved_places').put({
+        id: 'place:1',
+        name: 'Warsaw',
+        latitude: 52.2297,
+        longitude: 21.0122,
+        createdAt: now,
+        updatedAt: now,
+      });
+      legacy.close();
+
+      // Reopen with the current schema; Dexie must run the v5→v6 upgrade step.
+      const upgraded = new TrailroamDatabase(databaseName);
+      await upgraded.open();
+      expect(upgraded.verno).toBe(DATABASE_SCHEMA_VERSION);
+
+      const tableNames = upgraded.tables.map((t) => t.name).sort();
+      expect(tableNames).toContain('trails');
+      expect(tableNames).toContain('saved_places');
+
+      // Prior data survives the upgrade.
+      const activity = await createRepositories(upgraded).activities.get('strava:1');
+      expect(activity?.name).toBe('Existing Activity');
+
+      const place = await createRepositories(upgraded).savedPlaces.get('place:1');
+      expect(place?.name).toBe('Warsaw');
+
+      // The new trails store is writable.
+      const trailRec = {
+        id: 'trail:test-1',
+        name: 'Test Trail',
+        activityIds: ['strava:1'],
+        createdAt: now,
+        updatedAt: now,
+      };
+      await createRepositories(upgraded).trails.put(trailRec);
+      expect(await createRepositories(upgraded).trails.count()).toBe(1);
 
       upgraded.close();
       await upgraded.delete();

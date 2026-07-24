@@ -51,9 +51,13 @@ function createMockRepositories(activities: ActivityRecord[], totalCount: number
       clear: vi.fn(),
       upsert: vi.fn(),
       updateRouteSyncStatus: vi.fn(),
+      updateName: vi.fn(),
+      updateMetadata: vi.fn(),
+      delete: vi.fn(),
       countWithRouteSyncStatus: vi.fn().mockResolvedValue(0),
     },
     activityRoutes: { put: vi.fn(), get: vi.fn(), list: vi.fn(), clear: vi.fn(), upsert: vi.fn() },
+    routeGeometry: { put: vi.fn(), get: vi.fn(), list: vi.fn(), clear: vi.fn() },
     syncState: { put: vi.fn(), get: vi.fn(), clear: vi.fn() },
     syncHistory: { put: vi.fn(), list: vi.fn(), clear: vi.fn() },
     settings: { put: vi.fn(), get: vi.fn(), clear: vi.fn(), getOrCreateDefault: vi.fn() },
@@ -69,6 +73,17 @@ function createMockRepositories(activities: ActivityRecord[], totalCount: number
       findWithinRadiusMeters: vi.fn(),
       count: vi.fn().mockResolvedValue(0),
       clear: vi.fn(),
+    },
+    trails: {
+      list: vi.fn().mockResolvedValue([]),
+      put: vi.fn(),
+      get: vi.fn(),
+      delete: vi.fn(),
+      count: vi.fn().mockResolvedValue(0),
+      clear: vi.fn(),
+      updateName: vi.fn(),
+      updateActivityIds: vi.fn(),
+      findByActivityId: vi.fn(),
     },
   };
 }
@@ -522,6 +537,150 @@ describe('ActivitiesPageComponent', () => {
     const rows = fixture.nativeElement.querySelectorAll('.activity-row');
     expect(rows[0].textContent).toContain('5.00 km');
     expect(rows[1].textContent).toContain('42.00 km');
+  });
+});
+
+describe('trail row sort', () => {
+  function makeTrailRec(
+    id: string,
+    name: string,
+    activityIds: string[],
+  ): import('../storage/storage.models').TrailRecord {
+    return {
+      id,
+      name,
+      activityIds,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  it('sorts two trail rows by distance (aggregate)', async () => {
+    const activities = [
+      createActivity({
+        id: 'strava:a1',
+        name: 'A1',
+        startDate: '2026-05-01T08:00:00Z',
+        distanceMeters: 10000,
+        movingTimeSeconds: 3600,
+      }),
+      createActivity({
+        id: 'strava:a2',
+        name: 'A2',
+        startDate: '2026-05-01T10:00:00Z',
+        distanceMeters: 5000,
+        movingTimeSeconds: 1800,
+      }),
+      createActivity({
+        id: 'strava:b1',
+        name: 'B1',
+        startDate: '2026-06-01T08:00:00Z',
+        distanceMeters: 2000,
+        movingTimeSeconds: 900,
+      }),
+      createActivity({
+        id: 'strava:b2',
+        name: 'B2',
+        startDate: '2026-06-01T10:00:00Z',
+        distanceMeters: 3000,
+        movingTimeSeconds: 1200,
+      }),
+    ];
+
+    const repos = createMockRepositories(activities, 4);
+    const trail1 = makeTrailRec('trail:1', 'Long Trail', ['strava:a1', 'strava:a2']); // 15 km
+    const trail2 = makeTrailRec('trail:2', 'Short Trail', ['strava:b1', 'strava:b2']); // 5 km
+    (repos.trails.list as any).mockResolvedValue([trail1, trail2]);
+    (repos.trails.findByActivityId as any).mockImplementation((id: string) =>
+      Promise.resolve([trail1, trail2].find((t) => t.activityIds.includes(id))),
+    );
+
+    TestBed.configureTestingModule({
+      imports: [ActivitiesPageComponent],
+      providers: [provideActivatedRoute(), { provide: TRAILROAM_REPOSITORIES, useValue: repos }],
+    });
+
+    const fixture = TestBed.createComponent(ActivitiesPageComponent);
+    fixture.detectChanges();
+    await flushMicrotasks();
+    fixture.detectChanges();
+
+    const cmp = fixture.componentInstance as any;
+    // Sort by distance ascending (default toggle)
+    cmp.onSort('distance');
+    fixture.detectChanges();
+
+    const rows = cmp.visibleRows();
+    const trailRows = rows.filter((r: any) => r.kind === 'trail');
+    expect(trailRows).toHaveLength(2);
+    // Trail with 5 km total should come first (ascending)
+    expect(trailRows[0].totalDistanceMeters).toBe(5000);
+    expect(trailRows[0].trail.name).toBe('Short Trail');
+    expect(trailRows[1].totalDistanceMeters).toBe(15000);
+    expect(trailRows[1].trail.name).toBe('Long Trail');
+  });
+
+  it('sorts two trail rows by speed (aggregate)', async () => {
+    const activities = [
+      createActivity({
+        id: 'strava:a1',
+        name: 'F1',
+        startDate: '2026-05-01T08:00:00Z',
+        distanceMeters: 10000,
+        movingTimeSeconds: 3000,
+      }), // 12 km/h
+      createActivity({
+        id: 'strava:a2',
+        name: 'F2',
+        startDate: '2026-05-01T10:00:00Z',
+        distanceMeters: 5000,
+        movingTimeSeconds: 1500,
+      }), // 12 km/h
+      createActivity({
+        id: 'strava:b1',
+        name: 'S1',
+        startDate: '2026-06-01T08:00:00Z',
+        distanceMeters: 3000,
+        movingTimeSeconds: 3600,
+      }), // 3 km/h
+      createActivity({
+        id: 'strava:b2',
+        name: 'S2',
+        startDate: '2026-06-01T10:00:00Z',
+        distanceMeters: 2000,
+        movingTimeSeconds: 2400,
+      }), // 3 km/h
+    ];
+
+    const repos = createMockRepositories(activities, 4);
+    const trailFast = makeTrailRec('trail:fast', 'Fast Trail', ['strava:a1', 'strava:a2']); // 15 km / 4500s = 12 km/h
+    const trailSlow = makeTrailRec('trail:slow', 'Slow Trail', ['strava:b1', 'strava:b2']); // 5 km / 6000s = 3 km/h
+    (repos.trails.list as any).mockResolvedValue([trailFast, trailSlow]);
+    (repos.trails.findByActivityId as any).mockImplementation((id: string) =>
+      Promise.resolve([trailFast, trailSlow].find((t) => t.activityIds.includes(id))),
+    );
+
+    TestBed.configureTestingModule({
+      imports: [ActivitiesPageComponent],
+      providers: [provideActivatedRoute(), { provide: TRAILROAM_REPOSITORIES, useValue: repos }],
+    });
+
+    const fixture = TestBed.createComponent(ActivitiesPageComponent);
+    fixture.detectChanges();
+    await flushMicrotasks();
+    fixture.detectChanges();
+
+    const cmp = fixture.componentInstance as any;
+    // Sort by speed ascending → slowest first
+    cmp.onSort('speed');
+    fixture.detectChanges();
+
+    const rows = cmp.visibleRows();
+    const trailRows = rows.filter((r: any) => r.kind === 'trail');
+    expect(trailRows).toHaveLength(2);
+    // Slowest aggregate (3 km/h) should come first
+    expect(trailRows[0].trail.name).toBe('Slow Trail');
+    expect(trailRows[1].trail.name).toBe('Fast Trail');
   });
 });
 

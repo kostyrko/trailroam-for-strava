@@ -62,7 +62,7 @@ export class TrailroamDatabase extends Dexie {
 
     // Versions must be declared contiguously — Dexie runs each upgrade step in order when an
     // existing database is opened, and gaps cause silent migration failures. v4 adds the
-    // route_geometry store; v5 adds saved_places.
+    // route_geometry store; v5 adds saved_places; v6 adds trails.
     this.version(4).stores({
       activities:
         'id, providerActivityId, startDate, sportType, activityCategory, hasRoute, routeSyncStatus',
@@ -74,6 +74,20 @@ export class TrailroamDatabase extends Dexie {
       sync_history: 'id, trigger, completedAt',
     });
 
+    // v5 adds the saved_places store.
+    this.version(5).stores({
+      activities:
+        'id, providerActivityId, startDate, sportType, activityCategory, hasRoute, routeSyncStatus',
+      activity_routes: activityRoutesSchema,
+      route_geometry: 'activityId, providerActivityId, syncedAt',
+      sync_state: 'id, status, lastSuccessfulSyncAt',
+      settings: 'id, mapProvider, updatedAt',
+      access_state: 'id, status, updatedAt',
+      sync_history: 'id, trigger, completedAt',
+      saved_places: 'id, providerId, createdAt',
+    });
+
+    // v6 adds the trails store.
     this.version(DATABASE_SCHEMA_VERSION).stores({
       activities:
         'id, providerActivityId, startDate, sportType, activityCategory, hasRoute, routeSyncStatus',

@@ -714,9 +714,8 @@ export class MapPage implements AfterViewInit {
       scrollTop: el?.scrollTop ?? 0,
       selectedActivityId: route.activityId,
     });
-    // Close trail emphasis, open activity
-    this.routeRendererService.clearEmphasis();
-    this.selectRoute(route);
+    // Show ONLY this activity's route on the map, hiding all other trail routes
+    this.routeRendererService.setEmphasis(new Set([route.activityId]), route.activityId);
     // Set drill-down BEFORE onPanelSelectRoute so it knows this is a trail drill-down
     this.trailDrillDownActive.set(true);
     // Select the route on the main map
@@ -727,11 +726,13 @@ export class MapPage implements AfterViewInit {
   protected onCloseDrillDown(): void {
     this.trailDrillDownActive.set(false);
     this.clearSelectedRoute();
-    // Re-fit the map to the full trail bounds
+    // Restore trail emphasis (show all trail routes again) and re-fit the map
     const trailId = this.selectedTrailId();
     if (trailId) {
       const trail = this.trailsService.trails().find((t) => t.id === trailId);
       if (trail) {
+        const trailActivityIds = new Set(trail.activityIds);
+        this.routeRendererService.setEmphasis(trailActivityIds, null);
         const trailRoutes = this.allRoutes().filter((r) =>
           trail.activityIds.includes(r.activityId),
         );

@@ -9,14 +9,16 @@ import {
   ElementRef,
   inject,
   effect,
+  DestroyRef,
 } from '@angular/core';
 import { Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
-import type { Map as MapLibreMap, ExpressionSpecification } from 'maplibre-gl';
+import type { Map as MapLibreMap, ExpressionSpecification, GeoJSONSource } from 'maplibre-gl';
 import { IconComponent } from '../shared/icon.component';
 import { RouteSparklineComponent } from '../activities/route-sparkline.component';
+import { ElevationProfileComponent } from './elevation-profile.component';
 import { CreateTrailDialog } from '../activities/create-trail-dialog.component';
-import type { ActivityRecord } from '../storage/storage.models';
+import type { ActivityRecord, RouteGeometryRecord } from '../storage/storage.models';
 import type { SidebarTrailItem } from './map-activity-panel.component';
 import type { MapRouteFeature } from './mock-routes';
 import {
@@ -112,7 +114,7 @@ function dayCount(a: string, b: string): number {
 
 @Component({
   selector: 'app-trail-detail-panel',
-  imports: [IconComponent, RouteSparklineComponent],
+  imports: [IconComponent, RouteSparklineComponent, ElevationProfileComponent],
   templateUrl: './trail-detail-panel.component.html',
   styleUrl: './trail-detail-panel.component.scss',
 })
@@ -127,6 +129,7 @@ export class TrailDetailPanelComponent {
   private readonly dataRefresh = inject(DataRefreshService);
   private readonly gpxExportService = inject(GpxExportService);
   private readonly repositories = inject(TRAILROAM_REPOSITORIES);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly trail = input.required<SidebarTrailItem>();
   readonly allRoutes = input<MapRouteFeature[]>([]);
@@ -146,6 +149,25 @@ export class TrailDetailPanelComponent {
   protected readonly layerMenuOpen = signal(false);
   protected readonly activeLayerId = signal('openfreemap');
   protected readonly AVAILABLE_PROVIDERS = AVAILABLE_PROVIDERS;
+
+  /* ── Trail-level elevation profile ──────────── */
+
+  private readonly trailGeometry = signal<RouteGeometryRecord | null>(null);
+  private abortGeometryFetch: (() => void) | null = null;
+
+  protected readonly trailElevations = computed<number[] | undefined>(
+    () => this.trailGeometry()?.elevations,
+  );
+  protected readonly trailCumulativeDistances = computed<number[] | undefined>(
+    () => this.trailGeometry()?.cumulativeDistances,
+  );
+  protected readonly trailCoords = computed<[number, number][] | undefined>(
+    () => this.trailGeometry()?.coordinates,
+  );
+  protected readonly trailTotalDistanceMeters = computed(() => {
+    const dists = this.trailCumulativeDistances();
+    return dists && dists.length > 0 ? dists[dists.length - 1] : this.trail().totalDistanceMeters;
+  });
 
   /* ── Computed ─────────────────────────────────── */
 
@@ -221,9 +243,81 @@ export class TrailDetailPanelComponent {
       }
     });
 
+    effect(() => {
+      const t = this.trail();
+      const routes = this.allRoutes();
+      this.loadTrailGeometry(t, routes);
+    });
+
     globalThis.addEventListener('click', () => {
       this.layerMenuOpen.set(false);
       this.menuOpen.set(false);
+    });
+  }
+
+  /* ── Trail elevation geometry loader ──────────── */
+
+  private async loadTrailGeometry(
+    trail: SidebarTrailItem,
+    allRoutes: MapRouteFeature[],
+  ): Promise<void> {
+    // Abort any in-flight fetch for a previous trail
+    this.abortGeometryFetch?.();
+    let cancelled = false;
+    this.abortGeometryFetch = () => {
+      cancelled = true;
+    };
+
+    const members = trail.memberActivities;
+    if (members.length === 0) {
+      this.trailGeometry.set(null);
+      return;
+    }
+
+    const geometries = await Promise.all(
+      members.map((m) => this.repositories.routeGeometry.get(m.activityId)),
+    );
+
+    if (cancelled) return;
+
+    const validGeos = geometries.filter((g): g is RouteGeometryRecord => !!g);
+    if (validGeos.length === 0) {
+      this.trailGeometry.set(null);
+      return;
+    }
+
+    // Combine all geometries into one continuous profile
+    const allElevations: number[] = [];
+    const allDistances: number[] = [];
+    const allCoords: [number, number][] = [];
+    let offset = 0;
+
+    for (const geo of validGeos) {
+      if (geo.elevations && geo.cumulativeDistances && geo.elevations.length > 0) {
+        for (let i = 0; i < geo.elevations.length; i++) {
+          allElevations.push(geo.elevations[i]);
+          allDistances.push((geo.cumulativeDistances[i] ?? 0) + offset);
+        }
+        offset += geo.cumulativeDistances[geo.cumulativeDistances.length - 1] ?? 0;
+        if (geo.coordinates) {
+          allCoords.push(...geo.coordinates);
+        }
+      }
+    }
+
+    if (allElevations.length === 0) {
+      this.trailGeometry.set(null);
+      return;
+    }
+
+    this.trailGeometry.set({
+      activityId: trail.trail.id,
+      providerActivityId: '',
+      coordinates: allCoords,
+      elevations: allElevations,
+      cumulativeDistances: allDistances,
+      syncedAt: '',
+      updatedAt: '',
     });
   }
 
@@ -453,12 +547,58 @@ export class TrailDetailPanelComponent {
 
     this.mapReady.set(true);
 
-    const doRender = () => this.renderMiniMapRoutes();
+    const doRender = () => {
+      this.renderMiniMapRoutes();
+      this.addTrailHoverPointLayer();
+    };
     if (map.isStyleLoaded()) {
       doRender();
     } else {
       map.once('load', doRender);
     }
+  }
+
+  /* ── Elevation hover dot on mini map ─────────── */
+
+  private addTrailHoverPointLayer(): void {
+    const map = this.mapInstance;
+    if (!map || map.getSource('trail-hover-point')) return;
+    map.addSource('trail-hover-point', {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features: [] },
+    });
+    map.addLayer({
+      id: 'trail-hover-point-layer',
+      type: 'circle',
+      source: 'trail-hover-point',
+      paint: {
+        'circle-color': '#14211b',
+        'circle-radius': 5,
+        'circle-stroke-color': '#ffffff',
+        'circle-stroke-width': 2,
+      },
+    });
+  }
+
+  protected onTrailElevationHover(pos: { lng: number; lat: number } | null): void {
+    const map = this.mapInstance;
+    if (!map) return;
+    const source = map.getSource('trail-hover-point') as GeoJSONSource | undefined;
+    if (!source) return;
+    source.setData(
+      pos
+        ? {
+            type: 'FeatureCollection',
+            features: [
+              {
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [pos.lng, pos.lat] },
+                properties: {},
+              },
+            ],
+          }
+        : { type: 'FeatureCollection', features: [] },
+    );
   }
 
   private renderMiniMapRoutes(): void {

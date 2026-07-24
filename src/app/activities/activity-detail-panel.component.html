@@ -193,7 +193,7 @@
       </div>
 
       @if (routeElevations() && routeElevations()!.length > 0) {
-        <div class="panel-elevation card">
+        <div class="panel-elevation card" aria-label="Elevation profile chart">
           <h3 class="card-title">Elevation</h3>
           <app-elevation-profile
             [elevations]="routeElevations()"

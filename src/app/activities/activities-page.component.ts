@@ -54,6 +54,7 @@ import { ActivitiesSourceFilterComponent } from './activities-source-filter.comp
 import { ActivitiesSelectedActionsComponent } from './activities-selected-actions.component';
 import { RouteSparklineComponent } from './route-sparkline.component';
 import { ActivityDetailPanelComponent } from './activity-detail-panel.component';
+import { ElevationProfileComponent } from '../map/elevation-profile.component';
 import {
   type ActivityCategory,
   type ActivityRecord,
@@ -75,7 +76,7 @@ import { TrailsService } from '../storage/trails.service';
 import { MapLibreService } from '../map/maplibre.service';
 import { BasemapProviderService, AVAILABLE_PROVIDERS } from '../map/basemap-provider.service';
 import type { BasemapProviderConfig } from '../map/basemap-provider';
-import type { ExpressionSpecification } from 'maplibre-gl';
+import type { ExpressionSpecification, GeoJSONSource } from 'maplibre-gl';
 import type { Map as MapLibreMap } from 'maplibre-gl';
 
 const PAGE_SIZE_OPTIONS = [5, 10, 25, 50, 100];
@@ -203,6 +204,7 @@ function routeStatusLabel(status: string): string {
     LoadingSpinnerComponent,
     RouteSparklineComponent,
     ActivityDetailPanelComponent,
+    ElevationProfileComponent,
     IconComponent,
     ActivitiesToolbarComponent,
     ActivitiesStatsComponent,
@@ -259,6 +261,25 @@ export class ActivitiesPageComponent {
   /** Trail expand/collapse session state. */
   protected readonly expandedTrailIds = signal<Set<string>>(new Set());
   protected readonly selectedTrail = signal<TrailRecord | null>(null);
+
+  /* ── Trail elevation profile ─────────────────── */
+
+  private readonly trailGeometry = signal<RouteGeometryRecord | null>(null);
+  private abortTrailGeometryFetch: (() => void) | null = null;
+
+  protected readonly trailElevations = computed<number[] | undefined>(
+    () => this.trailGeometry()?.elevations,
+  );
+  protected readonly trailCumulativeDistances = computed<number[] | undefined>(
+    () => this.trailGeometry()?.cumulativeDistances,
+  );
+  protected readonly trailCoords = computed<[number, number][] | undefined>(
+    () => this.trailGeometry()?.coordinates,
+  );
+  protected readonly trailTotalDistanceMeters = computed(() => {
+    const dists = this.trailCumulativeDistances();
+    return dists && dists.length > 0 ? dists[dists.length - 1] : undefined;
+  });
 
   /* ── Mini map for trail detail panel ──────────── */
 
@@ -1087,6 +1108,8 @@ export class ActivitiesPageComponent {
         const trail = trails.find((t) => t.id === trailId);
         if (trail && this.selectedTrail()?.id !== trailId) {
           this.onSelectTrail(trail);
+          // Clear URL param so closing the panel doesn't re-select the trail
+          this.router.navigate(['/logbook'], { queryParams: {}, replaceUrl: true });
         }
       }
     });
@@ -1111,6 +1134,12 @@ export class ActivitiesPageComponent {
       if (!this.selectedTrail() && this.trailMapReady()) {
         this.destroyTrailMiniMap();
       }
+    });
+
+    /* ── Trail elevation geometry loader ──────────── */
+    effect(() => {
+      const trail = this.selectedTrail();
+      this.loadTrailGeometry(trail);
     });
   }
 
@@ -1930,6 +1959,73 @@ export class ActivitiesPageComponent {
     return day;
   }
 
+  /* ── Trail elevation geometry loader ──────────── */
+
+  private async loadTrailGeometry(trail: TrailRecord | null): Promise<void> {
+    this.abortTrailGeometryFetch?.();
+    let cancelled = false;
+    this.abortTrailGeometryFetch = () => {
+      cancelled = true;
+    };
+
+    if (!trail) {
+      this.trailGeometry.set(null);
+      return;
+    }
+
+    const members = this.trailMembers(trail);
+    if (members.length === 0) {
+      this.trailGeometry.set(null);
+      return;
+    }
+
+    const geometries = await Promise.all(
+      members.map((m) => this.repositories.routeGeometry.get(m.id)),
+    );
+
+    if (cancelled) return;
+
+    const validGeos = geometries.filter((g): g is RouteGeometryRecord => !!g);
+    if (validGeos.length === 0) {
+      this.trailGeometry.set(null);
+      return;
+    }
+
+    // Combine all geometries into one continuous profile
+    const allElevations: number[] = [];
+    const allDistances: number[] = [];
+    const allCoords: [number, number][] = [];
+    let offset = 0;
+
+    for (const geo of validGeos) {
+      if (geo.elevations && geo.cumulativeDistances && geo.elevations.length > 0) {
+        for (let i = 0; i < geo.elevations.length; i++) {
+          allElevations.push(geo.elevations[i]);
+          allDistances.push((geo.cumulativeDistances[i] ?? 0) + offset);
+        }
+        offset += geo.cumulativeDistances[geo.cumulativeDistances.length - 1] ?? 0;
+        if (geo.coordinates) {
+          allCoords.push(...geo.coordinates);
+        }
+      }
+    }
+
+    if (allElevations.length === 0) {
+      this.trailGeometry.set(null);
+      return;
+    }
+
+    this.trailGeometry.set({
+      activityId: trail.id,
+      providerActivityId: '',
+      coordinates: allCoords,
+      elevations: allElevations,
+      cumulativeDistances: allDistances,
+      syncedAt: '',
+      updatedAt: '',
+    });
+  }
+
   protected async onExportTrailGpx(trail: TrailRecord): Promise<void> {
     const members = this.trailMembers(trail);
     const segments = members.map((m) => ({
@@ -2143,12 +2239,58 @@ export class ActivitiesPageComponent {
 
     this.trailMapReady.set(true);
 
-    const doRender = () => this.renderTrailMiniMapRoutes();
+    const doRender = () => {
+      this.renderTrailMiniMapRoutes();
+      this.addTrailHoverPointLayer();
+    };
     if (map.isStyleLoaded()) {
       doRender();
     } else {
       map.once('load', doRender);
     }
+  }
+
+  /* ── Elevation hover dot on trail mini map ─── */
+
+  private addTrailHoverPointLayer(): void {
+    const map = this.trailMapInstance;
+    if (!map || map.getSource('trail-hover-point')) return;
+    map.addSource('trail-hover-point', {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features: [] },
+    });
+    map.addLayer({
+      id: 'trail-hover-point-layer',
+      type: 'circle',
+      source: 'trail-hover-point',
+      paint: {
+        'circle-color': '#14211b',
+        'circle-radius': 5,
+        'circle-stroke-color': '#ffffff',
+        'circle-stroke-width': 2,
+      },
+    });
+  }
+
+  protected onTrailElevationHover(pos: { lng: number; lat: number } | null): void {
+    const map = this.trailMapInstance;
+    if (!map) return;
+    const source = map.getSource('trail-hover-point') as GeoJSONSource | undefined;
+    if (!source) return;
+    source.setData(
+      pos
+        ? {
+            type: 'FeatureCollection',
+            features: [
+              {
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [pos.lng, pos.lat] },
+                properties: {},
+              },
+            ],
+          }
+        : { type: 'FeatureCollection', features: [] },
+    );
   }
 
   private renderTrailMiniMapRoutes(): void {

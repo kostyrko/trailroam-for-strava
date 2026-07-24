@@ -1144,6 +1144,25 @@
               </div>
             </div>
 
+            <!-- ── Elevation Profile ─────────────────── -->
+            @if (trailElevations() && trailElevations()!.length > 0) {
+              <div
+                class="tdp-elevation"
+                [style.max-width.px]="trailMapExpanded() ? 580 : undefined"
+                [style.margin]="trailMapExpanded() ? '0 auto' : undefined"
+                aria-label="Elevation profile chart"
+              >
+                <h4 class="tdp-section-title">Elevation</h4>
+                <app-elevation-profile
+                  [elevations]="trailElevations()"
+                  [cumulativeDistances]="trailCumulativeDistances()"
+                  [coordinates]="trailCoords()"
+                  [totalDistanceMeters]="trailTotalDistanceMeters()"
+                  (hoveredPosition)="onTrailElevationHover($event)"
+                />
+              </div>
+            }
+
             <!-- ── Footer ──────────────────────────── -->
             <div class="tdp-footer">
               <button

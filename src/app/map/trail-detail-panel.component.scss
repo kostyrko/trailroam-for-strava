@@ -41,3 +41,13 @@
 :host ::ng-deep .tdp-minimap__map .maplibregl-ctrl-top-left {
   @include maplibregl-ctrl-override;
 }
+
+// ── Elevation chart scaling ──────────────────────────────────────────
+
+.tdp-elevation :deep(.elevation-chart-wrap) {
+  width: 100% !important;
+}
+
+.tdp-elevation :deep(.elevation-svg) {
+  width: 100% !important;
+}

@@ -389,6 +389,23 @@
   font-weight: 500;
 }
 
+// ── Elevation Profile ────────────────────────────────────────────────
+
+.tdp-elevation {
+  background: $bg-white;
+  border: 1px solid $border-primary;
+  border-radius: 10px;
+  margin: 0;
+  padding: 14px 16px;
+  width: 100%;
+}
+
+// Force the component host to be block-level so its child width:100% has a reference
+.tdp-elevation app-elevation-profile {
+  display: block;
+  width: 100%;
+}
+
 // ── Trail Insights ───────────────────────────────────────────────────
 
 .tdp-insights__grid {

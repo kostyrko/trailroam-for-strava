@@ -630,6 +630,10 @@ export class ActivitiesPageComponent {
     this.activatedRoute.queryParamMap.pipe(map((params) => params.get('focusActivityId'))),
     { initialValue: null },
   );
+  private readonly trailIdParam = toSignal(
+    this.activatedRoute.queryParamMap.pipe(map((params) => params.get('trailId'))),
+    { initialValue: null },
+  );
   protected readonly highlightActivityId = signal<string | null>(null);
 
   protected readonly status = signal<'loading' | 'empty' | 'loaded'>('loading');
@@ -1050,6 +1054,16 @@ export class ActivitiesPageComponent {
       const items = this.activities();
       if (focusId && items && this.status() === 'loaded') {
         setTimeout(() => this.handleFocusActivity(focusId), 100);
+      }
+    });
+    effect(() => {
+      const trailId = this.trailIdParam();
+      const trails = this.trailsService.trails();
+      if (trailId && trails.length > 0) {
+        const trail = trails.find((t) => t.id === trailId);
+        if (trail && this.selectedTrail()?.id !== trailId) {
+          this.onSelectTrail(trail);
+        }
       }
     });
   }

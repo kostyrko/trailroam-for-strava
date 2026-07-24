@@ -211,9 +211,13 @@
         <app-icon name="download" [size]="16" strokeWidth="2"></app-icon>
         Export Trail GPX
       </button>
-      <button class="tdp-footer__btn tdp-footer__btn--secondary" type="button">
+      <button
+        class="tdp-footer__btn tdp-footer__btn--secondary"
+        type="button"
+        (click)="openInLogbook()"
+      >
         <app-icon name="list" [size]="16" strokeWidth="2"></app-icon>
-        Open in Activities
+        Open in Logbook
       </button>
     </div>
   </div>

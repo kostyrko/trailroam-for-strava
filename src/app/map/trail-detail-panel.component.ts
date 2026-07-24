@@ -10,6 +10,7 @@ import {
   inject,
   effect,
 } from '@angular/core';
+import { Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import type { Map as MapLibreMap, ExpressionSpecification } from 'maplibre-gl';
 import { IconComponent } from '../shared/icon.component';
@@ -115,6 +116,7 @@ function dayCount(a: string, b: string): number {
   styleUrl: './trail-detail-panel.component.scss',
 })
 export class TrailDetailPanelComponent {
+  private readonly router = inject(Router);
   private readonly mapLibreService = inject(MapLibreService);
   private readonly basemapProviderService = inject(BasemapProviderService);
   private readonly trailsService = inject(TrailsService);
@@ -364,6 +366,12 @@ export class TrailDetailPanelComponent {
     } catch {
       this.toastService.show('Failed to delete trail.');
     }
+  }
+
+  protected openInLogbook(): void {
+    this.router.navigate(['/logbook'], {
+      queryParams: { trailId: this.trail().trail.id },
+    });
   }
 
   protected getRouteCoords(activityId: string): [number, number][] | null {

@@ -54,6 +54,15 @@ export class MapLibreService {
       map.addImage(e.id, canvas as unknown as HTMLImageElement | ImageData);
     });
 
+    // Suppress sprite-sheet loading errors. MapLibre fires an 'error' event when a sprite
+    // image listed in sprite.json cannot be extracted from sprite.png — this is separate
+    // from styleimagemissing and falls through to console.error unless a listener is attached.
+    map.on('error', (e: { error?: Error }) => {
+      if (e.error?.message?.includes('could not be loaded')) {
+        return;
+      }
+    });
+
     return map;
   }
 

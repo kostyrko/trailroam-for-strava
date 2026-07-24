@@ -72,6 +72,11 @@ import { SavedPlacesService } from '../map/saved-places.service';
 import { SavePlaceDialog, type SavePlaceDialogData } from '../shared/save-place-dialog.component';
 import { LogbookNavComponent, type LogbookNavItem } from './logbook-nav.component';
 import { TrailsService } from '../storage/trails.service';
+import { MapLibreService } from '../map/maplibre.service';
+import { BasemapProviderService, AVAILABLE_PROVIDERS } from '../map/basemap-provider.service';
+import type { BasemapProviderConfig } from '../map/basemap-provider';
+import type { ExpressionSpecification } from 'maplibre-gl';
+import type { Map as MapLibreMap } from 'maplibre-gl';
 
 const PAGE_SIZE_OPTIONS = [5, 10, 25, 50, 100];
 
@@ -222,6 +227,8 @@ export class ActivitiesPageComponent {
   private readonly activatedRoute = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
   protected readonly trailsService = inject(TrailsService);
+  private readonly mapLibreService = inject(MapLibreService);
+  private readonly basemapProviderService = inject(BasemapProviderService);
 
   /** Tabbed view state for the Logbook page. */
   protected readonly logbookView = signal<string>('activities');
@@ -252,6 +259,18 @@ export class ActivitiesPageComponent {
   /** Trail expand/collapse session state. */
   protected readonly expandedTrailIds = signal<Set<string>>(new Set());
   protected readonly selectedTrail = signal<TrailRecord | null>(null);
+
+  /* ── Mini map for trail detail panel ──────────── */
+
+  private readonly trailMiniMapContainer =
+    viewChild<ElementRef<HTMLDivElement>>('trailMiniMapContainer');
+  private trailMapInstance: MapLibreMap | null = null;
+  private readonly trailMapReady = signal(false);
+  protected readonly trailMapExpanded = signal(false);
+  protected readonly trailSpeedLegend = signal(false);
+  protected readonly trailLayerMenuOpen = signal(false);
+  protected readonly trailActiveLayerId = signal('openfreemap');
+  protected readonly AVAILABLE_PROVIDERS = AVAILABLE_PROVIDERS;
 
   /**
    * Set of all activity IDs that belong to any trail. These activities are hidden behind
@@ -1045,6 +1064,9 @@ export class ActivitiesPageComponent {
       if (!target?.closest('.toolbar-select') && !target?.closest('.drp-overlay')) {
         this.closeAllMenus();
       }
+      if (!target?.closest('.tdp-layer-menu') && !target?.closest('.tdp-minimap__btn')) {
+        this.trailLayerMenuOpen.set(false);
+      }
     });
     this.dataRefresh.refresh$
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -1064,6 +1086,28 @@ export class ActivitiesPageComponent {
         if (trail && this.selectedTrail()?.id !== trailId) {
           this.onSelectTrail(trail);
         }
+      }
+    });
+
+    /* ── Trail mini map lifecycle ──────────────── */
+    effect(() => {
+      const trail = this.selectedTrail();
+      const ready = this.trailMapReady();
+
+      if (trail && !ready) {
+        // Container just appeared in DOM; wait for Angular to render it
+        setTimeout(() => this.initTrailMiniMap(), 0);
+      }
+
+      if (ready && this.trailMapInstance) {
+        this.renderTrailMiniMapRoutes();
+      }
+    });
+
+    // Clean up map when trail panel closes
+    effect(() => {
+      if (!this.selectedTrail() && this.trailMapReady()) {
+        this.destroyTrailMiniMap();
       }
     });
   }
@@ -1807,6 +1851,91 @@ export class ActivitiesPageComponent {
     this.clearSelectedActivity();
   }
 
+  // ── Trail panel menu state ──────────────────
+
+  protected readonly trailPanelMenuOpen = signal(false);
+
+  protected toggleTrailPanelMenu(event: MouseEvent): void {
+    event.stopPropagation();
+    this.trailPanelMenuOpen.update((v) => !v);
+    if (this.trailPanelMenuOpen()) {
+      const close = (e: MouseEvent) => {
+        this.trailPanelMenuOpen.set(false);
+        globalThis.removeEventListener('click', close);
+      };
+      setTimeout(() => globalThis.addEventListener('click', close), 0);
+    }
+  }
+
+  // ── Trail helper methods for the side panel ──
+
+  protected trailMembers(trail: TrailRecord): ActivityRecord[] {
+    const all = this.activities();
+    if (!all) return [];
+    return trail.activityIds
+      .map((id) => all.find((a) => a.id === id))
+      .filter((a): a is ActivityRecord => a !== undefined)
+      .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+  }
+
+  protected trailDayCount(trail: TrailRecord): number {
+    const members = this.trailMembers(trail);
+    if (members.length === 0) return 0;
+    const days = members.map((m) => m.startDate.slice(0, 10));
+    return new Set(days).size;
+  }
+
+  protected trailHighestElevation(trail: TrailRecord): number {
+    const members = this.trailMembers(trail);
+    return Math.max(0, ...members.map((m) => m.totalElevationGainMeters ?? 0));
+  }
+
+  protected trailLongestActivity(trail: TrailRecord): number {
+    const members = this.trailMembers(trail);
+    return Math.max(0, ...members.map((m) => m.distanceMeters ?? 0));
+  }
+
+  protected trailAvgDistancePerDay(trail: TrailRecord): number {
+    const members = this.trailMembers(trail);
+    const total = members.reduce((s, m) => s + (m.distanceMeters ?? 0), 0);
+    const days = this.trailDayCount(trail);
+    return days > 0 ? total / days : 0;
+  }
+
+  protected isLastMember(index: number, length: number): boolean {
+    return index === length - 1;
+  }
+
+  protected isFirstOfDayMember(index: number, members: ActivityRecord[]): boolean {
+    if (index === 0) return true;
+    const current = members[index]?.startDate?.slice(0, 10);
+    const prev = members[index - 1]?.startDate?.slice(0, 10);
+    return current !== prev;
+  }
+
+  protected memberDayIndex(index: number, members: ActivityRecord[]): number {
+    let day = 1;
+    for (let i = 0; i <= index; i++) {
+      if (
+        i > 0 &&
+        members[i]?.startDate?.slice(0, 10) !== members[i - 1]?.startDate?.slice(0, 10)
+      ) {
+        day++;
+      }
+    }
+    return day;
+  }
+
+  protected async onExportTrailGpx(trail: TrailRecord): Promise<void> {
+    const members = this.trailMembers(trail);
+    const segments = members.map((m) => ({
+      name: m.name,
+      startDate: m.startDate,
+      activityId: m.id,
+    }));
+    await this.gpxExportService.exportTrail(trail.name, segments);
+  }
+
   protected clearSelectedTrail(): void {
     this.selectedTrail.set(null);
   }
@@ -1954,6 +2083,233 @@ export class ActivitiesPageComponent {
   protected getActivityById(id: string): ActivityRecord | undefined {
     return this.activities()?.find((a) => a.id === id);
   }
+
+  /* ── Trail Mini Map ─────────────────────────────────────────── */
+
+  private getTrailRouteCoords(): Map<string, [number, number][]> {
+    const t = this.selectedTrail();
+    if (!t) return new Map();
+    const map = new Map<string, [number, number][]>();
+    const members = this.trailMembers(t);
+    for (const m of members) {
+      const coords = this.getRouteCoords(m.id);
+      if (coords) {
+        map.set(m.id, coords);
+      }
+    }
+    return map;
+  }
+
+  private avgSpeedMsForActivity(
+    routeCoords: [number, number][],
+    activity: ActivityRecord,
+  ): number | undefined {
+    if (activity.averageSpeedMetersPerSecond) return activity.averageSpeedMetersPerSecond;
+    if (activity.distanceMeters && activity.movingTimeSeconds)
+      return activity.distanceMeters / activity.movingTimeSeconds;
+    return undefined;
+  }
+
+  private async initTrailMiniMap(): Promise<void> {
+    if (this.trailMapReady()) return;
+    const container = this.trailMiniMapContainer()?.nativeElement;
+    if (!container) return;
+
+    const provider = this.basemapProviderService.getDefaultProvider();
+    const map = await this.mapLibreService.createMap(container, provider);
+    this.trailMapInstance = map;
+
+    map.dragPan.enable();
+    map.scrollZoom.enable();
+    map.boxZoom.enable();
+    map.doubleClickZoom.enable();
+    map.touchZoomRotate.enable();
+    map.keyboard.enable();
+
+    import('maplibre-gl').then((ml) => {
+      const NavControl = (ml as any).NavigationControl ?? (ml as any).default?.NavigationControl;
+      const ScaleControl = (ml as any).ScaleControl ?? (ml as any).default?.ScaleControl;
+      if (NavControl) {
+        map.addControl(new NavControl({ showCompass: false }), 'top-left');
+      }
+      if (ScaleControl) {
+        map.addControl(new ScaleControl({ unit: 'metric' }), 'bottom-left');
+      }
+    });
+
+    this.trailMapReady.set(true);
+
+    const doRender = () => this.renderTrailMiniMapRoutes();
+    if (map.isStyleLoaded()) {
+      doRender();
+    } else {
+      map.once('load', doRender);
+    }
+  }
+
+  private renderTrailMiniMapRoutes(): void {
+    const map = this.trailMapInstance;
+    if (!map) return;
+
+    if (!map.isStyleLoaded()) {
+      map.once('load', () => this.renderTrailMiniMapRoutes());
+      return;
+    }
+
+    const t = this.selectedTrail();
+    if (!t) return;
+
+    const routeCoordsMap = this.getTrailRouteCoords();
+    const members = this.trailMembers(t);
+
+    // Collect all coordinates for bounds fitting
+    const allCoords: [number, number][] = [];
+
+    // Build speed-colored segments
+    let allSegments: GeoJSON.Feature<GeoJSON.LineString>[] = [];
+    for (const member of members) {
+      const coords = routeCoordsMap.get(member.id);
+      if (!coords || coords.length < 2) continue;
+      allCoords.push(...coords);
+      const avgMs = this.avgSpeedMsForActivity(coords, member);
+      if (avgMs) {
+        const segs = buildTrailSpeedSegments(coords, avgMs);
+        allSegments.push(...segs);
+      } else {
+        allSegments.push({
+          type: 'Feature',
+          properties: { speedRatio: 1 },
+          geometry: { type: 'LineString', coordinates: coords },
+        });
+      }
+    }
+
+    if (allSegments.length === 0) {
+      this.trailSpeedLegend.set(false);
+      return;
+    }
+
+    this.trailSpeedLegend.set(allSegments.length > 0);
+
+    // Compute global min/max speed ratios for the color ramp
+    const ratios = allSegments
+      .map((f) => f.properties?.['speedRatio'] as number)
+      .filter((v) => v !== undefined);
+    const minRatio = ratios.length > 0 ? Math.min(...ratios) : 0.5;
+    const maxRatio = ratios.length > 0 ? Math.max(...ratios) : 1.5;
+    const range = maxRatio - minRatio || 0.5;
+
+    const colorStops: (number | string)[] = [];
+    for (const sc of TRAIL_SPEED_COLORS) {
+      const tNorm = sc.at / 2.0;
+      const scaled = minRatio + tNorm * range;
+      colorStops.push(scaled, sc.color);
+    }
+    const interpolateExpr: ExpressionSpecification = [
+      'interpolate',
+      ['linear'],
+      ['get', 'speedRatio'],
+      ...colorStops,
+    ];
+
+    const sourceId = 'trail-minimap-routes';
+    const casingLayerId = 'trail-minimap-casing';
+    const lineLayerId = 'trail-minimap-line';
+
+    if (map.getLayer(lineLayerId)) map.removeLayer(lineLayerId);
+    if (map.getLayer(casingLayerId)) map.removeLayer(casingLayerId);
+    if (map.getSource(sourceId)) map.removeSource(sourceId);
+
+    map.addSource(sourceId, {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features: allSegments },
+    });
+
+    map.addLayer({
+      id: casingLayerId,
+      type: 'line',
+      source: sourceId,
+      paint: {
+        'line-color': '#ffffff',
+        'line-opacity': 0.9,
+        'line-width': 6,
+      },
+    });
+
+    map.addLayer({
+      id: lineLayerId,
+      type: 'line',
+      source: sourceId,
+      paint: {
+        'line-color': interpolateExpr,
+        'line-opacity': 0.9,
+        'line-width': 4,
+      },
+    });
+
+    if (allCoords.length >= 2) {
+      map.fitBounds(
+        [
+          Math.min(...allCoords.map((c) => c[0])),
+          Math.min(...allCoords.map((c) => c[1])),
+          Math.max(...allCoords.map((c) => c[0])),
+          Math.max(...allCoords.map((c) => c[1])),
+        ],
+        { padding: 10, maxZoom: 15, duration: 0 },
+      );
+    }
+  }
+
+  private destroyTrailMiniMap(): void {
+    if (this.trailMapInstance) {
+      this.trailMapInstance.remove();
+      this.trailMapInstance = null;
+    }
+    this.trailMapReady.set(false);
+    this.trailSpeedLegend.set(false);
+    this.trailMapExpanded.set(false);
+  }
+
+  protected trailToggleMapExpand(): void {
+    this.trailMapExpanded.update((v) => !v);
+    setTimeout(() => this.trailMapInstance?.resize(), 100);
+  }
+
+  protected trailToggleLayerMenu(event: MouseEvent): void {
+    event.stopPropagation();
+    this.trailLayerMenuOpen.update((v) => !v);
+  }
+
+  protected trailSelectLayer(config: BasemapProviderConfig): void {
+    this.trailLayerMenuOpen.set(false);
+    if (config.id === this.trailActiveLayerId()) return;
+
+    this.trailActiveLayerId.set(config.id);
+    this.basemapProviderService.setProvider(config);
+    const map = this.trailMapInstance;
+    if (map) {
+      const center = map.getCenter();
+      const zoom = map.getZoom();
+      const pitch = map.getPitch();
+      const bearing = map.getBearing();
+      map.setStyle(config.styleUrl!);
+      map.once('style.load', () => {
+        this.renderTrailMiniMapRoutes();
+        map.jumpTo({ center, zoom, pitch, bearing });
+        import('maplibre-gl').then((ml) => {
+          const NavControl =
+            (ml as any).NavigationControl ?? (ml as any).default?.NavigationControl;
+          const ScaleControl = (ml as any).ScaleControl ?? (ml as any).default?.ScaleControl;
+          if (NavControl) {
+            map.addControl(new NavControl({ showCompass: false }), 'top-left');
+          }
+          if (ScaleControl) {
+            map.addControl(new ScaleControl({ unit: 'metric' }), 'bottom-left');
+          }
+        });
+      });
+    }
+  }
 }
 
 /**
@@ -2039,4 +2395,69 @@ function compareActivities(a: ActivityRecord, b: ActivityRecord, column: SortCol
     case 'route':
       return routeSortValue(a.routeSyncStatus) - routeSortValue(b.routeSyncStatus);
   }
+}
+
+/* ── Speed-colour helpers (mirrored from trail-detail-panel) ──── */
+
+const TRAIL_SPAN_SECONDS = 120;
+const TRAIL_SPEED_COLORS = [
+  { at: 0, color: '#3b82c4' },
+  { at: 0.5, color: '#5fb8a0' },
+  { at: 0.8, color: '#78c679' },
+  { at: 1.0, color: '#1f6f50' },
+  { at: 1.2, color: '#d9a23d' },
+  { at: 1.5, color: '#d9732b' },
+  { at: 2.0, color: '#b8433a' },
+];
+
+function trailHaversineDistance(lng1: number, lat1: number, lng2: number, lat2: number): number {
+  const R = 6371000;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function buildTrailSpeedSegments(
+  coords: [number, number][],
+  avgSpeedMs: number,
+): GeoJSON.Feature<GeoJSON.LineString>[] {
+  if (coords.length < 2 || !avgSpeedMs || avgSpeedMs <= 0) return [];
+  const spanMeters = Math.max(50, avgSpeedMs * TRAIL_SPAN_SECONDS);
+  const spans: { startIdx: number; endIdx: number; dist: number }[] = [];
+  let spanStart = 0;
+  let spanDist = 0;
+  for (let i = 1; i < coords.length; i++) {
+    const segDist = trailHaversineDistance(
+      coords[i - 1][0],
+      coords[i - 1][1],
+      coords[i][0],
+      coords[i][1],
+    );
+    spanDist += segDist;
+    if (spanDist >= spanMeters || i === coords.length - 1) {
+      spans.push({ startIdx: spanStart, endIdx: i, dist: spanDist });
+      spanStart = i;
+      spanDist = 0;
+    }
+  }
+  if (spans.length < 2) return [];
+  const pointCounts = spans.map((s) => s.endIdx - s.startIdx + 1);
+  const avgPoints = pointCounts.reduce((s, c) => s + c, 0) / pointCounts.length;
+  const features: GeoJSON.Feature<GeoJSON.LineString>[] = [];
+  for (const span of spans) {
+    const coordsInSpan = coords.slice(span.startIdx, span.endIdx + 1);
+    if (coordsInSpan.length < 2) continue;
+    const pointDensity = span.dist > 0 ? coordsInSpan.length / span.dist : 0;
+    const normDensity = avgPoints > 0 ? pointDensity / (avgPoints / spanMeters) : 1;
+    const speedRatio = normDensity > 0 ? 1 / normDensity : 2;
+    features.push({
+      type: 'Feature',
+      properties: { speedRatio: Math.max(0.1, Math.min(3, speedRatio)) },
+      geometry: { type: 'LineString', coordinates: coordsInSpan },
+    });
+  }
+  return features;
 }

@@ -287,7 +287,16 @@
                     <td class="cell-num">
                       {{ formatDurationHours(group.trailRow.totalMovingSeconds) }}
                     </td>
-                    <td></td>
+                    <td class="cell-detail-btn">
+                      <button
+                        class="trail-detail-btn"
+                        type="button"
+                        (click)="onSelectTrail(group.trailRow.trail); $event.stopPropagation()"
+                        title="Open trail details"
+                      >
+                        <app-icon name="sidebar-collapse" [size]="18" strokeWidth="1.5"></app-icon>
+                      </button>
+                    </td>
                     <td class="cell-actions">
                       <div class="activity-actions-cell">
                         <button
@@ -904,89 +913,256 @@
           (close)="clearSelectedActivity()"
         />
       }
-      @if (selectedTrail(); as selTrail) {
-        @let stats = getTrailStats(selTrail);
-        <aside class="trail-detail-panel">
-          <div class="trail-detail-panel__header">
-            <app-icon
-              name="map"
-              [size]="20"
-              strokeWidth="2"
-              [class]="'trail-detail-panel__icon'"
-            ></app-icon>
-            <h3 class="trail-detail-panel__title">{{ selTrail.name }}</h3>
-            <span class="trail-badge">Trail</span>
-            <button
-              class="trail-detail-panel__close"
-              type="button"
-              (click)="clearSelectedTrail()"
-              aria-label="Close trail detail panel"
-            >
-              <app-icon name="x" [size]="16" strokeWidth="2"></app-icon>
-            </button>
-          </div>
-          <div class="trail-detail-panel__stats">
-            <div class="trail-detail-stat">
-              <span class="trail-detail-stat__value">{{ stats.activityCount }}</span>
-              <span class="trail-detail-stat__label">{{
-                stats.activityCount === 1 ? 'activity' : 'activities'
-              }}</span>
+      <div
+        class="trail-panel-backdrop"
+        [class.backdrop-visible]="!!selectedTrail()"
+        (click)="clearSelectedTrail()"
+      ></div>
+      <aside
+        class="trail-detail-panel"
+        [class.panel-visible]="!!selectedTrail()"
+        role="complementary"
+        aria-label="Trail details"
+      >
+        @if (selectedTrail(); as selTrail) {
+          @let stats = getTrailStats(selTrail);
+          @let members = trailMembers(selTrail);
+          <!-- ── Header ─────────────────────────────── -->
+          <div class="tdp-header">
+            <div class="tdp-header__main">
+              <h3 class="tdp-header__title">{{ selTrail.name }}</h3>
+              <span class="tdp-header__badge">Trail</span>
+              <button
+                class="tdp-header__close"
+                type="button"
+                (click)="clearSelectedTrail()"
+                aria-label="Close trail panel"
+              >
+                <app-icon name="x" [size]="16" strokeWidth="2"></app-icon>
+              </button>
             </div>
-            @if (stats.totalDistanceMeters > 0) {
-              <div class="trail-detail-stat">
-                <span class="trail-detail-stat__value">{{
-                  formatDistance(stats.totalDistanceMeters)
-                }}</span>
-                <span class="trail-detail-stat__label">distance</span>
+            <div class="tdp-header__meta">
+              <span class="tdp-header__dates">
+                {{ formatDate(stats.firstDate) }} –
+                {{ formatDateShort(stats.lastDate) }} &nbsp;•&nbsp; {{ trailDayCount(selTrail) }}
+                {{ trailDayCount(selTrail) === 1 ? 'day' : 'days' }}
+              </span>
+              <div class="tdp-menu-wrapper">
+                <button
+                  class="tdp-menu-trigger"
+                  type="button"
+                  (click)="toggleTrailPanelMenu($event)"
+                  aria-label="Trail actions"
+                >
+                  &#8942;
+                </button>
+                @if (trailPanelMenuOpen()) {
+                  <ul class="tdp-menu-dropdown" role="menu" (click)="$event.stopPropagation()">
+                    <li role="none">
+                      <button class="tdp-menu-item" role="menuitem" (click)="onEditTrail(selTrail)">
+                        <app-icon name="pencil" [size]="16" strokeWidth="2"></app-icon>
+                        Edit
+                      </button>
+                    </li>
+                    <li role="none">
+                      <button
+                        class="tdp-menu-item tdp-menu-item--danger"
+                        role="menuitem"
+                        (click)="onDeleteTrail(selTrail)"
+                      >
+                        <app-icon name="trash-2" [size]="16" strokeWidth="2"></app-icon>
+                        Delete
+                      </button>
+                    </li>
+                  </ul>
+                }
               </div>
-            }
-            @if (stats.totalMovingSeconds > 0) {
-              <div class="trail-detail-stat">
-                <span class="trail-detail-stat__value">{{
-                  formatDurationHours(stats.totalMovingSeconds)
-                }}</span>
-                <span class="trail-detail-stat__label">moving</span>
-              </div>
-            }
-            @if (stats.totalElevationGainMeters > 0) {
-              <div class="trail-detail-stat">
-                <span class="trail-detail-stat__value">{{
-                  formatElevation(stats.totalElevationGainMeters)
-                }}</span>
-                <span class="trail-detail-stat__label">elevation</span>
-              </div>
-            }
+            </div>
           </div>
-          <div class="trail-detail-panel__dates">
-            {{ formatDate(stats.firstDate) }} – {{ formatDateShort(stats.lastDate) }}
-          </div>
-          <div class="trail-detail-panel__section-title">Activities</div>
-          <div class="trail-detail-panel__activities">
-            @for (memberId of selTrail.activityIds; track memberId) {
-              @let member = getActivityById(memberId);
-              @if (member) {
-                <div class="trail-detail-member" (click)="navigateToActivity(member)">
-                  <span class="trail-detail-member__emoji">{{ sportTypeEmoji(member) }}</span>
-                  <span class="trail-detail-member__name">{{ member.name }}</span>
-                  <span class="trail-detail-member__date">{{
-                    formatDateShort(member.startDate)
-                  }}</span>
+
+          <!-- ── Mini Overview Map (interactive) ───────── -->
+          <div class="tdp-minimap" [class.tdp-minimap--expanded]="trailMapExpanded()">
+            <div
+              #trailMiniMapContainer
+              class="tdp-minimap__map"
+              (click)="navigateToTrailOnMap(selTrail)"
+            ></div>
+            <div class="tdp-minimap__controls">
+              <button
+                class="tdp-minimap__btn"
+                type="button"
+                (click)="trailToggleMapExpand()"
+                [attr.aria-label]="trailMapExpanded() ? 'Collapse map' : 'Expand map'"
+                data-tooltip="Expand map"
+              >
+                {{ trailMapExpanded() ? '⤡' : '⤢' }}
+              </button>
+              <button
+                class="tdp-minimap__btn"
+                type="button"
+                (click)="trailToggleLayerMenu($event)"
+                aria-label="Switch map layer"
+                data-tooltip="Switch basemap"
+              >
+                <app-icon name="layers" [size]="16" strokeWidth="2"></app-icon>
+              </button>
+              @if (trailLayerMenuOpen()) {
+                <div class="tdp-layer-menu" (click)="$event.stopPropagation()">
+                  @for (p of AVAILABLE_PROVIDERS; track p.id) {
+                    <button
+                      class="tdp-layer-item"
+                      type="button"
+                      [class.active]="p.id === trailActiveLayerId()"
+                      (click)="trailSelectLayer(p)"
+                    >
+                      {{ p.label }}
+                      @if (p.id === trailActiveLayerId()) {
+                        <span> ✓</span>
+                      }
+                    </button>
+                  }
                 </div>
               }
-            }
+            </div>
           </div>
-          <div class="trail-detail-panel__actions">
-            <button
-              class="trail-detail-panel__btn"
-              type="button"
-              (click)="navigateToTrailOnMap(selTrail)"
-            >
-              <app-icon name="map" [size]="14" strokeWidth="2"></app-icon>
-              Show on Map Explorer
-            </button>
+
+          @if (trailSpeedLegend()) {
+            <div class="tdp-speed-legend" aria-label="Route speed legend">
+              <span>Slower</span>
+              <svg class="tdp-legend-gradient" width="80" height="8" aria-hidden="true">
+                <defs>
+                  <linearGradient id="tdp-speed-grad" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stop-color="#3b82c4" />
+                    <stop offset="25%" stop-color="#78c679" />
+                    <stop offset="50%" stop-color="#1f6f50" />
+                    <stop offset="75%" stop-color="#d9a23d" />
+                    <stop offset="100%" stop-color="#b8433a" />
+                  </linearGradient>
+                </defs>
+                <rect width="80" height="8" rx="4" fill="url(#tdp-speed-grad)" />
+              </svg>
+              <span>Faster</span>
+            </div>
+          }
+
+          <!-- ── Scrollable body ────────────────────── -->
+          <div class="tdp-body">
+            <!-- ── Trail Itinerary / Timeline ──────────── -->
+            <div class="tdp-itinerary">
+              <h4 class="tdp-section-title">Itinerary</h4>
+              <div class="tdp-timeline">
+                @for (member of members; track member.id; let idx = $index) {
+                  <div
+                    class="tdp-timeline__item"
+                    [class.tdp-timeline__item--first]="idx === 0"
+                    (click)="navigateToActivity(member)"
+                    role="button"
+                    tabindex="0"
+                    [attr.aria-label]="'View ' + member.name"
+                  >
+                    <div class="tdp-timeline__node">
+                      <div class="tdp-timeline__dot"></div>
+                      @if (!isLastMember(idx, members.length)) {
+                        <div class="tdp-timeline__line"></div>
+                      }
+                    </div>
+                    <div class="tdp-timeline__content">
+                      <div class="tdp-timeline__date-row">
+                        <span class="tdp-timeline__date">{{
+                          formatDateShort(member.startDate)
+                        }}</span>
+                        @if (isFirstOfDayMember(idx, members)) {
+                          <span class="tdp-timeline__day-badge"
+                            >Day {{ memberDayIndex(idx, members) }}</span
+                          >
+                        }
+                      </div>
+                      <div class="tdp-timeline__route-preview">
+                        @let coords = getRouteCoords(member.id);
+                        @if (coords) {
+                          <app-route-sparkline [coordinates]="coords" />
+                        }
+                      </div>
+                      <div class="tdp-timeline__activity-row">
+                        <span class="tdp-timeline__emoji">{{ sportTypeEmoji(member) }}</span>
+                        <span class="tdp-timeline__name">{{ member.name }}</span>
+                      </div>
+                      <div class="tdp-timeline__metrics">
+                        @if (member.distanceMeters) {
+                          <span class="tdp-timeline__metric">{{
+                            formatDistance(member.distanceMeters)
+                          }}</span>
+                        }
+                        @if (member.movingTimeSeconds) {
+                          <span class="tdp-timeline__metric">{{
+                            formatDuration(member.movingTimeSeconds)
+                          }}</span>
+                        }
+                        @if (member.totalElevationGainMeters) {
+                          <span class="tdp-timeline__metric"
+                            >{{ formatElevation(member.totalElevationGainMeters) }} ↑</span
+                          >
+                        }
+                      </div>
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+
+            <!-- ── Trail Insights ──────────────────────── -->
+            <div class="tdp-insights">
+              <h4 class="tdp-section-title">Trail Insights</h4>
+              <div class="tdp-insights__grid">
+                <div class="tdp-insight-card">
+                  <span class="tdp-insight-card__label">Highest elevation</span>
+                  <span class="tdp-insight-card__value">{{
+                    formatElevation(trailHighestElevation(selTrail))
+                  }}</span>
+                </div>
+                <div class="tdp-insight-card">
+                  <span class="tdp-insight-card__label">Longest day</span>
+                  <span class="tdp-insight-card__value">{{
+                    formatDistance(trailLongestActivity(selTrail))
+                  }}</span>
+                </div>
+                <div class="tdp-insight-card">
+                  <span class="tdp-insight-card__label">Average distance / day</span>
+                  <span class="tdp-insight-card__value">{{
+                    formatDistance(trailAvgDistancePerDay(selTrail))
+                  }}</span>
+                </div>
+                <div class="tdp-insight-card">
+                  <span class="tdp-insight-card__label">Total elevation gain</span>
+                  <span class="tdp-insight-card__value">{{
+                    formatElevation(stats.totalElevationGainMeters)
+                  }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- ── Footer ──────────────────────────── -->
+            <div class="tdp-footer">
+              <button
+                class="tdp-footer__btn tdp-footer__btn--primary"
+                type="button"
+                (click)="onExportTrailGpx(selTrail)"
+              >
+                <app-icon name="download" [size]="14" strokeWidth="2"></app-icon>
+                Export Trail GPX
+              </button>
+              <button
+                class="tdp-footer__btn tdp-footer__btn--secondary"
+                type="button"
+                (click)="navigateToTrailOnMap(selTrail)"
+              >
+                <app-icon name="map" [size]="14" strokeWidth="2"></app-icon>
+                Show on Map Explorer
+              </button>
+            </div>
           </div>
-        </aside>
-      }
+        }
+      </aside>
     }
 
     @case ('places') {

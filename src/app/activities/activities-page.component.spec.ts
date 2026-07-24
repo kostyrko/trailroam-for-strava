@@ -112,7 +112,13 @@ describe('ActivitiesPageComponent', () => {
   it('should render loading state initially', () => {
     TestBed.configureTestingModule({
       imports: [ActivitiesPageComponent],
-      providers: [provideActivatedRoute()],
+      providers: [
+        provideActivatedRoute(),
+        {
+          provide: TRAILROAM_REPOSITORIES,
+          useValue: createMockRepositories([], 0),
+        },
+      ],
     });
 
     const fixture = TestBed.createComponent(ActivitiesPageComponent);

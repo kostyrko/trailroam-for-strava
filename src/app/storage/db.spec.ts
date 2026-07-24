@@ -528,6 +528,122 @@ describe('TrailroamDatabase', () => {
     });
   });
 
+  describe('trails repository', () => {
+    it('lists trails newest-first, supports get/put/delete/count', async () => {
+      const repositories = createRepositories(db);
+      const base = {
+        name: 'Test Trail',
+        activityIds: ['strava:1', 'strava:2'],
+      };
+      const older = {
+        ...base,
+        id: 'trail:older',
+        createdAt: '2026-05-01T00:00:00.000Z',
+        updatedAt: '2026-05-01T00:00:00.000Z',
+      };
+      const newer = {
+        ...base,
+        id: 'trail:newer',
+        name: 'Newer Trail',
+        createdAt: '2026-06-01T00:00:00.000Z',
+        updatedAt: '2026-06-01T00:00:00.000Z',
+      };
+      await repositories.trails.put(older);
+      await repositories.trails.put(newer);
+
+      // list() returns newest-first (createdAt desc).
+      const list = await repositories.trails.list();
+      expect(list.map((t) => t.id)).toEqual(['trail:newer', 'trail:older']);
+
+      // get() works.
+      expect((await repositories.trails.get('trail:newer'))?.name).toBe('Newer Trail');
+
+      // delete() removes the record.
+      await repositories.trails.delete('trail:older');
+      expect(await repositories.trails.list()).toHaveLength(1);
+      expect(await repositories.trails.count()).toBe(1);
+    });
+
+    it('updateName renames and bumps updatedAt', async () => {
+      const repositories = createRepositories(db);
+      const now = '2026-06-01T00:00:00.000Z';
+      await repositories.trails.put({
+        id: 'trail:1',
+        name: 'Original',
+        activityIds: ['strava:1'],
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      const updated = await repositories.trails.updateName('trail:1', 'Renamed');
+      expect(updated?.name).toBe('Renamed');
+      expect(updated?.updatedAt).not.toBe(now);
+      expect(updated?.activityIds).toEqual(['strava:1']); // other fields preserved
+
+      // Persisted.
+      const reloaded = await repositories.trails.get('trail:1');
+      expect(reloaded?.name).toBe('Renamed');
+    });
+
+    it('updateName returns undefined for non-existent trail', async () => {
+      const result = await createRepositories(db).trails.updateName('trail:ghost', 'Nope');
+      expect(result).toBeUndefined();
+    });
+
+    it('updateActivityIds replaces ids and preserves other fields', async () => {
+      const repositories = createRepositories(db);
+      const now = '2026-06-01T00:00:00.000Z';
+      await repositories.trails.put({
+        id: 'trail:1',
+        name: 'Test',
+        activityIds: ['strava:1', 'strava:2'],
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      const updated = await repositories.trails.updateActivityIds('trail:1', [
+        'strava:3',
+        'strava:4',
+      ]);
+      expect(updated?.activityIds).toEqual(['strava:3', 'strava:4']);
+      expect(updated?.name).toBe('Test'); // name preserved
+      expect(updated?.updatedAt).not.toBe(now);
+
+      // Persisted.
+      const reloaded = await repositories.trails.get('trail:1');
+      expect(reloaded?.activityIds).toEqual(['strava:3', 'strava:4']);
+      expect(reloaded?.name).toBe('Test');
+    });
+
+    it('updateActivityIds returns undefined for non-existent trail', async () => {
+      const result = await createRepositories(db).trails.updateActivityIds('trail:ghost', []);
+      expect(result).toBeUndefined();
+    });
+
+    it('findByActivityId finds the trail containing an activity', async () => {
+      const repositories = createRepositories(db);
+      const now = '2026-06-01T00:00:00.000Z';
+      await repositories.trails.put({
+        id: 'trail:a',
+        name: 'Trail A',
+        activityIds: ['strava:1', 'strava:2'],
+        createdAt: now,
+        updatedAt: now,
+      });
+      await repositories.trails.put({
+        id: 'trail:b',
+        name: 'Trail B',
+        activityIds: ['strava:3', 'strava:4'],
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      expect((await repositories.trails.findByActivityId('strava:2'))?.id).toBe('trail:a');
+      expect((await repositories.trails.findByActivityId('strava:4'))?.id).toBe('trail:b');
+      expect(await repositories.trails.findByActivityId('strava:999')).toBeUndefined();
+    });
+  });
+
   describe('schema upgrades', () => {
     it('upgrades an existing v3 database to the current version with saved_places and prior data intact', async () => {
       const databaseName = `trailroam_upgrade_${Date.now()}_${Math.random()}`;

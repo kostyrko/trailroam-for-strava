@@ -1,230 +1,232 @@
-    .activity-card {
-      background: #ffffff;
-      border: 1px solid #cbd8d0;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgb(20 33 27 / 5%);
-      box-sizing: border-box;
-      margin: 0;
-      max-width: 380px;
-      padding: 20px;
-      position: fixed;
-      bottom: 52px;
-      right: 24px;
-      z-index: 1001;
-    }
+@use 'variables' as *;
 
-    .card-header {
-      align-items: center;
-      display: flex;
-      justify-content: space-between;
-      min-width: 0;
-    }
+.activity-card {
+  background: $bg-white;
+  border: 1px solid $border-light;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px $shadow-md;
+  box-sizing: border-box;
+  margin: 0;
+  max-width: 380px;
+  padding: 20px;
+  position: fixed;
+  bottom: 52px;
+  right: 24px;
+  z-index: 1001;
+}
 
-    .card-header-left {
-      align-items: center;
-      display: flex;
-      gap: 8px;
-      min-width: 0;
-    }
+.card-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  min-width: 0;
+}
 
-    .card-title {
-      color: #14211b;
-      font-size: 1.125rem;
-      font-weight: 700;
-      margin: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
+.card-header-left {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
 
-    .card-header-right {
-      align-items: center;
-      display: flex;
-      gap: 8px;
-      flex-shrink: 0;
-      margin-left: 8px;
-    }
+.card-title {
+  color: $text-primary;
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
-    .card-icon-btn {
-      align-items: center;
-      background: transparent;
-      border: 0;
-      color: #63746a;
-      cursor: pointer;
-      display: inline-flex;
-      justify-content: center;
-      padding: 4px;
-      border-radius: 4px;
-    }
+.card-header-right {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
 
-    .card-icon-btn:hover {
-      color: #14211b;
-      background: #eef5f0;
-    }
+.card-icon-btn {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: $text-secondary;
+  cursor: pointer;
+  display: inline-flex;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 4px;
 
-    .card-meta {
-      align-items: center;
-      display: flex;
-      gap: 8px;
-      margin-top: 12px;
-    }
+  &:hover {
+    color: $text-primary;
+    background: $bg-green-light;
+  }
+}
 
-    .meta-item {
-      align-items: center;
-      display: inline-flex;
-      gap: 6px;
-    }
+.card-meta {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
 
-    .meta-item + .meta-item {
-      margin-left: 12px;
-    }
+.meta-item {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
 
-    .meta-emoji {
-      font-size: 1rem;
-      line-height: 1;
-    }
+  + .meta-item {
+    margin-left: 12px;
+  }
+}
 
-    .sport-type-name {
-      margin-left: -2px;
-    }
+.meta-emoji {
+  font-size: 1rem;
+  line-height: 1;
+}
 
-    .meta-icon {
-      color: #a0b4a6;
-      flex-shrink: 0;
-    }
+.sport-type-name {
+  margin-left: -2px;
+}
 
-    .meta-text {
-      color: #6B7280;
-      font-size: 0.875rem;
-      font-weight: 400;
-    }
+.meta-icon {
+  color: $text-muted;
+  flex-shrink: 0;
+}
 
-    .card-stats {
-      display: flex;
-      justify-content: space-between;
-      padding: 24px 0;
-    }
+.meta-text {
+  color: #6b7280;
+  font-size: 0.875rem;
+  font-weight: 400;
+}
 
-    .stat-block {
-      align-items: center;
-      display: flex;
-      flex-direction: column;
-    }
+.card-stats {
+  display: flex;
+  justify-content: space-between;
+  padding: 24px 0;
+}
 
-    .stat-value {
-      color: #1F2937;
-      font-size: 1.2rem;
-      font-weight: 700;
-      line-height: 1.2;
-    }
+.stat-block {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+}
 
-    .stat-label {
-      color: #6B7280;
-      font-size: 0.875rem;
-      font-weight: 400;
-      margin-top: 2px;
-    }
+.stat-value {
+  color: #1f2937;
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
 
-    .card-elevation {
-      margin: 0;
-      padding: 0 20px;
-    }
+.stat-label {
+  color: #6b7280;
+  font-size: 0.875rem;
+  font-weight: 400;
+  margin-top: 2px;
+}
 
-    .card-footer {
-      align-items: center;
-      display: flex;
-      justify-content: flex-end;
-      margin-top: 20px;
-    }
+.card-elevation {
+  margin: 0;
+  padding: 0 20px;
+}
 
-    .card-footer-center {
-      display: flex;
-      justify-content: center;
-      margin: 0 auto;
-    }
+.card-footer {
+  align-items: center;
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
 
-    .card-btn {
-      align-items: center;
-      border-radius: 8px;
-      cursor: pointer;
-      display: inline-flex;
-      font: inherit;
-      font-size: 0.875rem;
-      font-weight: 500;
-      justify-content: center;
-      min-height: 42px;
-      padding: 10px 25px;
-      text-align: center;
-    }
+.card-footer-center {
+  display: flex;
+  justify-content: center;
+  margin: 0 auto;
+}
 
-    .card-btn--outline {
-      background: #ffffff;
-      border: 1px solid #dce6df;
-      color: #314b3f;
-      width: 125%;
-    }
+.card-btn {
+  align-items: center;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  justify-content: center;
+  min-height: 42px;
+  padding: 10px 25px;
+  text-align: center;
+}
 
-    .card-btn--outline:hover {
-      background: #eef5f0;
-    }
+.card-btn--outline {
+  background: $bg-white;
+  border: 1px solid $border-primary;
+  color: $green-medium;
+  width: 125%;
 
-    .card-menu-wrapper {
-      flex-shrink: 0;
-      position: relative;
-    }
+  &:hover {
+    background: $bg-green-light;
+  }
+}
 
-    .menu-icon-rotated {
-      transform: rotate(90deg);
-    }
+.card-menu-wrapper {
+  flex-shrink: 0;
+  position: relative;
+}
 
-    .card-menu-trigger {
-      min-height: 32px;
-      min-width: 32px;
-    }
+.menu-icon-rotated {
+  transform: rotate(90deg);
+}
 
-    .card-dropdown {
-      background: #ffffff;
-      border: 1px solid #dce6df;
-      border-radius: 8px;
-      box-shadow: 0 4px 16px rgb(20 33 27 / 18%);
-      list-style: none;
-      min-width: 160px;
-      padding: 4px;
-      position: absolute;
-      right: 0;
-      bottom: 100%;
-      margin-bottom: 4px;
-      z-index: 1000;
-    }
+.card-menu-trigger {
+  min-height: 32px;
+  min-width: 32px;
+}
 
-    .card-dropdown-item {
-      align-items: center;
-      background: transparent;
-      border: 0;
-      border-radius: 6px;
-      color: #314b3f;
-      cursor: pointer;
-      display: flex;
-      font: inherit;
-      font-size: 0.8125rem;
-      font-weight: 600;
-      gap: 10px;
-      min-height: 34px;
-      padding: 6px 10px;
-      text-align: left;
-      white-space: nowrap;
-      width: 100%;
-    }
+.card-dropdown {
+  background: $bg-white;
+  border: 1px solid $border-primary;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px $shadow-dropdown;
+  list-style: none;
+  min-width: 160px;
+  padding: 4px;
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  margin-bottom: 4px;
+  z-index: 1000;
+}
 
-    .card-dropdown-item:hover {
-      background: #eef5f0;
-    }
+.card-dropdown-item {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: $green-medium;
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  gap: 10px;
+  min-height: 34px;
+  padding: 6px 10px;
+  text-align: left;
+  white-space: nowrap;
+  width: 100%;
 
-    .dd-icon {
-      color: #a0b4a6;
-      flex-shrink: 0;
-    }
+  &:hover {
+    background: $bg-green-light;
+  }
+}
 
-    .card-dropdown-item:hover .dd-icon {
-      color: #63746a;
-    }
+.dd-icon {
+  color: $text-muted;
+  flex-shrink: 0;
+}
+
+.card-dropdown-item:hover .dd-icon {
+  color: $text-secondary;
+}

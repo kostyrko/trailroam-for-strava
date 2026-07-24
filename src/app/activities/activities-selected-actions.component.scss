@@ -1,7 +1,9 @@
+@use 'variables' as *;
+
 .selected-actions-bar {
   align-items: center;
-  background: #eef5f0;
-  border: 1px solid #dce6df;
+  background: $bg-green-light;
+  border: 1px solid $border-primary;
   border-radius: 10px;
   display: flex;
   gap: 12px;
@@ -11,16 +13,16 @@
   transition:
     background 0.2s,
     border-color 0.2s;
-}
 
-.selected-actions-bar.selected-actions-bar--active {
-  background: #1f6f50;
-  border-color: #1f6f50;
+  &.selected-actions-bar--active {
+    background: $green-primary;
+    border-color: $green-primary;
+  }
 }
 
 .selected-actions-bar__summary {
   align-items: center;
-  color: #63746a;
+  color: $text-secondary;
   display: inline-flex;
   font-size: 0.875rem;
   font-weight: 700;
@@ -28,7 +30,7 @@
 }
 
 .selected-actions-bar--active .selected-actions-bar__summary {
-  color: #ffffff;
+  color: $text-on-primary;
 }
 
 .selected-actions-bar__check {
@@ -44,9 +46,9 @@
 .selected-action {
   align-items: center;
   background: transparent;
-  border: 1px solid #cbd8d0;
+  border: 1px solid $border-light;
   border-radius: 8px;
-  color: #314b3f;
+  color: $green-medium;
   cursor: pointer;
   display: inline-flex;
   font: inherit;
@@ -56,57 +58,59 @@
   min-height: 36px;
   padding: 0 14px;
   white-space: nowrap;
+
+  &:hover {
+    background: #d6e8dc;
+    border-color: #b6cdbe;
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.4;
+    pointer-events: none;
+  }
 }
 
 .selected-action--primary {
-  background: #15803d;
-  border-color: #15803d;
+  background: $green-bright;
+  border-color: $green-bright;
   color: #fff;
-}
-.selected-action--primary:hover:not(:disabled) {
-  background: #166534;
-  border-color: #166534;
-}
-.selected-action--primary:disabled {
-  background: #9dc9ad;
-  border-color: #9dc9ad;
-  color: #fff;
-}
 
-.selected-action:disabled {
-  cursor: default;
-  opacity: 0.4;
-  pointer-events: none;
-}
+  &:hover:not(:disabled) {
+    background: $green-primary-dark;
+    border-color: $green-primary-dark;
+  }
 
-.selected-action:hover {
-  background: #d6e8dc;
-  border-color: #b6cdbe;
+  &:disabled {
+    background: #9dc9ad;
+    border-color: #9dc9ad;
+    color: #fff;
+  }
 }
 
 .selected-actions-bar--active .selected-action {
-  background: rgb(255 255 255 / 12%);
-  border-color: rgb(255 255 255 / 25%);
-  color: #ffffff;
-}
+  background: $white-trans-12;
+  border-color: $white-trans-25;
+  color: $text-on-primary;
 
-.selected-actions-bar--active .selected-action:hover {
-  background: rgb(255 255 255 / 30%);
-  border-color: rgb(255 255 255 / 50%);
+  &:hover {
+    background: $white-trans-30;
+    border-color: $white-trans-50;
+  }
 }
 
 .selected-actions-bar--active .selected-action--secondary:hover {
-  background: rgb(255 255 255 / 30%);
-  border-color: rgb(255 255 255 / 50%);
+  background: $white-trans-30;
+  border-color: $white-trans-50;
 }
 
 .selected-actions-bar--active .selected-action--danger {
-  border-color: rgb(255 255 255 / 35%);
-}
+  border-color: $white-trans-35;
 
-.selected-actions-bar--active .selected-action--danger:hover {
-  background: #8f2d22;
-  border-color: #8f2d22;
+  &:hover {
+    background: $text-danger-dark;
+    border-color: $text-danger-dark;
+  }
 }
 
 @media (max-width: 640px) {

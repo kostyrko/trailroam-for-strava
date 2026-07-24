@@ -1,3 +1,10 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+
+// ═════════════════════════════════════════════════════════════════
+// TOOLBAR
+// ═════════════════════════════════════════════════════════════════
+
 .activities-toolbar {
   align-items: center;
   display: flex;
@@ -7,69 +14,47 @@
 }
 
 .toolbar-select {
-  cursor: pointer;
-  outline: none;
-  position: relative;
-  user-select: none;
+  @include toolbar-select;
 }
 
 .toolbar-select.auto-filter-highlight .toolbar-select__trigger {
-  border-color: #dc2626;
-  box-shadow: 0 0 0 2px rgb(220 38 38 / 25%);
+  border-color: $filter-highlight;
+  box-shadow: 0 0 0 2px $focus-highlight;
   transition:
     border-color 0.5s ease,
     box-shadow 0.5s ease;
 }
 
 .toolbar-select__trigger {
-  align-items: center;
-  background: #ffffff;
-  border: 1px solid #dce6df;
-  border-radius: 8px;
-  color: #14211b;
-  display: inline-flex;
-  font-size: 0.875rem;
-  gap: 8px;
-  min-height: 44px;
-  min-width: 180px;
-  padding: 0 14px;
+  @include toolbar-select__trigger;
 }
 
 .toolbar-select__arrow {
-  color: #a0b4a6;
+  color: $text-muted;
   flex-shrink: 0;
   margin-left: auto;
 }
 
 .toolbar-select__options {
-  background: #ffffff;
-  border: 1px solid #dce6df;
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgb(20 33 27 / 15%);
-  left: 0;
-  list-style: none;
-  margin: 4px 0 0;
-  min-width: 100%;
-  padding: 4px;
-  position: absolute;
-  top: 100%;
-  z-index: 20;
+  @include toolbar-select__options;
+
+  li {
+    align-items: center;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    gap: 6px;
+    padding: 8px 12px;
+    white-space: nowrap;
+
+    &:hover,
+    &.active {
+      background: $bg-green-light;
+    }
+  }
 }
 
-.toolbar-select__options li {
-  align-items: center;
-  border-radius: 6px;
-  cursor: pointer;
-  display: flex;
-  gap: 6px;
-  padding: 8px 12px;
-  white-space: nowrap;
-}
-
-.toolbar-select__options li:hover,
-.toolbar-select__options li.active {
-  background: #eef5f0;
-}
+// ── Sport type filter ───────────────────────────────────────────
 
 .sport-type-filter {
   max-height: 320px;
@@ -78,17 +63,7 @@
 }
 
 .sport-type-group-header {
-  color: #63746a;
-  cursor: default;
-  font-size: 0.6875rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  padding: 8px 12px 4px;
-  text-transform: uppercase;
-}
-
-.sport-type-group-header:hover {
-  background: transparent;
+  @include sport-type-group-header;
 }
 
 .sport-type-option {
@@ -106,6 +81,8 @@
   width: 8px;
 }
 
+// ── Custom date fields ──────────────────────────────────────────
+
 .custom-date-fields {
   align-items: center;
   display: flex;
@@ -122,70 +99,49 @@
 }
 
 .custom-date-label {
-  background: #ffffff;
-  border: 1px solid #dce6df;
+  background: $bg-white;
+  border: 1px solid $border-primary;
   border-radius: 8px;
-  color: #1f6f50;
+  color: $green-primary;
   font-size: 0.75rem;
   font-weight: 700;
   padding: 4px 8px;
   text-transform: uppercase;
 }
 
+// ── Date range picker ───────────────────────────────────────────
+
 .drp-trigger {
   position: relative;
 }
+
 .drp-backdrop {
-  background: transparent;
-  left: 0;
-  min-height: 100vh;
-  position: fixed;
-  top: 0;
-  width: 100vw;
-  z-index: 1000;
-}
-.drp-floating {
-  display: flex;
-  justify-content: center;
-  left: 0;
-  padding-top: 80px;
-  pointer-events: none;
-  position: fixed;
-  top: 0;
-  width: 100vw;
-  z-index: 1001;
-}
-.drp-floating > * {
-  pointer-events: auto;
+  @include drp-backdrop;
 }
 
+.drp-floating {
+  @include drp-floating;
+}
+
+// ═════════════════════════════════════════════════════════════════
+// NOTICE BAR
+// ═════════════════════════════════════════════════════════════════
+
 .notice-bar {
-  align-items: center;
-  border-bottom: 1px solid #d2b96d;
-  display: flex;
-  gap: 18px;
-  justify-content: space-between;
-  padding: 12px 24px;
-  width: 100%;
+  @include notice-bar;
 }
 
 .notice-bar.warning-state {
-  background: #fbf5e1;
-  color: #7a621a;
+  @include notice-bar--warning;
 }
 
 .notice-bar.info-state {
-  background: #fbf5e1;
-  color: #7a621a;
-  border-bottom-color: #d2b96d;
+  @include notice-bar--warning;
+  border-bottom-color: $border-notice;
 }
 
 .notice-bar-kicker {
-  font-size: 0.75rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  margin: 0 0 2px;
-  text-transform: uppercase;
+  @include notice-bar-kicker;
 }
 
 .notice-bar p {
@@ -194,20 +150,24 @@
 
 .notice-bar-dismiss {
   background: transparent;
-  border: 1px solid #f0c674;
+  border: 1px solid $border-notice-btn;
   border-radius: 6px;
-  color: #7a621a;
+  color: $warning-text;
   cursor: pointer;
   font: inherit;
   font-weight: 700;
   min-height: 32px;
   padding: 5px 11px;
   white-space: nowrap;
+
+  &:hover {
+    background: $warning-btn-bg-hover;
+  }
 }
 
-.notice-bar-dismiss:hover {
-  background: #fdf3d1;
-}
+// ═════════════════════════════════════════════════════════════════
+// MAP PAGE LAYOUT
+// ═════════════════════════════════════════════════════════════════
 
 .map-page-layout {
   display: flex;
@@ -246,11 +206,11 @@
 
 .map-page-layout ::ng-deep .maplibregl-ctrl-group {
   z-index: 150 !important;
-}
 
-.map-page-layout ::ng-deep .maplibregl-ctrl-group button {
-  z-index: 150 !important;
-  position: relative;
+  button {
+    z-index: 150 !important;
+    position: relative;
+  }
 }
 
 .map-page-layout ::ng-deep .map-fit-btn,
@@ -260,10 +220,15 @@
 
 .map-page-layout ::ng-deep .maplibregl-ctrl-bottom-right {
   z-index: 150;
+
+  .maplibregl-ctrl-scale {
+    margin-bottom: 6px;
+  }
 }
-.map-page-layout ::ng-deep .maplibregl-ctrl-bottom-right .maplibregl-ctrl-scale {
-  margin-bottom: 6px;
-}
+
+// ═════════════════════════════════════════════════════════════════
+// CONTENT AREA
+// ═════════════════════════════════════════════════════════════════
 
 .map-content-area {
   display: flex;
@@ -284,17 +249,19 @@
   width: 0;
   z-index: 101;
 }
+
 .detail-panel-wrapper--open {
   width: 520px;
   max-width: 100%;
 }
+
 .detail-panel-wrapper--expanded {
   width: 842px;
   max-width: 100%;
 }
 
 .detail-panel-overlay {
-  background: #ffffff;
+  background: $bg-white;
   height: 100%;
   left: 0;
   position: absolute;
@@ -317,6 +284,10 @@
   min-width: 0;
   position: relative;
 }
+
+// ═════════════════════════════════════════════════════════════════
+// MAP CONTENT OVERLAYS
+// ═════════════════════════════════════════════════════════════════
 
 .map-filters-overlay {
   align-items: center;
@@ -346,7 +317,7 @@
 
 .map-loading-overlay {
   align-items: center;
-  background: rgb(0 0 0 / 50%);
+  background: $black-trans-50;
   display: flex;
   height: 100%;
   justify-content: center;
@@ -359,7 +330,7 @@
 
 .map-empty-overlay {
   align-items: center;
-  background: rgb(0 0 0 / 10%);
+  background: $black-trans-10;
   display: flex;
   height: 100%;
   justify-content: center;
@@ -379,7 +350,7 @@
   align-items: center;
   background: transparent;
   border: 0;
-  color: #a0b4a6;
+  color: $text-muted;
   cursor: pointer;
   display: inline-flex;
   font-size: 1.5rem;
@@ -391,19 +362,22 @@
   position: absolute;
   right: 8px;
   top: 8px;
+
+  &:hover {
+    color: $text-secondary;
+  }
 }
 
-.map-empty-close:hover {
-  color: #63746a;
-}
+// ═════════════════════════════════════════════════════════════════
+// PANEL SWITCHER (Activities | Places | All)
+// ═════════════════════════════════════════════════════════════════
 
-/* Activities | Places | All segmented control above the left panel. */
 .map-panel-switcher {
   align-items: center;
-  background: #ffffff;
-  border-bottom: 1px solid #eef5f0;
-  border-right: 1px solid #dce6df;
-  box-shadow: 0 4px 16px rgb(20 33 27 / 8%);
+  background: $bg-white;
+  border-bottom: 1px solid $bg-green-light;
+  border-right: 1px solid $border-primary;
+  box-shadow: 0 4px 16px $shadow-md;
   box-sizing: border-box;
   display: flex;
   gap: 2px;
@@ -423,7 +397,7 @@
   background: transparent;
   border: 0;
   border-radius: 8px;
-  color: #63746a;
+  color: $text-secondary;
   cursor: pointer;
   flex: 1;
   font: inherit;
@@ -434,29 +408,23 @@
   transition:
     background 120ms ease,
     color 120ms ease;
+
+  &:hover {
+    background: #f4f9f6;
+    color: $text-primary;
+  }
+
+  &.active {
+    background: $green-primary;
+    color: $text-on-primary;
+  }
+
+  @include focus-green;
 }
 
-.map-panel-switcher__btn:hover {
-  background: #f4f9f6;
-  color: #14211b;
-}
-
-.map-panel-switcher__btn.active {
-  background: #1f6f50;
-  color: #ffffff;
-}
-
-.map-panel-switcher__btn:focus-visible {
-  box-shadow: 0 0 0 2px rgb(31 111 80 / 40%);
-  outline: 0;
-}
-
-/* ── Sidebar Collapse Handle ──────────────────────
-   Positioned on the right edge of the sidebar panel (at 340px). When
-   collapsed, it shifts to sit next to the activity panel's side handle
-   (at 75px) so the "View on map" button + route count indicator is
-   still visible. On Places / All tabs the handle sits at left: 0 when
-   collapsed (those panels have no side indicator). */
+// ═════════════════════════════════════════════════════════════════
+// SIDEBAR COLLAPSE HANDLE
+// ═════════════════════════════════════════════════════════════════
 
 .sidebar-collapse-handle {
   align-items: center;
@@ -476,23 +444,23 @@
   top: 0;
   width: 24px;
   z-index: 151;
-}
 
-.sidebar-collapse-handle:hover {
-  background: transparent;
-}
+  &:hover {
+    background: transparent;
+  }
 
-.sidebar-collapse-handle:focus-visible {
-  outline: 0;
+  &:focus-visible {
+    outline: 0;
+  }
 }
 
 .sidebar-collapse-icon-bubble {
   align-items: center;
-  background: #ffffff;
-  border: 1px solid #dce6df;
+  background: $bg-white;
+  border: 1px solid $border-primary;
   border-radius: 8px;
-  box-shadow: 0 1px 3px rgb(20 33 27 / 10%);
-  color: #63746a;
+  box-shadow: 0 1px 3px $shadow-md;
+  color: $text-secondary;
   display: inline-flex;
   height: 60px;
   justify-content: center;
@@ -505,20 +473,17 @@
 }
 
 .sidebar-collapse-handle:hover .sidebar-collapse-icon-bubble {
-  background: #eef5f0;
-  border-color: #1f6f50;
-  color: #1f6f50;
+  background: $bg-green-light;
+  border-color: $green-primary;
+  color: $green-primary;
 }
 
 .sidebar-collapse-handle:focus-visible .sidebar-collapse-icon-bubble {
-  background: #eef5f0;
-  border-color: #1f6f50;
-  color: #1f6f50;
+  background: $bg-green-light;
+  border-color: $green-primary;
+  color: $green-primary;
 }
 
-/* Hidden state — handle is only shown when the sidebar is expanded as a
-   collapse affordance. The existing side indicator on the Activities tab
-   (activity icon + route count) remains the way to expand. */
 .sidebar-collapse-handle--hidden {
   display: none;
 }

@@ -26,6 +26,9 @@
             "index": "src/index.html",
             "baseHref": "./",
             "inlineStyleLanguage": "scss",
+            "stylePreprocessorOptions": {
+              "includePaths": ["src/app/shared/styles"]
+            },
             "allowedCommonJsDependencies": ["buffer", "jszip", "maplibre-gl"],
             "assets": [
               {

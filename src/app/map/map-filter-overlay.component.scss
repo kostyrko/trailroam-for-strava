@@ -1,3 +1,6 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+
 .map-filters-overlay {
   align-items: center;
   display: flex;
@@ -26,70 +29,50 @@
   pointer-events: auto;
 }
 
+// ── Toolbar select ──────────────────────────────────────────────
+
 .toolbar-select {
-  cursor: pointer;
-  outline: none;
-  position: relative;
-  user-select: none;
+  @include toolbar-select;
 }
 
 .toolbar-select.auto-filter-highlight .toolbar-select__trigger {
-  border-color: #dc2626;
-  box-shadow: 0 0 0 2px rgb(220 38 38 / 25%);
+  border-color: $filter-highlight;
+  box-shadow: 0 0 0 2px $focus-highlight;
   transition:
     border-color 0.5s ease,
     box-shadow 0.5s ease;
 }
 
 .toolbar-select__trigger {
-  align-items: center;
-  background: #ffffff;
-  border: 1px solid #dce6df;
-  border-radius: 8px;
-  color: #14211b;
-  display: inline-flex;
-  font-size: 0.875rem;
-  gap: 8px;
-  min-height: 44px;
-  min-width: 180px;
-  padding: 0 14px;
+  @include toolbar-select__trigger;
 }
 
 .toolbar-select__arrow {
-  color: #a0b4a6;
+  color: $text-muted;
   flex-shrink: 0;
   margin-left: auto;
 }
 
 .toolbar-select__options {
-  background: #ffffff;
-  border: 1px solid #dce6df;
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgb(20 33 27 / 15%);
-  left: 0;
-  list-style: none;
-  margin: 4px 0 0;
-  min-width: 100%;
-  padding: 4px;
-  position: absolute;
-  top: 100%;
-  z-index: 20;
+  @include toolbar-select__options;
+
+  li {
+    align-items: center;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    gap: 6px;
+    padding: 8px 12px;
+    white-space: nowrap;
+
+    &:hover,
+    &.active {
+      background: $bg-green-light;
+    }
+  }
 }
 
-.toolbar-select__options li {
-  align-items: center;
-  border-radius: 6px;
-  cursor: pointer;
-  display: flex;
-  gap: 6px;
-  padding: 8px 12px;
-  white-space: nowrap;
-}
-
-.toolbar-select__options li:hover,
-.toolbar-select__options li.active {
-  background: #eef5f0;
-}
+// ── Sport type filter ───────────────────────────────────────────
 
 .sport-type-filter {
   max-height: 320px;
@@ -98,17 +81,7 @@
 }
 
 .sport-type-group-header {
-  color: #63746a;
-  cursor: default;
-  font-size: 0.6875rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  padding: 8px 12px 4px;
-  text-transform: uppercase;
-}
-
-.sport-type-group-header:hover {
-  background: transparent;
+  @include sport-type-group-header;
 }
 
 .sport-type-option {
@@ -126,29 +99,16 @@
   width: 8px;
 }
 
+// ── Date range picker ───────────────────────────────────────────
+
 .drp-trigger {
   position: relative;
 }
+
 .drp-backdrop {
-  background: transparent;
-  left: 0;
-  min-height: 100vh;
-  position: fixed;
-  top: 0;
-  width: 100vw;
-  z-index: 1000;
+  @include drp-backdrop;
 }
+
 .drp-floating {
-  display: flex;
-  justify-content: center;
-  left: 0;
-  padding-top: 80px;
-  pointer-events: none;
-  position: fixed;
-  top: 0;
-  width: 100vw;
-  z-index: 1001;
-}
-.drp-floating > * {
-  pointer-events: auto;
+  @include drp-floating;
 }

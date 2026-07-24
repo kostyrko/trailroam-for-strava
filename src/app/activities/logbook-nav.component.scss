@@ -1,5 +1,4 @@
-/* ── Logbook Navigation ──
-   Workspace-style tab switcher. Reads as a navigation bar, not a segmented control. */
+@use 'variables' as *;
 
 .logbook-nav {
   display: flex;
@@ -12,8 +11,6 @@
   min-height: 64px;
   overflow: hidden;
 }
-
-/* ── Item ── */
 
 .logbook-nav__item {
   position: relative;
@@ -29,45 +26,36 @@
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  color: #63746a;
+  color: $text-secondary;
   transition:
     background-color 180ms ease,
     color 180ms ease,
     box-shadow 180ms ease;
   outline-offset: -2px;
   -webkit-font-smoothing: antialiased;
+
+  &:hover {
+    background: #f2f6f4;
+  }
+
+  &:hover:not(.logbook-nav__item--active) {
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+
+  &:focus-visible {
+    outline: 2px solid $green-primary;
+    outline-offset: -2px;
+  }
 }
-
-/* ── Hover (inactive) ── */
-
-.logbook-nav__item:hover {
-  background: #f2f6f4;
-}
-
-.logbook-nav__item:hover:not(.logbook-nav__item--active) {
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-}
-
-/* ── Focus ── */
-
-.logbook-nav__item:focus-visible {
-  outline: 2px solid #1f6f50;
-  outline-offset: -2px;
-}
-
-/* ── Active State ──
-     Very subtle green tint (~5% opacity), primary indicator is the bottom bar. */
 
 .logbook-nav__item--active {
   background: rgba(31, 111, 80, 0.05);
   color: #1a6a4a;
-}
 
-.logbook-nav__item--active:hover {
-  background: rgba(31, 111, 80, 0.08);
+  &:hover {
+    background: rgba(31, 111, 80, 0.08);
+  }
 }
-
-/* ── Bottom Indicator ── */
 
 .logbook-nav__indicator {
   position: absolute;
@@ -84,12 +72,9 @@
 }
 
 .logbook-nav__item--active .logbook-nav__indicator {
-  background: #1f6f50;
+  background: $green-primary;
   opacity: 1;
 }
-
-/* ── Body ──
-     Horizontal row: icon + label + badge. */
 
 .logbook-nav__body {
   display: flex;
@@ -97,8 +82,6 @@
   gap: 8px;
   pointer-events: none;
 }
-
-/* ── Icon ── */
 
 .logbook-nav__icon {
   display: inline-flex;
@@ -111,10 +94,8 @@
 }
 
 .logbook-nav__item--active .logbook-nav__icon {
-  color: #1f6f50;
+  color: $green-primary;
 }
-
-/* ── Label ── */
 
 .logbook-nav__label {
   font-size: 14px;
@@ -126,10 +107,8 @@
 }
 
 .logbook-nav__item--active .logbook-nav__label {
-  color: #1f6f50;
+  color: $green-primary;
 }
-
-/* ── Badge ── */
 
 .logbook-nav__badge {
   display: inline-flex;
@@ -141,8 +120,8 @@
   font-size: 11px;
   font-weight: 500;
   line-height: 1;
-  color: #63746a;
-  background: #eef5f0;
+  color: $text-secondary;
+  background: $bg-green-light;
   border-radius: 9px;
   transition:
     background-color 180ms ease,
@@ -154,8 +133,6 @@
   background: rgba(31, 111, 80, 0.1);
   color: #1a6a4a;
 }
-
-/* ── Responsive ── */
 
 @media (max-width: 640px) {
   .logbook-nav {

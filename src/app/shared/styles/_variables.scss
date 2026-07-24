@@ -1,0 +1,101 @@
+// ═══════════════════════════════════════════════════════════════════════
+// Trailroam Design Tokens
+//
+// Use: @use 'variables' as *;
+// (stylePreprocessorOptions.includePaths points to this directory)
+// ═══════════════════════════════════════════════════════════════════════
+
+// === Brand / Primary ===
+$green-primary: #1f6f50;
+$green-primary-hover: #185940;
+$green-primary-dark: #166534;
+$green-bright: #15803d;
+$green-bright-hover: #166f38;
+$green-dark: #14412e;
+$green-medium: #314b3f;
+$green-muted: #36634b;
+$green-pagination: #4f6f5d;
+
+// === Backgrounds ===
+$bg-app: #f7faf8;
+$bg-white: #ffffff;
+$bg-green-subtle: #f4f9f6;
+$bg-green-light: #eef5f0;
+$bg-green-lighter: #e6f7ef;
+$bg-green-soft: #f0f6f2;
+$bg-green-row-selected: #eef9f3;
+$bg-green-trail: #f4faf6;
+$bg-green-trail-hover: #eaf5ee;
+$bg-green-trail-selected: #dff0e5;
+$bg-green-card: #f8faf9;
+$bg-green-card-hover: #f0f6f2;
+$bg-green-card-selected: #e5f0ea;
+$bg-green-handle-hover: #e2ede5;
+$bg-search-box: #f6f9f7;
+
+// === Text ===
+$text-primary: #14211b;
+$text-secondary: #63746a;
+$text-muted: #a0b4a6;
+$text-muted-lighter: #859b8e;
+$text-on-primary: #ffffff;
+$text-on-primary-hover: #ffffff;
+$text-danger: #b8433a;
+$text-danger-dark: #8f2d22;
+$text-danger-icon: #c2817a;
+
+// === Borders ===
+$border-primary: #dce6df;
+$border-light: #cbd8d0;
+$border-green-trail: #b7d9c4;
+$border-table: #eef5f0;
+$border-table-row: #f1f6f3;
+$border-table-row-alt: #f0f5f2;
+$border-notice: #d2b96d;
+$border-notice-btn: #f0c674;
+$border-danger: #f0d6d4;
+$border-highlight: #dc2626;
+$border-focus: rgb(31 111 80 / 40%);
+
+// === Danger ===
+$danger-bg-hover: #fdf0ee;
+$danger-bg-hover-alt: #fbeceb;
+$danger-bg-hover-alt2: #fdf0ef;
+$danger-bg-light: #fdecec;
+
+// === Notice/Warning ===
+$warning-bg: #fbf5e1;
+$warning-text: #7a621a;
+$warning-btn-bg-hover: #fdf3d1;
+$warning-amber-text: #a16207;
+
+// === Shadows ===
+$shadow-sm: rgb(20 33 27 / 6%);
+$shadow-md: rgb(20 33 27 / 10%);
+$shadow-lg: rgb(20 33 27 / 12%);
+$shadow-xl: rgb(20 33 27 / 15%);
+$shadow-dropdown: rgb(20 33 27 / 18%);
+$shadow-overlay: rgb(0 0 0 / 10%);
+$shadow-map-btn: rgb(20 33 27 / 18%);
+
+// === Focus Rings ===
+$focus-green: rgb(31 111 80 / 40%);
+$focus-highlight: rgb(220 38 38 / 25%);
+
+// === Utility ===
+$gray-icon: #9ca3af;
+$gray-icon-lighter: #cbd8d0;
+$filter-highlight: #dc2626;
+$white-trans-12: rgb(255 255 255 / 12%);
+$white-trans-25: rgb(255 255 255 / 25%);
+$white-trans-30: rgb(255 255 255 / 30%);
+$white-trans-35: rgb(255 255 255 / 35%);
+$white-trans-50: rgb(255 255 255 / 50%);
+$black-trans-10: rgb(0 0 0 / 10%);
+$black-trans-20: rgb(255 255 255 / 20%);
+$black-trans-35: rgb(0 0 0 / 35%);
+$black-trans-40: rgb(0 0 0 / 40%);
+$black-trans-50: rgb(0 0 0 / 50%);
+$black-trans-55: rgb(0 0 0 / 55%);
+$overlay-dark: rgb(20 33 27 / 30%);
+$overlay-darker: rgb(20 33 27 / 40%);

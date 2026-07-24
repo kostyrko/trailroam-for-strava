@@ -1,20 +1,9 @@
-$green: #1f6f50;
-$green-light: #eef5f0;
-$green-subtle: #f0f7f3;
-$text-primary: #14211b;
-$text-secondary: #6b7280;
-$text-muted: #a0b4a6;
-$border: #dce6df;
-$danger: #b8433a;
-$danger-border: #f0d6d4;
-$white: #ffffff;
-$bg-subtle: #f7faf8;
-$bg-notes: #f4f7f5;
+@use 'variables' as *;
 
 .saved-place-card {
-  background: $white;
+  background: $bg-white;
   border-radius: 16px;
-  box-shadow: 0 4px 20px rgb(20 33 27 / 10%);
+  box-shadow: 0 4px 20px $shadow-md;
   box-sizing: border-box;
   position: relative;
   font-family:
@@ -41,10 +30,10 @@ $bg-notes: #f4f7f5;
   }
 }
 
-/* ── Saved badge ─────────────────────────────────────── */
+// ── Saved badge ─────────────────────────────────────────────────────
 
 .card-badge {
-  color: $green;
+  color: $green-primary;
   font-size: 0.6875rem;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -53,7 +42,7 @@ $bg-notes: #f4f7f5;
   text-transform: uppercase;
 }
 
-/* ── Header ──────────────────────────────────────────── */
+// ── Header ──────────────────────────────────────────────────────────
 
 .card-header {
   align-items: center;
@@ -62,9 +51,9 @@ $bg-notes: #f4f7f5;
 
   &__icon {
     align-items: center;
-    background: $green-subtle;
+    background: $bg-green-subtle;
     border-radius: 50%;
-    color: $green;
+    color: $green-primary;
     display: flex;
     flex-shrink: 0;
     height: 40px;
@@ -89,7 +78,7 @@ $bg-notes: #f4f7f5;
   }
 
   &__location {
-    color: $text-secondary;
+    color: #6b7280;
     display: block;
     font-size: 0.875rem;
     font-weight: 500;
@@ -101,7 +90,7 @@ $bg-notes: #f4f7f5;
   }
 }
 
-/* ── Close button (absolute top-right) ──────────────── */
+// ── Close button ─────────────────────────────────────────────────────
 
 .card-close-btn {
   align-items: center;
@@ -121,16 +110,17 @@ $bg-notes: #f4f7f5;
   z-index: 1;
 
   &:hover {
-    background: $green-light;
-    color: $green;
+    background: $bg-green-light;
+    color: $green-primary;
   }
 
   &:focus-visible {
-    outline: 2px solid $green;
+    outline: 2px solid $green-primary;
     outline-offset: 2px;
   }
 }
-/* ── Notes ───────────────────────────────────────────── */
+
+// ── Notes ────────────────────────────────────────────────────────────
 
 .card-notes {
   margin-top: 10px;
@@ -147,7 +137,7 @@ $bg-notes: #f4f7f5;
 
   &__bubble {
     align-items: flex-start;
-    background: $bg-notes;
+    background: #f4f7f5;
     border-radius: 12px;
     color: $text-primary;
     display: flex;
@@ -164,7 +154,7 @@ $bg-notes: #f4f7f5;
   }
 }
 
-/* ── Actions ─────────────────────────────────────────── */
+// ── Actions ──────────────────────────────────────────────────────────
 
 .card-actions {
   display: flex;
@@ -186,25 +176,25 @@ $bg-notes: #f4f7f5;
     padding: 6px 10px;
 
     &:focus-visible {
-      outline: 2px solid $green;
+      outline: 2px solid $green-primary;
       outline-offset: 2px;
     }
   }
 
   &__btn--edit {
-    background: $green-light;
+    background: $bg-green-light;
     border: 0;
-    color: $green;
+    color: $green-primary;
 
     &:hover {
-      background: #e2ede5;
+      background: $bg-green-handle-hover;
     }
   }
 
   &__btn--remove {
     background: transparent;
-    border: 1px solid $danger-border;
-    color: $danger;
+    border: 1px solid $border-danger;
+    color: $text-danger;
 
     &:hover {
       background: #fef7f6;

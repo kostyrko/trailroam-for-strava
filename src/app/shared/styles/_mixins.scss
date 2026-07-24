@@ -1,0 +1,588 @@
+// ═══════════════════════════════════════════════════════════════════════
+// Trailroam Shared SCSS Mixins
+//
+// Use: @use 'mixins' as *;
+// (stylePreprocessorOptions.includePaths points to this directory)
+// ═══════════════════════════════════════════════════════════════════════
+
+@use 'variables' as *;
+
+// ═══════════════════════════════════════════════════════════════════════
+// BUTTON VARIANTS
+// ═══════════════════════════════════════════════════════════════════════
+
+/// Solid primary button (green bg, white text)
+@mixin btn-primary {
+  background: $green-primary;
+  border: 0;
+  color: $text-on-primary;
+  cursor: pointer;
+  font-weight: 700;
+
+  &:hover {
+    background: $green-primary-hover;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+
+    &:hover {
+      background: $green-primary;
+    }
+  }
+}
+
+/// Secondary/outline button (white bg, border, green-gray text)
+@mixin btn-secondary {
+  background: $bg-white;
+  border: 1px solid $border-primary;
+  color: $green-medium;
+  cursor: pointer;
+
+  &:hover {
+    background: $bg-green-light;
+    border-color: $border-light;
+  }
+}
+
+/// Ghost/icon button (transparent bg, secondary text)
+@mixin btn-ghost {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: $text-secondary;
+  cursor: pointer;
+  display: inline-flex;
+  font-weight: 700;
+  justify-content: center;
+  line-height: 1;
+
+  &:hover {
+    background: $bg-green-light;
+    color: $text-primary;
+  }
+}
+
+/// Danger-styled button or menu item
+@mixin btn-danger {
+  color: $text-danger-dark;
+
+  &:hover {
+    background: $danger-bg-hover-alt2;
+  }
+}
+
+@mixin btn-danger-item {
+  color: $text-danger;
+
+  &:hover {
+    background: $danger-bg-hover-alt;
+  }
+}
+
+/// Full-width primary action button (used in detail panel footers)
+@mixin btn-footer-primary {
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 700;
+  gap: 8px;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 20px;
+  white-space: nowrap;
+  width: 100%;
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.5;
+  }
+}
+
+/// Full-width secondary action button (used in detail panel footers)
+@mixin btn-footer-secondary {
+  @include btn-footer-primary;
+  background: $bg-white;
+  border-color: $border-primary;
+  color: $green-medium;
+
+  &:hover {
+    background: $bg-green-light;
+    border-color: $border-light;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// DROPDOWN / MENU PATTERNS
+// ═══════════════════════════════════════════════════════════════════════
+
+/// Standard dropdown menu container
+@mixin dropdown-menu {
+  background: $bg-white;
+  border: 1px solid $border-primary;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px $shadow-dropdown;
+  list-style: none;
+  padding: 4px;
+}
+
+/// Standard dropdown menu item
+@mixin dropdown-item {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: $text-primary;
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  padding: 8px 12px;
+  text-align: left;
+  width: 100%;
+
+  &:hover {
+    background: $bg-green-light;
+  }
+}
+
+/// Standard dropdown menu item (slimmer variant for compact menus)
+@mixin dropdown-item-compact {
+  @include dropdown-item;
+  font-size: 0.8125rem;
+  gap: 8px;
+  min-height: 34px;
+  padding: 6px 10px;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// TOOLBAR SELECT (CUSTOM DROPDOWN) PATTERNS
+// ═══════════════════════════════════════════════════════════════════════
+
+@mixin toolbar-select {
+  cursor: pointer;
+  outline: none;
+  position: relative;
+  user-select: none;
+}
+
+@mixin toolbar-select__trigger {
+  align-items: center;
+  background: $bg-white;
+  border: 1px solid $border-primary;
+  border-radius: 8px;
+  color: $text-primary;
+  display: inline-flex;
+  font-size: 0.875rem;
+  gap: 8px;
+  min-height: 44px;
+  min-width: 180px;
+  padding: 0 14px;
+}
+
+@mixin toolbar-select__options {
+  background: $bg-white;
+  border: 1px solid $border-primary;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px $shadow-xl;
+  left: 0;
+  list-style: none;
+  margin: 4px 0 0;
+  min-width: 100%;
+  padding: 4px;
+  position: absolute;
+  top: 100%;
+  z-index: 20;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// SEARCH FIELD PATTERNS
+// ═══════════════════════════════════════════════════════════════════════
+
+@mixin search-field {
+  align-items: center;
+  background: $bg-white;
+  border: 1px solid $border-primary;
+  border-radius: 8px;
+  display: flex;
+  flex: 1;
+  min-width: 200px;
+  max-width: 340px;
+  min-height: 44px;
+  padding: 0 12px;
+  position: relative;
+}
+
+@mixin search-field__input {
+  border: 0;
+  color: $text-primary;
+  font: inherit;
+  font-size: 0.875rem;
+  outline: none;
+  padding: 0 8px;
+  width: 100%;
+
+  &::placeholder {
+    color: $text-muted;
+  }
+}
+
+@mixin search-field__clear {
+  background: transparent;
+  border: 0;
+  color: $text-muted;
+  cursor: pointer;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1;
+  min-height: 24px;
+  min-width: 24px;
+  padding: 0;
+
+  &:hover {
+    color: $text-secondary;
+  }
+}
+
+@mixin search-field__icon {
+  color: $text-muted;
+  flex-shrink: 0;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// SPORT TYPE FILTER PATTERNS
+// ═══════════════════════════════════════════════════════════════════════
+
+@mixin sport-type-group-header {
+  color: $text-secondary;
+  cursor: default;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 8px 12px 4px;
+  text-transform: uppercase;
+
+  &:hover {
+    background: transparent;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// DATE RANGE PICKER FLOAT
+// ═══════════════════════════════════════════════════════════════════════
+
+@mixin drp-backdrop {
+  background: transparent;
+  left: 0;
+  min-height: 100vh;
+  position: fixed;
+  top: 0;
+  width: 100vw;
+  z-index: 1000;
+}
+
+@mixin drp-floating {
+  display: flex;
+  justify-content: center;
+  left: 0;
+  padding-top: 80px;
+  pointer-events: none;
+  position: fixed;
+  top: 0;
+  width: 100vw;
+  z-index: 1001;
+
+  > * {
+    pointer-events: auto;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// NOTICE BAR PATTERNS
+// ═══════════════════════════════════════════════════════════════════════
+
+@mixin notice-bar {
+  align-items: center;
+  border-bottom: 1px solid $border-notice;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  padding: 12px 24px;
+  width: 100%;
+}
+
+@mixin notice-bar--warning {
+  background: $warning-bg;
+  color: $warning-text;
+}
+
+@mixin notice-bar-kicker {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin: 0 0 2px;
+  text-transform: uppercase;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// PANEL SEARCH (for map sidebar panels)
+// ═══════════════════════════════════════════════════════════════════════
+
+@mixin panel-search-wrap {
+  align-items: center;
+  background: $bg-green-subtle;
+  border: 1px solid $border-primary;
+  border-radius: 8px;
+  display: flex;
+  gap: 8px;
+  height: 36px;
+  padding: 0 8px;
+  position: relative;
+  width: 100%;
+
+  &:focus-within {
+    border-color: $green-primary;
+    box-shadow: 0 0 0 2px $focus-green;
+  }
+}
+
+@mixin panel-search-input {
+  background: transparent;
+  border: 0;
+  color: $text-primary;
+  flex: 1;
+  font: inherit;
+  font-size: 0.8125rem;
+  min-width: 0;
+  outline: 0;
+  padding: 0;
+
+  &::placeholder {
+    color: $text-muted;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// MAPLIBRE CONTROL OVERRIDES (shared between activity detail & trail detail)
+// ═══════════════════════════════════════════════════════════════════════
+
+@mixin maplibregl-ctrl-override {
+  .maplibregl-ctrl-top-left {
+    top: auto !important;
+
+    .maplibregl-ctrl-group {
+      background: $bg-white;
+      border: 2px solid $green-primary;
+      border-radius: 6px;
+      box-shadow: 0 2px 6px $shadow-map-btn;
+      overflow: hidden;
+    }
+
+    .maplibregl-ctrl-group button {
+      background: $bg-white;
+      border-color: transparent;
+      color: $green-primary;
+      height: 27px !important;
+      width: 27px !important;
+
+      &:hover {
+        background: $bg-green-lighter;
+      }
+
+      &:not(:last-child) {
+        border-bottom: 1px solid $border-primary;
+      }
+
+      .maplibregl-ctrl-icon {
+        background-color: transparent;
+        background-size: 18px;
+      }
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// MINIMAP BUTTON (shared between activity detail & trail detail)
+// ═══════════════════════════════════════════════════════════════════════
+
+@mixin minimap-btn {
+  align-items: center;
+  background: $bg-white;
+  border: 2px solid $green-primary;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px $shadow-map-btn;
+  color: $green-primary;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 1rem;
+  height: 29px;
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
+  width: 29px;
+
+  &:hover {
+    background: $bg-green-lighter;
+  }
+
+  svg {
+    display: block;
+  }
+}
+
+@mixin minimap-btn-tooltip {
+  &::after {
+    background: $text-primary;
+    border-radius: 4px;
+    color: $text-on-primary;
+    content: attr(data-tooltip);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    opacity: 0;
+    padding: 4px 8px;
+    pointer-events: none;
+    position: absolute;
+    right: calc(100% + 8px);
+    top: 50%;
+    transform: translateY(-50%);
+    transition: opacity 0s 0.5s;
+    white-space: nowrap;
+    z-index: 100;
+  }
+
+  &:hover::after {
+    opacity: 1;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// LAYER MENU (for minimap layer switcher)
+// ═══════════════════════════════════════════════════════════════════════
+
+@mixin layer-menu {
+  background: $bg-white;
+  border: 1px solid $border-primary;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px $shadow-xl;
+  position: absolute;
+  right: 0;
+  top: 70px;
+  z-index: 30;
+  min-width: 160px;
+  padding: 4px;
+}
+
+@mixin layer-item {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: $green-medium;
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  gap: 8px;
+  min-height: 34px;
+  padding: 6px 12px;
+  text-align: left;
+  white-space: nowrap;
+  width: 100%;
+
+  &:hover,
+  &.active {
+    background: $bg-green-light;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// SECTION TITLE (uppercase label used in detail panels)
+// ═══════════════════════════════════════════════════════════════════════
+
+@mixin section-title {
+  color: $green-medium;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  margin: 0 0 10px;
+  text-transform: uppercase;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// TEXT ELLIPSIS (single-line truncation)
+// ═══════════════════════════════════════════════════════════════════════
+
+@mixin text-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// CARD / INSIGHT CARD
+// ═══════════════════════════════════════════════════════════════════════
+
+@mixin insight-card {
+  background: $bg-white;
+  border: 1px solid $border-primary;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 16px;
+}
+
+@mixin insight-card__label {
+  color: $text-secondary;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+@mixin insight-card__value {
+  color: $text-primary;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// SPINNER ANIMATION
+// ═══════════════════════════════════════════════════════════════════════
+
+@mixin spinner(
+  $size: 16px,
+  $border-width: 2px,
+  $border-color: $border-primary,
+  $accent-color: $green-primary
+) {
+  animation: tr-spin 0.8s linear infinite;
+  border: $border-width solid $border-color;
+  border-radius: 50%;
+  border-top-color: $accent-color;
+  height: $size;
+  width: $size;
+}
+
+@keyframes tr-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// FOCUS VISIBLE (accessibility)
+// ═══════════════════════════════════════════════════════════════════════
+
+@mixin focus-green {
+  &:focus-visible {
+    box-shadow: 0 0 0 2px $focus-green;
+    outline: 0;
+  }
+}

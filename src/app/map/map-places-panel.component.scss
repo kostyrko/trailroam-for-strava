@@ -1,86 +1,7 @@
-/* Outer shell — replaces the old absolute positioning that was on .places-panel.
-   Now wraps the panel so collapse/expand can slide it. */
-.map-panel {
-  bottom: 0;
-  display: flex;
-  left: 0;
-  pointer-events: none;
-  position: absolute;
-  top: 0;
-  z-index: 100;
-}
+@use 'variables' as *;
+@use 'panel-common';
 
-.map-panel--collapsed .map-panel-inner {
-  transform: translateX(-100%);
-  pointer-events: none;
-}
-
-.map-panel--no-transition .map-panel-inner {
-  transition: none;
-}
-
-.map-panel-side {
-  pointer-events: auto;
-  position: relative;
-  width: 0;
-}
-
-.map-panel-side--hidden {
-  display: none;
-}
-
-.map-panel-handle {
-  align-items: center;
-  background: #ffffff;
-  border: 2px solid #1f6f50;
-  border-left: 0;
-  border-radius: 0 6px 6px 0;
-  box-shadow: 0 2px 6px rgb(20 33 27 / 18%);
-  color: #1f6f50;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  height: 60px;
-  justify-content: center;
-  left: 0;
-  margin-top: 0;
-  padding: 0;
-  position: absolute;
-  top: 12px;
-  width: 75px;
-  z-index: 200;
-}
-
-.map-panel-handle:hover {
-  background: #e6f7ef;
-}
-
-.panel-handle-count {
-  background: #1f6f50;
-  border-radius: 999px;
-  color: #ffffff;
-  font-size: 0.625rem;
-  font-weight: 800;
-  line-height: 1;
-  min-width: 18px;
-  padding: 2px 4px;
-  text-align: center;
-}
-
-.map-panel-inner {
-  background: #ffffff;
-  border-right: 1px solid #dce6df;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  pointer-events: auto;
-  position: relative;
-  transform: translateX(0);
-  transition: transform 200ms ease;
-  width: 340px;
-  z-index: 1;
-}
+// ── Places panel content ─────────────────────────────────────────
 
 .places-panel {
   display: flex;
@@ -93,30 +14,32 @@
   width: 100%;
 }
 
+// ── Header ───────────────────────────────────────────────────────
+
 .places-header {
   align-items: center;
-  border-bottom: 1px solid #eef5f0;
+  border-bottom: 1px solid $border-table;
   display: flex;
   justify-content: space-between;
   padding: 14px 16px 10px;
 }
 
 .places-title {
-  color: #14211b;
+  color: $text-primary;
   font-size: 0.9375rem;
   font-weight: 600;
   margin: 0;
 }
 
 .places-count {
-  color: #63746a;
+  color: $text-secondary;
   font-size: 0.8125rem;
   font-weight: 500;
   margin-left: 4px;
 }
 
 .places-section-title {
-  color: #63746a;
+  color: $text-secondary;
   font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -124,14 +47,16 @@
   text-transform: uppercase;
 }
 
+// ── Controls / Search ────────────────────────────────────────────
+
 .places-controls {
   padding: 8px 16px;
 }
 
 .places-search-wrap {
   align-items: center;
-  background: #f4f9f6;
-  border: 1px solid #dce6df;
+  background: $bg-green-subtle;
+  border: 1px solid $border-primary;
   border-radius: 8px;
   display: flex;
   padding: 0 8px;
@@ -139,24 +64,24 @@
 }
 
 .places-search-icon {
-  color: #859b8e;
+  color: $text-muted-lighter;
   flex-shrink: 0;
 }
 
 .places-search-input {
   background: transparent;
   border: 0;
-  color: #14211b;
+  color: $text-primary;
   flex: 1;
   font: inherit;
   font-size: 0.8125rem;
   height: 36px;
   outline: 0;
   padding: 0 6px;
-}
 
-.places-search-input::placeholder {
-  color: #a0b4a6;
+  &::placeholder {
+    color: $text-muted;
+  }
 }
 
 .places-search-clear {
@@ -164,194 +89,47 @@
   background: transparent;
   border: 0;
   border-radius: 4px;
-  color: #859b8e;
+  color: $text-muted-lighter;
   cursor: pointer;
   display: inline-flex;
   height: 24px;
   justify-content: center;
   width: 24px;
+
+  &:hover {
+    color: $text-primary;
+  }
 }
 
-.places-search-clear:hover {
-  color: #14211b;
-}
+// ── List / Empty ─────────────────────────────────────────────────
 
 .places-list {
   display: flex;
   flex: 1;
   flex-direction: column;
   overflow-y: auto;
-}
 
-.places-list--empty {
-  justify-content: center;
+  &--empty {
+    justify-content: center;
+  }
 }
 
 .places-empty {
-  color: #63746a;
+  color: $text-secondary;
   padding: 24px 16px;
   text-align: center;
 }
 
 .places-empty-title {
-  color: #14211b;
+  color: $text-primary;
   font-size: 0.875rem;
   font-weight: 600;
   margin: 0 0 6px;
 }
 
 .places-empty-hint {
-  color: #63746a;
+  color: $text-secondary;
   font-size: 0.75rem;
   line-height: 1.5;
   margin: 0;
-}
-
-.place-row {
-  align-items: center;
-  border-bottom: 1px solid #f1f6f3;
-  display: flex;
-  gap: 4px;
-  padding: 0 8px 0 0;
-}
-
-.place-row:hover {
-  background: #f4f9f6;
-}
-
-.place-row--selected {
-  background: #e6f7ef;
-}
-
-.place-row__main {
-  align-items: center;
-  background: transparent;
-  border: 0;
-  color: #14211b;
-  cursor: pointer;
-  display: flex;
-  flex: 1;
-  font: inherit;
-  gap: 10px;
-  min-width: 0;
-  padding: 10px 8px 10px 16px;
-  text-align: left;
-}
-
-.place-row__icon {
-  align-items: center;
-  color: #1f6f50;
-  display: inline-flex;
-  flex-shrink: 0;
-  justify-content: center;
-}
-
-.place-row__body {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.place-row__name {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  line-height: 1.3;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.place-row__secondary {
-  color: #63746a;
-  font-size: 0.6875rem;
-  line-height: 1.3;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.place-row__menu {
-  position: relative;
-}
-
-.place-row__overflow {
-  align-items: center;
-  background: transparent;
-  border: 0;
-  border-radius: 6px;
-  color: #859b8e;
-  cursor: pointer;
-  display: inline-flex;
-  flex-shrink: 0;
-  height: 30px;
-  justify-content: center;
-  width: 30px;
-}
-
-.place-row__overflow:hover {
-  background: #eef5f0;
-  color: #14211b;
-}
-
-.place-row__overflow:focus-visible {
-  box-shadow: 0 0 0 2px rgb(31 111 80 / 40%);
-  outline: 0;
-}
-
-.place-dropdown {
-  background: #ffffff;
-  border: 1px solid #dce6df;
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgb(20 33 27 / 15%);
-  list-style: none;
-  margin: 0;
-  min-width: 140px;
-  padding: 4px;
-  position: absolute;
-  right: 0;
-  top: calc(100% + 4px);
-  z-index: 300;
-}
-
-.place-dropdown-item {
-  align-items: center;
-  background: transparent;
-  border: 0;
-  border-radius: 6px;
-  color: #14211b;
-  cursor: pointer;
-  display: flex;
-  font: inherit;
-  font-size: 0.8125rem;
-  gap: 8px;
-  padding: 8px 10px;
-  text-align: left;
-  width: 100%;
-}
-
-.place-dropdown-item:hover {
-  background: #f4f9f6;
-}
-
-.place-dropdown-item--danger {
-  color: #b8433a;
-}
-
-.place-dropdown-item--danger:hover {
-  background: #fbeceb;
-}
-
-.place-dropdown-item:focus-visible {
-  box-shadow: 0 0 0 2px rgb(31 111 80 / 40%);
-  outline: 0;
-}
-
-.place-dd-icon {
-  color: #63746a;
-  flex-shrink: 0;
-}
-
-.place-dropdown-item--danger .place-dd-icon {
-  color: #b8433a;
 }

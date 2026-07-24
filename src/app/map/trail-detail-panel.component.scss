@@ -89,9 +89,20 @@
 }
 
 .tdp-header__meta {
+  align-items: center;
   color: #63746a;
+  display: flex;
   font-size: 0.8125rem;
+  gap: 8px;
   margin-top: 4px;
+}
+
+.tdp-header__dates {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ── 3-dot menu ─────────────────────────────── */

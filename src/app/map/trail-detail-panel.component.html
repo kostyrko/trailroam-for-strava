@@ -6,6 +6,20 @@
     <div class="tdp-header__main">
       <h3 class="tdp-header__title">{{ t.trail.name }}</h3>
       <span class="tdp-header__badge">Trail</span>
+      <button
+        class="tdp-header__close"
+        type="button"
+        (click)="close.emit()"
+        aria-label="Close trail panel"
+      >
+        <app-icon name="x" [size]="16" strokeWidth="2"></app-icon>
+      </button>
+    </div>
+    <div class="tdp-header__meta">
+      <span class="tdp-header__dates">
+        {{ formatDate(t.firstDate) }} – {{ formatDateShort(t.lastDate) }} &nbsp;•&nbsp; {{ days() }}
+        {{ days() === 1 ? 'day' : 'days' }}
+      </span>
       <div class="tdp-menu-wrapper">
         <button
           class="tdp-menu-trigger"
@@ -36,18 +50,6 @@
           </ul>
         }
       </div>
-      <button
-        class="tdp-header__close"
-        type="button"
-        (click)="close.emit()"
-        aria-label="Close trail panel"
-      >
-        <app-icon name="x" [size]="16" strokeWidth="2"></app-icon>
-      </button>
-    </div>
-    <div class="tdp-header__meta">
-      {{ formatDate(t.firstDate) }} – {{ formatDateShort(t.lastDate) }} &nbsp;•&nbsp; {{ days() }}
-      {{ days() === 1 ? 'day' : 'days' }}
     </div>
   </div>
 

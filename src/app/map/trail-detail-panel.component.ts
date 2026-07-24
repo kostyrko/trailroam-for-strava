@@ -35,6 +35,7 @@ import { TrailsService } from '../storage/trails.service';
 import { ConfirmService } from '../shared/confirm.service';
 import { ToastService } from '../shared/toast.service';
 import { DataRefreshService } from '../shared/data-refresh.service';
+import { GpxExportService } from '../shared/gpx-export.service';
 import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
 
 /* ── Speed-colour helpers (mirrored from activity-detail-panel) ──── */
@@ -124,6 +125,7 @@ export class TrailDetailPanelComponent {
   private readonly toastService = inject(ToastService);
   private readonly dialog = inject(MatDialog);
   private readonly dataRefresh = inject(DataRefreshService);
+  private readonly gpxExportService = inject(GpxExportService);
   private readonly repositories = inject(TRAILROAM_REPOSITORIES);
 
   readonly trail = input.required<SidebarTrailItem>();
@@ -365,6 +367,19 @@ export class TrailDetailPanelComponent {
       this.close.emit();
     } catch {
       this.toastService.show('Failed to delete trail.');
+    }
+  }
+
+  protected async exportGpx(): Promise<void> {
+    const t = this.trail();
+    const segments = t.memberActivities.map((m) => ({
+      name: m.activity.name,
+      startDate: m.activity.startDate,
+      activityId: m.activityId,
+    }));
+    const result = await this.gpxExportService.exportTrail(t.trail.name, segments);
+    if (!result.success) {
+      this.toastService.show(result.reason);
     }
   }
 

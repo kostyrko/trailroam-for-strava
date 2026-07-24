@@ -5,12 +5,14 @@ import { environment } from '../../environments/environment';
 import type { ActivityRecord, RouteGeometryRecord } from '../storage/storage.models';
 
 export function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/[\s_]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .substring(0, 100) || 'activity';
+  return (
+    text
+      .toLowerCase()
+      .replace(/[^\w\s-]/g, '')
+      .replace(/[\s_]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .substring(0, 100) || 'activity'
+  );
 }
 
 export function sportTypeSlug(sportType: string): string {
@@ -21,6 +23,34 @@ export function sportTypeSlug(sportType: string): string {
     .replace(/[^\w-]/g, '')
     .replace(/_+/g, '_')
     .replace(/^_|_$/g, '');
+}
+
+export function buildTrailGpx(
+  trailName: string,
+  segments: { name: string; startDate: string | undefined; coordinates: [number, number][] }[],
+): string {
+  const lines: string[] = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    `<gpx version="1.1" creator="${environment.appName}"`,
+    '  xmlns="http://www.topografix.com/GPX/1/1">',
+  ];
+
+  for (const seg of segments) {
+    lines.push('  <trk>');
+    lines.push(`    <name>${escapeXml(seg.name)}</name>`);
+    if (seg.startDate) {
+      lines.push(`    <time>${new Date(seg.startDate).toISOString()}</time>`);
+    }
+    lines.push('    <trkseg>');
+    for (const [lng, lat] of seg.coordinates) {
+      lines.push(`      <trkpt lat="${lat}" lon="${lng}"></trkpt>`);
+    }
+    lines.push('    </trkseg>');
+    lines.push('  </trk>');
+  }
+
+  lines.push('</gpx>');
+  return lines.join('\n');
 }
 
 export function buildGpx(activity: ActivityRecord, route: RouteGeometryRecord): string {
@@ -40,17 +70,18 @@ export function buildGpx(activity: ActivityRecord, route: RouteGeometryRecord): 
     lines.push(`      <trkpt lat="${lat}" lon="${lng}"></trkpt>`);
   }
 
-  lines.push(
-    '    </trkseg>',
-    '  </trk>',
-    '</gpx>',
-  );
+  lines.push('    </trkseg>', '  </trk>', '</gpx>');
 
   return lines.join('\n');
 }
 
 export function escapeXml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
 }
 
 export function triggerDownload(content: string, filename: string): void {
@@ -82,7 +113,9 @@ export function triggerZipDownload(zip: JSZip, filename: string): void {
 export class GpxExportService {
   private readonly repositories = inject(TRAILROAM_REPOSITORIES);
 
-  async exportActivity(activity: ActivityRecord): Promise<{ success: true } | { success: false; reason: string }> {
+  async exportActivity(
+    activity: ActivityRecord,
+  ): Promise<{ success: true } | { success: false; reason: string }> {
     if (!activity.hasRoute || activity.routeSyncStatus !== 'route_synced') {
       return { success: false, reason: `No GPS route available for "${activity.name}".` };
     }
@@ -101,7 +134,9 @@ export class GpxExportService {
     return { success: true };
   }
 
-  async exportActivitiesAsZip(activities: ActivityRecord[]): Promise<{ exported: number; skipped: number }> {
+  async exportActivitiesAsZip(
+    activities: ActivityRecord[],
+  ): Promise<{ exported: number; skipped: number }> {
     const zip = new JSZip();
     const built = await this.buildZip(zip, activities);
     if (built.exported === 0) {
@@ -112,7 +147,10 @@ export class GpxExportService {
     return built;
   }
 
-  async buildZip(zip: JSZip, activities: ActivityRecord[]): Promise<{ exported: number; skipped: number }> {
+  async buildZip(
+    zip: JSZip,
+    activities: ActivityRecord[],
+  ): Promise<{ exported: number; skipped: number }> {
     let exported = 0;
     let skipped = 0;
     for (const activity of activities) {
@@ -134,5 +172,37 @@ export class GpxExportService {
       exported++;
     }
     return { exported, skipped };
+  }
+
+  async exportTrail(
+    trailName: string,
+    segments: { name: string; startDate: string | undefined; activityId: string }[],
+  ): Promise<{ success: true } | { success: false; reason: string }> {
+    const gpxSegments: {
+      name: string;
+      startDate: string | undefined;
+      coordinates: [number, number][];
+    }[] = [];
+
+    for (const seg of segments) {
+      const geometry = await this.repositories.routeGeometry.get(seg.activityId);
+      if (!geometry || geometry.coordinates.length < 2) {
+        continue;
+      }
+      gpxSegments.push({
+        name: seg.name,
+        startDate: seg.startDate,
+        coordinates: geometry.coordinates,
+      });
+    }
+
+    if (gpxSegments.length === 0) {
+      return { success: false, reason: 'No GPS route data available for this trail.' };
+    }
+
+    const gpx = buildTrailGpx(trailName, gpxSegments);
+    const filename = `${slugify(trailName)}-trail.gpx`;
+    triggerDownload(gpx, filename);
+    return { success: true };
   }
 }

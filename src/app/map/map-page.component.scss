@@ -279,6 +279,7 @@
   flex-shrink: 0;
   min-width: 0;
   overflow: hidden;
+  position: relative;
   transition: width 0.25s ease;
   width: 0;
 }
@@ -289,6 +290,22 @@
 .detail-panel-wrapper--expanded {
   width: 842px;
   max-width: 100%;
+}
+
+.detail-panel-overlay {
+  background: #ffffff;
+  height: 100%;
+  left: 0;
+  position: absolute;
+  top: 0;
+  transform: translateX(100%);
+  transition: transform 0.25s ease;
+  width: 100%;
+  z-index: 10;
+}
+
+.detail-panel-overlay--active {
+  transform: translateX(0);
 }
 
 .map-content-main {

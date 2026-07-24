@@ -141,6 +141,8 @@ export class MapPage implements AfterViewInit {
   private readonly selectedMapRoute = signal<MapRouteFeature | null>(null);
   protected readonly detailPanelOpen = signal(false);
   protected readonly detailPanelExpanded = signal(false);
+  /** True when an activity was opened from within a trail (drill-down overlay mode). */
+  protected readonly trailDrillDownActive = signal(false);
   protected readonly filterMenuOpen = signal(false);
   protected readonly mapFullscreen = signal(false);
   private readonly perfWarningDismissed = signal(false);
@@ -715,8 +717,30 @@ export class MapPage implements AfterViewInit {
     // Close trail emphasis, open activity
     this.routeRendererService.clearEmphasis();
     this.selectRoute(route);
+    // Set drill-down BEFORE onPanelSelectRoute so it knows this is a trail drill-down
+    this.trailDrillDownActive.set(true);
     // Select the route on the main map
     this.onPanelSelectRoute(route);
+  }
+
+  /** Called when the user closes the activity overlay opened from a trail. */
+  protected onCloseDrillDown(): void {
+    this.trailDrillDownActive.set(false);
+    this.clearSelectedRoute();
+    // Re-fit the map to the full trail bounds
+    const trailId = this.selectedTrailId();
+    if (trailId) {
+      const trail = this.trailsService.trails().find((t) => t.id === trailId);
+      if (trail) {
+        const trailRoutes = this.allRoutes().filter((r) =>
+          trail.activityIds.includes(r.activityId),
+        );
+        const allCoords = trailRoutes.flatMap((r) => r.coordinates);
+        if (allCoords.length > 0) {
+          this.fitToTrailBoundsWithRetry(allCoords);
+        }
+      }
+    }
   }
 
   /** Called when user clicks "Back to Trail" in the activity detail panel. */
@@ -736,6 +760,8 @@ export class MapPage implements AfterViewInit {
       }, 0);
     }
     this.trailViewState.set(null);
+    this.trailDrillDownActive.set(false);
+    this.clearSelectedRoute();
   }
 
   protected clearSelectedTrail(): void {
@@ -1039,6 +1065,12 @@ export class MapPage implements AfterViewInit {
   }
 
   protected onPanelSelectRoute(route: MapRouteFeature): void {
+    // When a sidebar activity is selected while a trail is open (and NOT in drill-down mode),
+    // close the trail panel so only the activity detail is shown standalone.
+    if (this.selectedTrailId() && !this.trailDrillDownActive()) {
+      this.selectedTrailId.set(null);
+      this.trailDrillDownActive.set(false);
+    }
     this.hoveredActivityId.set(null);
     this.selectedRouteGeometry.set(null);
     this.selectedMapRoute.set(route);

@@ -215,6 +215,7 @@
         [class.detail-panel-wrapper--expanded]="detailPanelOpen() && detailPanelExpanded()"
       >
         @if (detailPanelOpen()) {
+          <!-- ── Trail panel (always rendered when trail is selected) ── -->
           @if (selectedTrailId(); as trailId) {
             @let trail = getSidebarTrail(trailId);
             @if (trail) {
@@ -225,17 +226,30 @@
                 (close)="closeDetailPanel(); clearSelectedTrail()"
               />
             }
-          } @else {
-            <app-activity-detail-panel
-              [activity]="selectedRoute()?.activity ?? null"
-              [route]="detailPanelRoute()"
-              [pushMode]="true"
-              [showInActivities]="true"
-              [backLabel]="trailBackLabel()"
-              (backToTrail)="onBackToTrail()"
-              (panelExpand)="detailPanelExpanded.set($event)"
-              (close)="closeDetailPanel(); clearSelectedRoute()"
-            />
+          }
+
+          <!-- ── Activity panel (standalone or drill-down overlay) ── -->
+          @if (selectedRoute()?.activity ?? null; as activity) {
+            @if (!selectedTrailId() || trailDrillDownActive()) {
+              <div
+                class="detail-panel-overlay"
+                [class.detail-panel-overlay--active]="trailDrillDownActive()"
+              >
+                <app-activity-detail-panel
+                  [activity]="activity"
+                  [route]="detailPanelRoute()"
+                  [pushMode]="!trailDrillDownActive()"
+                  [showInActivities]="true"
+                  [backLabel]="trailDrillDownActive() ? trailBackLabel() : null"
+                  (backToTrail)="onBackToTrail()"
+                  (panelExpand)="detailPanelExpanded.set($event)"
+                  (close)="
+                    trailDrillDownActive() ? onCloseDrillDown() : closeDetailPanel();
+                    clearSelectedRoute()
+                  "
+                />
+              </div>
+            }
           }
         }
       </div>

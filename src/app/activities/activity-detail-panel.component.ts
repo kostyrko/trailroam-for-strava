@@ -85,6 +85,8 @@ export class ActivityDetailPanelComponent {
   readonly showInActivities = input(false);
   /** When set, replaces the close button with a "← Back to {label}" link. */
   readonly backLabel = input<string | null>(null);
+  /** When provided, controls or initialises the panel-expanded state from the parent. */
+  readonly expanded = input<boolean | null>(null);
   readonly close = output<void>();
   readonly panelExpand = output<boolean>();
   /** Emitted when the user clicks "Back to Trail". */
@@ -185,6 +187,14 @@ export class ActivityDetailPanelComponent {
         if (!this.mapInstance.isStyleLoaded()) {
           this.mapInstance.once('load', () => this.renderRouteOnMap());
         }
+      }
+    });
+
+    /* Sync parent-controlled expanded state to the internal signal. */
+    effect(() => {
+      const val = this.expanded();
+      if (val !== null) {
+        this.panelExpanded.set(val);
       }
     });
   }

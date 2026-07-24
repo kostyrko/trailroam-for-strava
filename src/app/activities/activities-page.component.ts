@@ -696,6 +696,8 @@ export class ActivitiesPageComponent {
       })
     | null
   >(null);
+  /** Tracks the activity detail panel expanded state for the logbook view. */
+  protected readonly activityDetailExpanded = signal(false);
 
   private async initLocalNotice(): Promise<void> {
     const settings = await this.repositories.settings.get();
@@ -1269,6 +1271,8 @@ export class ActivitiesPageComponent {
 
   protected navigateToActivity(activity: ActivityRecord): void {
     this.selectedActivity.set(activity);
+    // Sync expanded state from the trail panel when activity is opened from a trail.
+    this.activityDetailExpanded.set(!!this.selectedTrail() && this.trailMapExpanded());
     if (activity.hasRoute) {
       Promise.all([
         this.repositories.activityRoutes.get(activity.id),

@@ -910,6 +910,8 @@
         <app-activity-detail-panel
           [activity]="selActivity"
           [route]="selectedRoute()"
+          [expanded]="activityDetailExpanded()"
+          (panelExpand)="activityDetailExpanded.set($event)"
           (close)="clearSelectedActivity()"
         />
       }

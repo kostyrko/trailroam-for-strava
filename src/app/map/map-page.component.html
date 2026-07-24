@@ -239,6 +239,7 @@
                   [pushMode]="false"
                   [showInActivities]="true"
                   [backLabel]="trailBackLabel()"
+                  [expanded]="detailPanelExpanded()"
                   (backToTrail)="onBackToTrail()"
                   (panelExpand)="detailPanelExpanded.set($event)"
                   (close)="onCloseDrillDown()"
@@ -250,6 +251,7 @@
                 [route]="detailPanelRoute()"
                 [pushMode]="true"
                 [showInActivities]="true"
+                [expanded]="detailPanelExpanded()"
                 (panelExpand)="detailPanelExpanded.set($event)"
                 (close)="closeDetailPanel(); clearSelectedRoute()"
               />

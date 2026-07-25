@@ -6,18 +6,9 @@
 // EMPTY & LOADING STATES
 // ═════════════════════════════════════════════════════════════════
 
-.empty-state-match-wrapper {
-  align-items: center;
-  display: flex;
-  justify-content: center;
-  min-height: 200px;
-  width: 100%;
-}
-
+.empty-state-match-wrapper,
 .loading-state {
-  align-items: center;
-  display: flex;
-  justify-content: center;
+  @extend %center-flex-row;
   min-height: 200px;
   width: 100%;
 }
@@ -26,7 +17,8 @@
 // HEADER
 // ═════════════════════════════════════════════════════════════════
 
-.activities-header {
+.activities-header,
+app-logbook-nav {
   margin-bottom: 16px;
 }
 
@@ -46,7 +38,6 @@
 
 app-logbook-nav {
   display: block;
-  margin-bottom: 16px;
 }
 
 // ═════════════════════════════════════════════════════════════════
@@ -63,7 +54,6 @@ app-logbook-nav {
 
 .ls-icon {
   color: $text-secondary;
-  flex-shrink: 0;
 }
 
 .ls-info-icon {
@@ -76,17 +66,28 @@ app-logbook-nav {
 // TOOLBAR
 // ═════════════════════════════════════════════════════════════════
 
-.activities-toolbar {
+.activities-toolbar,
+.logbook-places__controls {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.activities-toolbar {
   margin-bottom: 16px;
+}
+
+%bg-border-transition {
+  transition:
+    background 120ms ease,
+    border-color 120ms ease;
 }
 
 // ── Import button ───────────────────────────────────────────────
 
 .import-btn {
+  @extend %bg-border-transition;
   align-items: center;
   background: $green-primary;
   border: 1px solid $green-primary;
@@ -101,14 +102,17 @@ app-logbook-nav {
   height: 36px;
   margin-left: auto;
   padding: 0 14px;
-  transition:
-    background 120ms ease,
-    border-color 120ms ease;
   white-space: nowrap;
 
   &:hover {
     background: $green-primary-hover;
     border-color: $green-primary-hover;
+  }
+}
+
+%active-bg-border {
+  &:active {
+    background: $border-primary;
   }
 }
 
@@ -157,22 +161,26 @@ app-logbook-nav {
   }
 }
 
-.import-drop-close {
+%icon-btn-28 {
   align-items: center;
-  background: $black-trans-35;
-  border: 0;
-  border-radius: 50%;
-  color: $text-on-primary;
   cursor: pointer;
   display: inline-flex;
   height: 28px;
   justify-content: center;
   padding: 0;
+  width: 28px;
+}
+
+.import-drop-close {
+  @extend %icon-btn-28;
+  background: $black-trans-35;
+  border: 0;
+  border-radius: 50%;
+  color: $text-on-primary;
   position: absolute;
   right: -28px;
   top: -28px;
   transition: background 120ms ease;
-  width: 28px;
   z-index: 10;
 
   &:hover {
@@ -186,6 +194,12 @@ app-logbook-nav {
   font-size: 2rem;
   line-height: 1;
   margin-bottom: 4px;
+}
+
+.ls-icon,
+.local-data-notice__icon,
+.trail-row-icon {
+  flex-shrink: 0;
 }
 
 .import-drop-title {
@@ -331,11 +345,19 @@ app-logbook-nav {
   flex-shrink: 0;
 }
 
-.stat-card__body {
+.stat-card__body,
+.logbook-place-row__body,
+.logbook-all-row__body {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
+}
+
+%text-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .stat-card__value {
@@ -343,9 +365,7 @@ app-logbook-nav {
   font-size: 1.25rem;
   font-weight: 700;
   line-height: 1.2;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  @extend %text-ellipsis;
 }
 
 .stat-card__label {
@@ -375,7 +395,6 @@ app-logbook-nav {
 
 .local-data-notice__icon {
   color: $green-primary;
-  flex-shrink: 0;
 }
 
 .local-data-notice__content {
@@ -397,17 +416,11 @@ app-logbook-nav {
 }
 
 .local-data-notice__dismiss {
-  align-items: center;
+  @extend %icon-btn-28;
   background: transparent;
   border: 0;
   color: #7cb89a;
-  cursor: pointer;
-  display: inline-flex;
   flex-shrink: 0;
-  justify-content: center;
-  min-height: 28px;
-  min-width: 28px;
-  padding: 0;
   position: absolute;
   right: 8px;
   top: 8px;
@@ -497,11 +510,6 @@ app-logbook-nav {
   }
 }
 
-.selected-actions-bar--active .selected-action--secondary:hover {
-  background: $white-trans-30;
-  border-color: $white-trans-50;
-}
-
 .selected-actions-bar--active .selected-action--danger {
   border-color: $white-trans-35;
 
@@ -518,12 +526,6 @@ app-logbook-nav {
 .col-checkbox {
   width: 48px;
   text-align: center;
-
-  input[type='checkbox'] {
-    cursor: pointer;
-    height: 16px;
-    width: 16px;
-  }
 }
 
 .cell-checkbox {
@@ -531,12 +533,13 @@ app-logbook-nav {
   position: relative;
   text-align: center;
   width: 48px;
+}
 
-  input[type='checkbox'] {
-    cursor: pointer;
-    height: 16px;
-    width: 16px;
-  }
+.col-checkbox input[type='checkbox'],
+.cell-checkbox input[type='checkbox'] {
+  cursor: pointer;
+  height: 16px;
+  width: 16px;
 }
 
 .row-selected {
@@ -548,25 +551,31 @@ app-logbook-nav {
 // ═════════════════════════════════════════════════════════════════
 
 .activities-count {
-  color: $green-pagination;
-  font-size: 0.8125rem;
   font-weight: 600;
   margin: 0 0 12px;
 }
 
-.activities-table-wrap {
+// ── Shared table patterns (used by activities, places, and all tabs) ──
+
+.activities-table-wrap,
+.logbook-places__table-wrap,
+.logbook-all__table-wrap {
   border: 1px solid $border-primary;
   border-radius: 8px;
   overflow-x: auto;
 }
 
-.activities-table {
+.activities-table,
+.logbook-places__table,
+.logbook-all__table {
   border-collapse: collapse;
   font-size: 0.875rem;
   width: 100%;
 }
 
-.activities-table th {
+.activities-table th,
+.logbook-places__table th,
+.logbook-all__table th {
   background: $bg-green-light;
   color: $green-medium;
   font-size: 0.75rem;
@@ -587,7 +596,9 @@ app-logbook-nav {
   }
 }
 
-.activities-table td {
+.activities-table td,
+.logbook-places__table td,
+.logbook-all__table td {
   border-top: 1px solid $border-table;
   padding: 10px 14px;
   vertical-align: middle;
@@ -621,6 +632,16 @@ app-logbook-nav {
   }
 }
 
+.logbook-place-row,
+.logbook-all-row--activity,
+.logbook-all-row--place {
+  cursor: pointer;
+
+  &:hover {
+    background: $bg-green-subtle;
+  }
+}
+
 // ── Focus highlight ─────────────────────────────────────────────
 
 .focus-highlight {
@@ -651,8 +672,20 @@ app-logbook-nav {
   white-space: nowrap;
 }
 
-.cell-date-secondary {
+.cell-date-secondary,
+.logbook-place-row__notes {
   color: $text-secondary;
+  font-size: 0.8125rem;
+}
+
+.logbook-place-row__notes {
+  max-width: 240px;
+  @extend %text-ellipsis;
+}
+
+.activities-count,
+.page-info {
+  color: $green-pagination;
   font-size: 0.8125rem;
 }
 
@@ -660,9 +693,7 @@ app-logbook-nav {
   color: $text-primary;
   font-weight: 600;
   max-width: 280px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  @extend %text-ellipsis;
 }
 
 .cell-name-bold {
@@ -680,7 +711,8 @@ app-logbook-nav {
 
 // ── Category tag ────────────────────────────────────────────────
 
-.category-tag {
+.category-tag,
+.source-badge--trail {
   align-items: center;
   border-radius: 5px;
   display: inline-flex;
@@ -689,6 +721,11 @@ app-logbook-nav {
   gap: 5px;
   padding: 4px 9px;
   white-space: nowrap;
+}
+
+.source-badge--trail {
+  background: #e0f2e6;
+  color: $green-bright;
 }
 
 .cat-emoji {
@@ -715,26 +752,32 @@ app-logbook-nav {
 // PAGINATION
 // ═════════════════════════════════════════════════════════════════
 
-.pagination {
+%center-flex-row {
   align-items: center;
   display: flex;
-  gap: 12px;
   justify-content: center;
+}
+
+.pagination {
+  @extend %center-flex-row;
+  gap: 12px;
   margin-top: 20px;
 }
 
 .page-size-control {
-  align-items: center;
-  display: flex;
+  @extend %center-flex-row;
   gap: 8px;
-  justify-content: center;
   margin-top: 12px;
 }
 
-.page-size-control .filter-label {
+.page-size-control .filter-label,
+.source-filter-label {
   color: $text-secondary;
-  font-size: 0.8125rem;
   font-weight: 600;
+}
+
+.page-size-control .filter-label {
+  font-size: 0.8125rem;
 }
 
 .custom-select {
@@ -806,9 +849,13 @@ app-logbook-nav {
     background: $bg-green-light;
   }
 
-  &:disabled {
+  %disabled-text {
     color: $text-muted;
     cursor: default;
+  }
+
+  &:disabled {
+    @extend %disabled-text;
   }
 }
 
@@ -834,28 +881,21 @@ app-logbook-nav {
   padding: 0 2px;
 }
 
-.page-info {
-  color: $green-pagination;
-  font-size: 0.8125rem;
-}
-
 // ═════════════════════════════════════════════════════════════════
 // SPARKLINE
 // ═════════════════════════════════════════════════════════════════
 
-.col-sparkline {
-  width: 56px;
+.col-sparkline,
+.cell-sparkline {
   padding: 4px 6px;
+  width: 56px;
 }
 
 .cell-sparkline {
-  padding: 4px 6px;
   text-align: center;
   vertical-align: middle;
-  width: 56px;
 
   svg {
-    display: block;
     margin: 0 auto;
   }
 }
@@ -894,7 +934,8 @@ app-logbook-nav {
   width: 80px;
 }
 
-.activity-actions-cell {
+.activity-actions-cell,
+.logbook-place-row__actions {
   align-items: center;
   display: inline-flex;
   gap: 2px;
@@ -918,10 +959,11 @@ app-logbook-nav {
     border-color: $border-primary;
     color: $green-primary;
   }
+}
 
-  svg {
-    display: block;
-  }
+.map-nav-btn svg,
+.cell-sparkline svg {
+  display: block;
 }
 
 .activity-menu-wrapper {
@@ -951,9 +993,7 @@ app-logbook-nav {
     color: $text-primary;
   }
 
-  &:active {
-    background: $border-primary;
-  }
+  @extend %active-bg-border;
 }
 
 .activity-dropdown {
@@ -989,9 +1029,7 @@ app-logbook-nav {
     background: $bg-green-light;
   }
 
-  &:active {
-    background: $border-primary;
-  }
+  @extend %active-bg-border;
 }
 
 .act-dropdown-icon {
@@ -1020,8 +1058,7 @@ app-logbook-nav {
 }
 
 .act-dropdown-item-disabled {
-  color: $text-muted;
-  cursor: default;
+  @extend %disabled-text;
   opacity: 0.6;
 
   &:hover {
@@ -1107,9 +1144,7 @@ app-logbook-nav {
 }
 
 .source-filter-label {
-  color: $text-secondary;
   font-size: 0.75rem;
-  font-weight: 600;
   margin-right: 4px;
 }
 
@@ -1125,9 +1160,7 @@ app-logbook-nav {
   gap: 4px;
   height: 30px;
   padding: 0 12px;
-  transition:
-    background 120ms ease,
-    border-color 120ms ease;
+  @extend %bg-border-transition;
 
   &:hover {
     background: $border-primary;
@@ -1161,12 +1194,7 @@ app-logbook-nav {
 // SOURCE & STATUS BADGES
 // ═════════════════════════════════════════════════════════════════
 
-.cell-source {
-  font-size: 0.8125rem;
-  padding: 0 8px;
-  white-space: nowrap;
-}
-
+.cell-source,
 .cell-status {
   font-size: 0.8125rem;
   padding: 0 8px;
@@ -1183,19 +1211,6 @@ app-logbook-nav {
 
 .source-badge--imported {
   color: #2d7fb8;
-}
-
-.source-badge--trail {
-  align-items: center;
-  background: #e0f2e6;
-  border-radius: 5px;
-  color: $green-bright;
-  display: inline-flex;
-  font-size: 0.875rem;
-  font-weight: 700;
-  gap: 5px;
-  padding: 4px 9px;
-  white-space: nowrap;
 }
 
 .status-badge {
@@ -1222,17 +1237,11 @@ app-logbook-nav {
 // PLACES TAB
 // ═════════════════════════════════════════════════════════════════
 
-.logbook-places {
+.logbook-places,
+.logbook-all {
   display: flex;
   flex-direction: column;
   gap: 12px;
-}
-
-.logbook-places__controls {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
 }
 
 .logbook-places__search-wrap {
@@ -1251,54 +1260,8 @@ app-logbook-nav {
   @include search-field__clear;
 }
 
-.logbook-places__table-wrap {
-  border: 1px solid $border-primary;
-  border-radius: 8px;
-  overflow-x: auto;
-}
-
-.logbook-places__table {
-  border-collapse: collapse;
-  font-size: 0.875rem;
-  width: 100%;
-}
-
-.logbook-places__table th {
-  background: $bg-green-light;
-  color: $green-medium;
-  font-size: 0.75rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  padding: 10px 14px;
-  text-align: left;
-  text-transform: uppercase;
-  white-space: nowrap;
-
-  &.sortable {
-    cursor: pointer;
-    user-select: none;
-
-    &:hover {
-      background: $border-primary;
-    }
-  }
-}
-
-.logbook-places__table td {
-  border-top: 1px solid $border-table;
-  padding: 10px 14px;
-  vertical-align: middle;
-}
-
-.logbook-place-row {
-  cursor: pointer;
-
-  &:hover {
-    background: $bg-green-subtle;
-  }
-}
-
-.logbook-place-row__name-cell {
+.logbook-place-row__name-cell,
+.logbook-all-row__name-cell {
   align-items: center;
   display: inline-flex;
   gap: 8px;
@@ -1306,61 +1269,35 @@ app-logbook-nav {
   min-width: 0;
 }
 
-.logbook-place-row__icon {
+%name-cell-icon {
   align-items: center;
   color: $text-secondary;
   display: inline-flex;
   flex-shrink: 0;
 }
 
-.logbook-place-row__body {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
+.logbook-place-row__icon {
+  @extend %name-cell-icon;
 }
 
-.logbook-place-row__name {
+.logbook-place-row__name,
+.logbook-all-row__name {
   color: $text-primary;
   font-weight: 600;
   font-size: 0.875rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  @extend %text-ellipsis;
 }
 
-.logbook-place-row__secondary {
+.logbook-place-row__secondary,
+.logbook-all-row__meta {
   color: $text-secondary;
   font-size: 0.75rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.logbook-place-row__notes {
-  color: $text-secondary;
-  font-size: 0.8125rem;
-  max-width: 240px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.logbook-place-row__actions {
-  align-items: center;
-  display: inline-flex;
-  gap: 2px;
+  @extend %text-ellipsis;
 }
 
 // ═════════════════════════════════════════════════════════════════
 // ALL TAB
 // ═════════════════════════════════════════════════════════════════
-
-.logbook-all {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
 
 .logbook-all__controls {
   align-items: center;
@@ -1378,99 +1315,16 @@ app-logbook-nav {
   font-weight: 600;
 }
 
-.logbook-all__table-wrap {
-  border: 1px solid $border-primary;
-  border-radius: 8px;
-  overflow-x: auto;
-}
-
-.logbook-all__table {
-  border-collapse: collapse;
-  font-size: 0.875rem;
-  width: 100%;
-}
-
-.logbook-all__table th {
-  background: $bg-green-light;
-  color: $green-medium;
-  font-size: 0.75rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  padding: 10px 14px;
-  text-align: left;
-  text-transform: uppercase;
-  white-space: nowrap;
-
-  &.sortable {
-    cursor: pointer;
-    user-select: none;
-
-    &:hover {
-      background: $border-primary;
-    }
-  }
-}
-
-.logbook-all__table td {
-  border-top: 1px solid $border-table;
-  padding: 10px 14px;
-  vertical-align: middle;
-}
-
-.logbook-all-row--activity,
-.logbook-all-row--place {
-  cursor: pointer;
-
-  &:hover {
-    background: $bg-green-subtle;
-  }
-}
-
-.logbook-all-row__name-cell {
-  align-items: center;
-  display: inline-flex;
-  gap: 8px;
-  max-width: 360px;
-  min-width: 0;
-}
-
 .logbook-all-row__icon {
-  align-items: center;
-  color: $text-secondary;
-  display: inline-flex;
-  flex-shrink: 0;
+  @extend %name-cell-icon;
   font-size: 1rem;
   min-width: 20px;
   text-align: center;
 }
 
-.logbook-all-row__body {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.logbook-all-row__name {
-  color: $text-primary;
-  font-size: 0.875rem;
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .logbook-all-row__type {
   color: $green-primary;
   font-weight: 600;
-}
-
-.logbook-all-row__meta {
-  color: $text-secondary;
-  font-size: 0.75rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 // ═════════════════════════════════════════════════════════════════
@@ -1513,7 +1367,6 @@ app-logbook-nav {
 
 .trail-row-icon {
   color: $green-bright;
-  flex-shrink: 0;
 }
 
 .trail-badge {
@@ -1540,10 +1393,8 @@ app-logbook-nav {
   font-size: inherit;
 }
 
-.trail-expand-btn {
+%btn-sm-base {
   align-items: center;
-  background: $bg-green-light;
-  border: 1px solid $border-primary;
   border-radius: 4px;
   color: $text-secondary;
   cursor: pointer;
@@ -1552,14 +1403,23 @@ app-logbook-nav {
   height: 22px;
   justify-content: center;
   padding: 0;
-  transition:
-    transform 0.2s ease,
-    background 0.15s,
-    color 0.15s;
   width: 22px;
 
   &:hover {
     background: $border-primary;
+  }
+}
+
+.trail-expand-btn {
+  @extend %btn-sm-base;
+  background: $bg-green-light;
+  border: 1px solid $border-primary;
+  transition:
+    transform 0.2s ease,
+    background 0.15s,
+    color 0.15s;
+
+  &:hover {
     color: $text-primary;
   }
 }
@@ -1568,28 +1428,22 @@ app-logbook-nav {
   transform: rotate(90deg);
 }
 
-.trail-map-btn {
-  align-items: center;
+%icon-btn-sm {
+  @extend %btn-sm-base;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 4px;
-  color: $text-secondary;
-  cursor: pointer;
-  display: inline-flex;
-  flex-shrink: 0;
-  height: 22px;
-  justify-content: center;
-  margin-left: 4px;
-  padding: 0;
   transition:
     background 0.15s,
     color 0.15s;
-  width: 22px;
 
   &:hover {
-    background: $border-primary;
     color: $green-primary;
   }
+}
+
+.trail-map-btn {
+  @extend %icon-btn-sm;
+  margin-left: 4px;
 }
 
 .cell-detail-btn {
@@ -1599,26 +1453,7 @@ app-logbook-nav {
 }
 
 .trail-detail-btn {
-  align-items: center;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  color: $text-secondary;
-  cursor: pointer;
-  display: inline-flex;
-  flex-shrink: 0;
-  height: 22px;
-  justify-content: center;
-  padding: 0;
-  transition:
-    background 0.15s,
-    color 0.15s;
-  width: 22px;
-
-  &:hover {
-    background: $border-primary;
-    color: $green-primary;
-  }
+  @extend %icon-btn-sm;
 }
 
 // ═════════════════════════════════════════════════════════════════
@@ -1729,10 +1564,7 @@ app-logbook-nav {
 
 // ── Elevation chart scaling ──────────────────────────────────────────
 
-.tdp-elevation :deep(.elevation-chart-wrap) {
-  width: 100% !important;
-}
-
+.tdp-elevation :deep(.elevation-chart-wrap),
 .tdp-elevation :deep(.elevation-svg) {
   width: 100% !important;
 }

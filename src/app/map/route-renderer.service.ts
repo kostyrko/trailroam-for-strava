@@ -19,6 +19,12 @@ export const LINE_MIN_ZOOM = 9;
 
 const CLUSTER_MAX_ZOOM = 12;
 
+/**
+ * Duration (ms) for `fitBounds` transitions. Snappier than MapLibre's default
+ * flight-style animation, which is several seconds for large bounds changes.
+ */
+const FIT_BOUNDS_DURATION_MS = 600;
+
 export type RouteSelectedHandler = (route: MapRouteFeature) => void;
 
 @Injectable({
@@ -272,19 +278,46 @@ export class RouteRendererService {
     map.setFilter(ROUTES_SELECTED_LAYER_ID, ['==', ['get', 'activityId'], '']);
   }
 
-  fitToRoute(coordinates: [number, number][], bounds?: RouteBounds): void {
+  /**
+   * Fits the map to the given coordinates (or precomputed bounds).
+   *
+   * Returns `true` when a fit was scheduled (the map is initialized and a
+   * transition was either started or queued on `style.load`), and `false` when
+   * it is a no-op because the renderer has no map reference yet. Callers that
+   * race against map initialization (e.g. trail selection before
+   * `MapLibreMapComponent.ngAfterViewInit`) can use the return value to decide
+   * whether to retry, instead of unconditionally re-triggering the animation.
+   *
+   * Transitions use a snappier-than-default duration (`FIT_BOUNDS_DURATION_MS`)
+   * so trail/activity selection feels quick rather than using MapLibre's long
+   * default flight-style animation. `options.duration` overrides it when needed.
+   */
+  fitToRoute(
+    coordinates: [number, number][],
+    bounds?: RouteBounds,
+    options?: { duration?: number },
+  ): boolean {
     const map = this.map;
-    if (!map || coordinates.length === 0) { return; }
+    if (!map || coordinates.length === 0) { return false; }
 
+    const duration = options?.duration ?? FIT_BOUNDS_DURATION_MS;
+    const fitOptions = { padding: 80, maxZoom: 15, duration };
+
+    // Guard against the style-not-loaded path firing twice: the `style.load`
+    // handler and the 500 ms fallback below can both run, restarting the
+    // animation. `applied` ensures fit() runs at most once per call.
+    let applied = false;
     const fit = () => {
+      if (applied) { return; }
+      applied = true;
       if (bounds) {
-        map.fitBounds([bounds.west, bounds.south, bounds.east, bounds.north], { padding: 80, maxZoom: 15 });
+        map.fitBounds([bounds.west, bounds.south, bounds.east, bounds.north], fitOptions);
       } else {
         const lngs = coordinates.map((c) => c[0]);
         const lats = coordinates.map((c) => c[1]);
         map.fitBounds(
           [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)],
-          { padding: 80, maxZoom: 15 },
+          fitOptions,
         );
       }
     };
@@ -295,6 +328,7 @@ export class RouteRendererService {
       map.once('style.load', fit);
       setTimeout(fit, 500);
     }
+    return true;
   }
 
   private readonly opacityTargets = [

@@ -586,3 +586,123 @@
     outline: 0;
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// DIALOG PRIMITIVES (shared by edit / import / save dialogs)
+// ═══════════════════════════════════════════════════════════════════════
+
+/// Full-screen modal overlay with a blurred dim backdrop.
+@mixin dialog-overlay {
+  align-items: center;
+  background: $overlay-dialog;
+  backdrop-filter: blur(3px);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  position: fixed;
+  z-index: 1000;
+}
+
+/// Round top-right close button used in modal dialogs (28x28, ghost).
+@mixin dialog-close-btn {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: $text-muted-lighter;
+  cursor: pointer;
+  display: inline-flex;
+  height: 28px;
+  justify-content: center;
+  padding: 0;
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+  width: 28px;
+
+  &:hover {
+    background: $bg-green-light;
+    color: $text-primary;
+  }
+
+  &:focus-visible {
+    box-shadow: 0 0 0 2px $focus-green;
+    outline: 0;
+  }
+}
+
+/// Modal entrance animation — shared scale+fade-in used by all three dialogs.
+@mixin dialog-enter($name) {
+  animation: #{$name} 150ms ease-out;
+
+  @keyframes #{$name} {
+    from {
+      opacity: 0;
+      transform: scale(0.96) translateY(6px);
+    }
+
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+}
+
+/// Primary action button for modal dialogs (green-bright, 40px tall).
+@mixin btn-dialog-primary {
+  background: $green-bright;
+  border: 1px solid $green-bright;
+  color: $text-on-primary;
+
+  &:hover:not(:disabled) {
+    background: $green-bright-hover;
+    border-color: $green-bright-hover;
+  }
+
+  &:disabled {
+    background: $border-chip;
+    border-color: $border-chip;
+    cursor: default;
+  }
+}
+
+/// Secondary action button for modal dialogs (white, bordered).
+@mixin btn-dialog-secondary {
+  background: $bg-white;
+  border: 1px solid $border-primary;
+  color: $green-medium;
+
+  &:hover {
+    background: $bg-green-subtle;
+    border-color: $border-light;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// GHOST ICON BUTTON (32x32, transparent bg with green-light hover)
+// Reused across detail-panel close/menu triggers and map overlays.
+// ═══════════════════════════════════════════════════════════════════════
+
+%icon-btn-ghost-32 {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: $text-secondary;
+  cursor: pointer;
+  display: inline-flex;
+  font-weight: 700;
+  justify-content: center;
+  line-height: 1;
+  min-height: 32px;
+  min-width: 32px;
+  padding: 0;
+
+  &:hover {
+    background: $bg-green-light;
+    color: $text-primary;
+  }
+}

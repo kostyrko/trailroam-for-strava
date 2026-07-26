@@ -250,18 +250,18 @@
 }
 
 .panel-detail-status-badge--planned {
-  background: #f3e8ff;
-  color: #7c3aed;
+  background: $bg-status-planned;
+  color: $text-status-planned;
 }
 
 .panel-detail-source {
-  color: #b87a2d;
+  color: $text-source-strava;
   font-size: 0.75rem;
   font-weight: 600;
 }
 
 .panel-detail-source--imported {
-  color: #2d7fb8;
+  color: $text-source-imported;
 }
 
 // ── Close / Back buttons ──────────────────────────────────────────

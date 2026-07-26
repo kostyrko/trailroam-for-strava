@@ -457,7 +457,7 @@
 
 .panel-item-emoji--trail {
   align-items: center;
-  background: #e0f2e6;
+  background: $bg-green-emoji;
   border-radius: 8px;
   color: $green-bright;
   display: flex;
@@ -475,7 +475,7 @@
 .panel-trail-badge {
   background: $green-bright;
   border-radius: 3px;
-  color: #fff;
+  color: $text-on-primary;
   font-size: 0.5625rem;
   font-weight: 700;
   letter-spacing: 0.04em;

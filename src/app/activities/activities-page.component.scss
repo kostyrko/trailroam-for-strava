@@ -63,51 +63,15 @@ app-logbook-nav {
 }
 
 // ═════════════════════════════════════════════════════════════════
-// TOOLBAR
+// TOOLBAR (logbook places/all controls — activities-toolbar is owned
+// by app-activities-toolbar and styled in its own component file)
 // ═════════════════════════════════════════════════════════════════
 
-.activities-toolbar,
 .logbook-places__controls {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-}
-
-.activities-toolbar {
-  margin-bottom: 16px;
-}
-
-%bg-border-transition {
-  transition:
-    background 120ms ease,
-    border-color 120ms ease;
-}
-
-// ── Import button ───────────────────────────────────────────────
-
-.import-btn {
-  @extend %bg-border-transition;
-  align-items: center;
-  background: $green-primary;
-  border: 1px solid $green-primary;
-  border-radius: 8px;
-  color: $text-on-primary;
-  cursor: pointer;
-  display: inline-flex;
-  font: inherit;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  gap: 6px;
-  height: 36px;
-  margin-left: auto;
-  padding: 0 14px;
-  white-space: nowrap;
-
-  &:hover {
-    background: $green-primary-hover;
-    border-color: $green-primary-hover;
-  }
 }
 
 %active-bg-border {
@@ -197,8 +161,7 @@ app-logbook-nav {
 }
 
 .ls-icon,
-.local-data-notice__icon,
-.trail-row-icon {
+.local-data-notice__icon {
   flex-shrink: 0;
 }
 
@@ -221,131 +184,10 @@ app-logbook-nav {
   margin: 4px 0 0;
 }
 
-// ── Search field ────────────────────────────────────────────────
-
-.search-field {
-  @include search-field;
-}
-
-.search-field__icon {
-  @include search-field__icon;
-}
-
-.search-field__input {
-  @include search-field__input;
-}
-
-.search-field__clear {
-  @include search-field__clear;
-}
-
-// ── Toolbar select ──────────────────────────────────────────────
-
-.toolbar-select {
-  @include toolbar-select;
-}
-
-.toolbar-select__trigger {
-  @include toolbar-select__trigger;
-}
-
-.toolbar-select__arrow {
-  color: $text-muted;
-  flex-shrink: 0;
-  margin-left: auto;
-}
-
-.toolbar-select__options {
-  @include toolbar-select__options;
-
-  li {
-    align-items: center;
-    border-radius: 6px;
-    cursor: pointer;
-    display: flex;
-    gap: 6px;
-    padding: 8px 12px;
-    white-space: nowrap;
-
-    &:hover,
-    &.active {
-      background: $bg-green-light;
-    }
-  }
-}
-
-// ── Sport type filter ───────────────────────────────────────────
-
-.sport-type-filter {
-  max-height: 320px;
-  min-width: 200px;
-  overflow-y: auto;
-}
-
-.sport-type-group-header {
-  @include sport-type-group-header;
-}
-
-.sport-type-option {
-  padding-left: 0;
-}
-
-.sport-type-label {
-  margin-left: 24px;
-}
-
-.cat-dot {
-  border-radius: 50%;
-  display: inline-block;
-  height: 8px;
-  width: 8px;
-}
-
-// ── Date range picker ───────────────────────────────────────────
-
-.drp-backdrop {
-  @include drp-backdrop;
-}
-
-.drp-floating {
-  @include drp-floating;
-}
-
 // ═════════════════════════════════════════════════════════════════
-// STATS GRID
+// SHARED ROW BODY (logbook place/all rows share this flex column)
 // ═════════════════════════════════════════════════════════════════
 
-.stats-grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin-bottom: 16px;
-}
-
-.stat-card {
-  align-items: center;
-  background: $bg-white;
-  border: 1px solid $border-primary;
-  border-radius: 12px;
-  display: flex;
-  gap: 14px;
-  min-height: 80px;
-  padding: 16px 20px;
-}
-
-.stat-card__icon {
-  align-items: center;
-  background: $bg-green-lighter;
-  border-radius: 50%;
-  color: $green-primary;
-  display: flex;
-  height: 40px;
-  justify-content: center;
-  width: 40px;
-  flex-shrink: 0;
-}
-
-.stat-card__body,
 .logbook-place-row__body,
 .logbook-all-row__body {
   display: flex;
@@ -357,23 +199,6 @@ app-logbook-nav {
 %text-ellipsis {
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.stat-card__value {
-  color: $text-primary;
-  font-size: 1.25rem;
-  font-weight: 700;
-  line-height: 1.2;
-  @extend %text-ellipsis;
-}
-
-.stat-card__label {
-  color: $text-secondary;
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   white-space: nowrap;
 }
 
@@ -427,95 +252,6 @@ app-logbook-nav {
 
   &:hover {
     color: $green-primary;
-  }
-}
-
-// ═════════════════════════════════════════════════════════════════
-// SELECTED ACTIONS BAR
-// ═════════════════════════════════════════════════════════════════
-
-.selected-actions-bar {
-  align-items: center;
-  background: $bg-green-light;
-  border: 1px solid $border-primary;
-  border-radius: 10px;
-  display: flex;
-  gap: 12px;
-  justify-content: space-between;
-  margin-bottom: 0;
-  padding: 10px 16px;
-  transition:
-    background 0.2s,
-    border-color 0.2s;
-
-  &.selected-actions-bar--active {
-    background: $green-primary;
-    border-color: $green-primary;
-  }
-}
-
-.selected-actions-bar__summary {
-  align-items: center;
-  color: $text-secondary;
-  display: inline-flex;
-  font-size: 0.875rem;
-  font-weight: 700;
-  gap: 8px;
-}
-
-.selected-actions-bar--active .selected-actions-bar__summary {
-  color: $text-on-primary;
-}
-
-.selected-actions-bar__check {
-  flex-shrink: 0;
-}
-
-.selected-actions-bar__actions {
-  align-items: center;
-  display: flex;
-  gap: 8px;
-}
-
-.selected-action {
-  align-items: center;
-  background: transparent;
-  border: 1px solid $border-light;
-  border-radius: 8px;
-  color: $green-medium;
-  cursor: pointer;
-  display: inline-flex;
-  font: inherit;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  gap: 6px;
-  min-height: 36px;
-  padding: 0 14px;
-  white-space: nowrap;
-
-  &:hover {
-    background: #d6e8dc;
-    border-color: #b6cdbe;
-  }
-}
-
-.selected-actions-bar--active .selected-action {
-  background: $white-trans-12;
-  border-color: $white-trans-25;
-  color: $text-on-primary;
-
-  &:hover {
-    background: $white-trans-30;
-    border-color: $white-trans-50;
-  }
-}
-
-.selected-actions-bar--active .selected-action--danger {
-  border-color: $white-trans-35;
-
-  &:hover {
-    background: $text-danger-dark;
-    border-color: $text-danger-dark;
   }
 }
 
@@ -724,7 +460,7 @@ app-logbook-nav {
 }
 
 .source-badge--trail {
-  background: #e0f2e6;
+  background: $bg-green-emoji;
   color: $green-bright;
 }
 
@@ -770,14 +506,10 @@ app-logbook-nav {
   margin-top: 12px;
 }
 
-.page-size-control .filter-label,
-.source-filter-label {
-  color: $text-secondary;
-  font-weight: 600;
-}
-
 .page-size-control .filter-label {
+  color: $text-secondary;
   font-size: 0.8125rem;
+  font-weight: 600;
 }
 
 .custom-select {
@@ -1071,126 +803,6 @@ app-logbook-nav {
 }
 
 // ═════════════════════════════════════════════════════════════════
-// RESPONSIVE
-// ═════════════════════════════════════════════════════════════════
-
-@media (max-width: 900px) {
-  .stats-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 640px) {
-  .stats-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .selected-actions-bar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .selected-actions-bar__actions {
-    flex-wrap: wrap;
-  }
-}
-
-// ═════════════════════════════════════════════════════════════════
-// SOURCE FILTER
-// ═════════════════════════════════════════════════════════════════
-
-.source-filter-collapsible-header {
-  align-items: center;
-  cursor: pointer;
-  display: flex;
-  gap: 4px;
-  margin-top: 10px;
-  margin-bottom: 10px;
-  user-select: none;
-
-  &:focus-visible {
-    outline: 2px solid $green-primary;
-    outline-offset: 2px;
-    border-radius: 4px;
-  }
-}
-
-.source-filter-toggle {
-  color: $text-secondary;
-  font-size: 0.65rem;
-  flex-shrink: 0;
-}
-
-.source-filter-collapsible-body {
-  max-height: 0;
-  overflow: hidden;
-  transition:
-    max-height 200ms ease,
-    opacity 200ms ease;
-  opacity: 0;
-}
-
-.source-filter-collapsible-body--open {
-  max-height: 80px;
-  opacity: 1;
-}
-
-.source-filter-bar {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 10px;
-}
-
-.source-filter-label {
-  font-size: 0.75rem;
-  margin-right: 4px;
-}
-
-.source-filter-chip {
-  align-items: center;
-  background: $bg-green-subtle;
-  border: 1px solid $border-light;
-  border-radius: 8px;
-  cursor: pointer;
-  display: inline-flex;
-  font: inherit;
-  font-size: 0.8125rem;
-  gap: 4px;
-  height: 30px;
-  padding: 0 12px;
-  @extend %bg-border-transition;
-
-  &:hover {
-    background: $border-primary;
-    border-color: #b6cdbe;
-  }
-}
-
-.source-filter-chip--active {
-  background: $green-primary;
-  border-color: $green-primary;
-  color: $text-on-primary;
-
-  &:hover {
-    background: $green-primary-hover;
-  }
-}
-
-.source-filter-count {
-  background: $black-trans-10;
-  border-radius: 10px;
-  font-size: 0.6875rem;
-  font-variant-numeric: tabular-nums;
-  padding: 0 6px;
-}
-
-.source-filter-chip--active .source-filter-count {
-  background: $black-trans-20;
-}
-
-// ═════════════════════════════════════════════════════════════════
 // SOURCE & STATUS BADGES
 // ═════════════════════════════════════════════════════════════════
 
@@ -1206,11 +818,11 @@ app-logbook-nav {
 }
 
 .source-badge--strava {
-  color: #b87a2d;
+  color: $text-source-strava;
 }
 
 .source-badge--imported {
-  color: #2d7fb8;
+  color: $text-source-imported;
 }
 
 .status-badge {
@@ -1229,8 +841,8 @@ app-logbook-nav {
 }
 
 .status-badge--planned {
-  background: #f3e8ff;
-  color: #7c3aed;
+  background: $bg-status-planned;
+  color: $text-status-planned;
 }
 
 // ═════════════════════════════════════════════════════════════════
@@ -1365,14 +977,10 @@ app-logbook-nav {
   font-weight: 700;
 }
 
-.trail-row-icon {
-  color: $green-bright;
-}
-
 .trail-badge {
   background: $green-bright;
   border-radius: 4px;
-  color: #fff;
+  color: $text-on-primary;
   font-size: 0.6rem;
   font-weight: 700;
   letter-spacing: 0.04em;

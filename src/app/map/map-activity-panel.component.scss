@@ -203,8 +203,8 @@
   }
 
   &--planned {
-    background: #f3e8ff;
-    color: #7c3aed;
+    background: $bg-status-planned;
+    color: $text-status-planned;
   }
 }
 
@@ -239,7 +239,7 @@
   }
 
   &:disabled {
-    background: #b6cdbe;
+    background: $border-chip;
     cursor: default;
     opacity: 0.5;
   }

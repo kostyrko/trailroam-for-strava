@@ -24,6 +24,8 @@ $bg-green-light: #eef5f0;
 $bg-green-lighter: #e6f7ef;
 $bg-green-soft: #f0f6f2;
 $bg-green-row-selected: #eef9f3;
+$bg-green-emoji: #e0f2e6;
+$bg-chip-hover: #d6e8dc;
 $bg-green-trail: #f4faf6;
 $bg-green-trail-hover: #eaf5ee;
 $bg-green-trail-selected: #dff0e5;
@@ -44,9 +46,16 @@ $text-danger: #b8433a;
 $text-danger-dark: #8f2d22;
 $text-danger-icon: #c2817a;
 
+// === Status / source accents (badges) ===
+$bg-status-planned: #f3e8ff;
+$text-status-planned: #7c3aed;
+$text-source-strava: #b87a2d;
+$text-source-imported: #2d7fb8;
+
 // === Borders ===
 $border-primary: #dce6df;
 $border-light: #cbd8d0;
+$border-chip: #b6cdbe;
 $border-green-trail: #b7d9c4;
 $border-table: #eef5f0;
 $border-table-row: #f1f6f3;
@@ -81,6 +90,12 @@ $shadow-map-btn: rgb(20 33 27 / 18%);
 // === Focus Rings ===
 $focus-green: rgb(31 111 80 / 40%);
 $focus-highlight: rgb(220 38 38 / 25%);
+
+// === Dialog primitives (shared by edit / import / save dialogs) ===
+$overlay-dialog: rgb(20 33 27 / 35%);
+$focus-input-ring: rgb(31 111 80 / 12%);
+$focus-error-ring: rgb(184 67 58 / 12%);
+$focus-radio-ring: rgb(31 111 80 / 20%);
 
 // === Utility ===
 $gray-icon: #9ca3af;

@@ -48,10 +48,12 @@ function makeMockRoute(overrides: Partial<MapRouteFeature> = {}): MapRouteFeatur
 describe('RouteRendererService', () => {
   let addLayer: ReturnType<typeof vi.fn>;
   let addSource: ReturnType<typeof vi.fn>;
+  let fitBounds: ReturnType<typeof vi.fn>;
   let getCanvas: ReturnType<typeof vi.fn>;
   let getSource: ReturnType<typeof vi.fn>;
   let map: Map;
   let on: ReturnType<typeof vi.fn>;
+  let once: ReturnType<typeof vi.fn>;
   let routeSelected: ReturnType<typeof vi.fn<RouteSelectedHandler>>;
   let setFilter: ReturnType<typeof vi.fn>;
   let service: RouteRendererService;
@@ -61,17 +63,21 @@ describe('RouteRendererService', () => {
   beforeEach(() => {
     addLayer = vi.fn();
     addSource = vi.fn();
+    fitBounds = vi.fn();
     getCanvas = vi.fn().mockReturnValue({ style: { cursor: '' } });
     getSource = vi.fn().mockReturnValue(null);
     on = vi.fn();
+    once = vi.fn();
     routeSelected = vi.fn<RouteSelectedHandler>();
     setFilter = vi.fn();
     map = {
       addLayer,
       addSource,
+      fitBounds,
       getCanvas,
       getSource,
       on,
+      once,
       setFilter,
       isStyleLoaded: () => true,
     } as unknown as Map;
@@ -126,5 +132,70 @@ describe('RouteRendererService', () => {
       route.activityId,
     ]);
     expect(routeSelected).toHaveBeenCalledWith(route);
+  });
+
+  describe('fitToRoute', () => {
+    const coords: [number, number][] = [[19.9, 50.05], [19.91, 50.06]];
+
+    it('returns false and is a no-op before init(map)', () => {
+      expect(service.fitToRoute(coords)).toBe(false);
+      expect(fitBounds).not.toHaveBeenCalled();
+    });
+
+    it('returns true and fits immediately when the style is loaded', () => {
+      service.init(map);
+      expect(service.fitToRoute(coords)).toBe(true);
+      expect(fitBounds).toHaveBeenCalledTimes(1);
+      expect(once).not.toHaveBeenCalled();
+    });
+
+    it('applies the snappy default duration when options is omitted', () => {
+      service.init(map);
+      service.fitToRoute(coords);
+
+      const [, options] = fitBounds.mock.calls[0];
+      expect(options).toEqual({ padding: 80, maxZoom: 15, duration: 600 });
+    });
+
+    it('lets an explicit duration override the default', () => {
+      service.init(map);
+      service.fitToRoute(coords, undefined, { duration: 1200 });
+
+      expect(fitBounds.mock.calls[0][1]).toEqual({ padding: 80, maxZoom: 15, duration: 1200 });
+    });
+
+    it('applies the default duration when fitting precomputed bounds', () => {
+      service.init(map);
+      const bounds = { west: 19.9, south: 50.05, east: 19.91, north: 50.06 };
+      service.fitToRoute(coords, bounds);
+
+      const [bbox, options] = fitBounds.mock.calls[0];
+      expect(bbox).toEqual([19.9, 50.05, 19.91, 50.06]);
+      expect(options).toEqual({ padding: 80, maxZoom: 15, duration: 600 });
+    });
+
+    it('fits at most once when the style is not yet loaded', () => {
+      vi.useFakeTimers();
+      try {
+        (map.isStyleLoaded as () => boolean) = () => false;
+        const styleLoadHandlers: Array<() => void> = [];
+        once.mockImplementation((_event: string, handler: () => void) => {
+          styleLoadHandlers.push(handler);
+        });
+
+        service.init(map);
+        expect(service.fitToRoute(coords)).toBe(true);
+        // No immediate fit while the style is still loading.
+        expect(fitBounds).not.toHaveBeenCalled();
+
+        // Both the style.load handler and the 500ms fallback fire; fit runs once.
+        styleLoadHandlers.forEach((h) => h());
+        vi.advanceTimersByTime(500);
+        expect(fitBounds).toHaveBeenCalledTimes(1);
+      } finally {
+        vi.useRealTimers();
+        (map.isStyleLoaded as () => boolean) = () => true;
+      }
+    });
   });
 });

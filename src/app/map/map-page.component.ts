@@ -682,11 +682,14 @@ export class MapPage implements AfterViewInit {
    * map reference is available and the style is loaded. This handles the race
    * where selectTrail runs before MapLibreMapComponent's async ngAfterViewInit
    * has finished creating the map instance.
+   *
+   * Stops as soon as `fitToRoute` reports a fit was scheduled; otherwise each
+   * retry would re-trigger `map.fitBounds` and keep restarting the animation.
    */
   private fitToTrailBoundsWithRetry(coords: [number, number][], attempt = 0): void {
     if (attempt >= 100) return; // ~3 seconds max
-    this.routeRendererService.fitToRoute(coords);
-    // fitToRoute is a no-op when the renderer's map ref is null, so retry
+    const scheduled = this.routeRendererService.fitToRoute(coords);
+    if (scheduled) { return; }
     setTimeout(() => this.fitToTrailBoundsWithRetry(coords, attempt + 1), 30);
   }
 

@@ -132,7 +132,7 @@ export class RouteRendererService {
       paint: {
         'circle-color': '#1f6f50',
         'circle-opacity': 0.85,
-        'circle-radius': ['step', ['get', 'point_count'], 17, 10, 20, 50, 24, 100, 29],
+        'circle-radius': ['step', ['coalesce', ['get', 'point_count'], 0], 17, 10, 20, 50, 24, 100, 29],
         'circle-stroke-color': '#ffffff',
         'circle-stroke-width': 3,
       },

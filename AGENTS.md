@@ -3,13 +3,14 @@
 This file is the operating guide for LLM coding agents working in this repository. Follow it before making code changes.
 
 For more explanation and human-facing guidance, read `docs/engineering-guide.md`.
+For review expectations when reading or preparing changes, read `docs/code-review-guide.md`.
 
 ## Required Startup Procedure
 
 Before making any code change:
 
 1. Read this file completely.
-2. If the task touches architecture, Angular components, sync, storage, extension messaging, or shared utilities, also read `docs/engineering-guide.md`.
+2. If the task touches architecture, Angular components, sync, storage, extension messaging, or shared utilities, also read `docs/engineering-guide.md`. When preparing a change for review (or reviewing one), also read `docs/code-review-guide.md`.
 3. State which files you inspected before editing.
 4. Make the smallest behavior-preserving change that satisfies the task.
 5. Run the required verification command or document why it failed.

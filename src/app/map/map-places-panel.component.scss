@@ -1,0 +1,135 @@
+@use 'variables' as *;
+@use 'panel-common';
+
+// ── Places panel content ─────────────────────────────────────────
+
+.places-panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.places-panel--compact {
+  width: 100%;
+}
+
+// ── Header ───────────────────────────────────────────────────────
+
+.places-header {
+  align-items: center;
+  border-bottom: 1px solid $border-table;
+  display: flex;
+  justify-content: space-between;
+  padding: 14px 16px 10px;
+}
+
+.places-title {
+  color: $text-primary;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.places-count {
+  color: $text-secondary;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  margin-left: 4px;
+}
+
+.places-section-title {
+  color: $text-secondary;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 12px 16px 6px;
+  text-transform: uppercase;
+}
+
+// ── Controls / Search ────────────────────────────────────────────
+
+.places-controls {
+  padding: 8px 16px;
+}
+
+.places-search-wrap {
+  align-items: center;
+  background: $bg-green-subtle;
+  border: 1px solid $border-primary;
+  border-radius: 8px;
+  display: flex;
+  padding: 0 8px;
+  position: relative;
+}
+
+.places-search-icon {
+  color: $text-muted-lighter;
+  flex-shrink: 0;
+}
+
+.places-search-input {
+  background: transparent;
+  border: 0;
+  color: $text-primary;
+  flex: 1;
+  font: inherit;
+  font-size: 0.8125rem;
+  height: 36px;
+  outline: 0;
+  padding: 0 6px;
+
+  &::placeholder {
+    color: $text-muted;
+  }
+}
+
+.places-search-clear {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: $text-muted-lighter;
+  cursor: pointer;
+  display: inline-flex;
+  height: 24px;
+  justify-content: center;
+  width: 24px;
+
+  &:hover {
+    color: $text-primary;
+  }
+}
+
+// ── List / Empty ─────────────────────────────────────────────────
+
+.places-list {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  overflow-y: auto;
+
+  &--empty {
+    justify-content: center;
+  }
+}
+
+.places-empty {
+  color: $text-secondary;
+  padding: 24px 16px;
+  text-align: center;
+}
+
+.places-empty-title {
+  color: $text-primary;
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+
+.places-empty-hint {
+  color: $text-secondary;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  margin: 0;
+}

@@ -1,3 +1,5 @@
+@use 'variables' as *;
+
 .stats-grid {
   display: grid;
   gap: 12px;
@@ -7,8 +9,8 @@
 
 .stat-card {
   align-items: center;
-  background: #ffffff;
-  border: 1px solid #dce6df;
+  background: $bg-white;
+  border: 1px solid $border-primary;
   border-radius: 12px;
   display: flex;
   gap: 14px;
@@ -18,9 +20,9 @@
 
 .stat-card__icon {
   align-items: center;
-  background: #e6f7ef;
+  background: $bg-green-lighter;
   border-radius: 50%;
-  color: #1f6f50;
+  color: $green-primary;
   display: flex;
   height: 40px;
   justify-content: center;
@@ -36,7 +38,7 @@
 }
 
 .stat-card__value {
-  color: #14211b;
+  color: $text-primary;
   font-size: 1.25rem;
   font-weight: 700;
   line-height: 1.2;
@@ -45,8 +47,55 @@
   white-space: nowrap;
 }
 
+.stat-card--with-tooltip {
+  position: relative;
+
+  &::after {
+    background: $text-primary;
+    border-radius: 6px;
+    color: #fff;
+    content: attr(title);
+    font-size: 0.75rem;
+    font-weight: 500;
+    max-width: 260px;
+    opacity: 0;
+    padding: 8px 12px;
+    pointer-events: none;
+    position: absolute;
+    right: 0;
+    top: calc(100% + 4px);
+    transform: translateY(-4px);
+    transition:
+      opacity 0.15s,
+      transform 0.15s;
+    white-space: normal;
+    z-index: 100;
+  }
+
+  &:hover::after {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.stat-card__tooltip-icon {
+  align-items: center;
+  color: $gray-icon;
+  cursor: help;
+  display: flex;
+  flex-shrink: 0;
+  height: 20px;
+  justify-content: center;
+  margin-left: auto;
+  width: 20px;
+
+  &:hover {
+    color: $text-secondary;
+  }
+}
+
 .stat-card__label {
-  color: #63746a;
+  color: $text-secondary;
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.04em;

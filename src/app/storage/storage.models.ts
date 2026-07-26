@@ -1,4 +1,4 @@
-export const DATABASE_SCHEMA_VERSION = 4;
+export const DATABASE_SCHEMA_VERSION = 6;
 export const DEFAULT_RECORD_ID = 'default';
 
 export type ActivityCategory =
@@ -121,7 +121,13 @@ export interface SettingsRecord {
 
 export interface SyncHistoryRecord {
   id: string;
-  trigger: 'sync_new_activities' | 'sync_missing_routes' | 'clear_and_resync' | 'clear_synced_local_data' | 'backup_local_data' | 'restore_local_data';
+  trigger:
+    | 'sync_new_activities'
+    | 'sync_missing_routes'
+    | 'clear_and_resync'
+    | 'clear_synced_local_data'
+    | 'backup_local_data'
+    | 'restore_local_data';
   startedAt: string;
   completedAt: string;
   status: 'completed' | 'failed' | 'cancelled';
@@ -143,5 +149,50 @@ export interface AccessStateRecord {
   maxVisibleActivities: number | null;
   accessCodeHash?: string;
   unlockedUntil?: string;
+  updatedAt: string;
+}
+
+/**
+ * A place the user saved from the Map Explorer (search result or map click). Stored locally
+ * only; never uploaded. Coordinates are `[latitude, longitude]` in decimal degrees.
+ */
+export interface SavedPlaceRecord {
+  id: string;
+  /** Confirmed or custom user-facing name. */
+  name: string;
+  /** Optional free-text notes the user attached to the place. */
+  notes?: string;
+  /** Original search-provider result name, when the place came from a search. */
+  providerName?: string;
+  latitude: number;
+  longitude: number;
+  /** Secondary location text (city/region/country) shown under the name. */
+  secondaryLabel?: string;
+  /** Stable provider id (e.g. Photon `osm_type`+`osm_id`); used for duplicate detection. */
+  providerId?: string;
+  /** How the place was created: 'search' (search panel) or 'map-context-menu' (right-click). */
+  source?: 'search' | 'map-context-menu';
+  /** ISO 8601 UTC timestamp. */
+  createdAt: string;
+  /** ISO 8601 UTC timestamp. */
+  updatedAt: string;
+}
+
+/**
+ * A user-defined collection of existing activities that together represent a single adventure
+ * (for example, a multi-day hike or bikepacking trip). Stored locally only; never uploaded.
+ * Activities remain unchanged and independent — deleting a Trail never deletes activities.
+ */
+export interface TrailRecord {
+  id: string;
+  /** User-facing name for the trail (e.g. "Tatra Traverse"). */
+  name: string;
+  /** Optional free-text description. */
+  description?: string;
+  /** Ordered list of activity IDs that belong to this trail. Preserved in chronological order. */
+  activityIds: string[];
+  /** ISO 8601 UTC timestamp. */
+  createdAt: string;
+  /** ISO 8601 UTC timestamp. */
   updatedAt: string;
 }

@@ -1,3 +1,6 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+
 .activities-toolbar {
   align-items: center;
   display: flex;
@@ -6,12 +9,38 @@
   margin-bottom: 16px;
 }
 
+// ── Clear filters button ────────────────────────────────────────
+
+.clear-filters-btn {
+  align-items: center;
+  background: transparent;
+  border: 1px solid $border-light;
+  border-radius: 8px;
+  color: $green-medium;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 14px;
+  white-space: nowrap;
+
+  &:hover {
+    background: #d6e8dc;
+    border-color: #b6cdbe;
+  }
+}
+
+// ── Import button ───────────────────────────────────────────────
+
 .import-btn {
   align-items: center;
-  background: #1f6f50;
-  border: 1px solid #1f6f50;
+  background: $green-primary;
+  border: 1px solid $green-primary;
   border-radius: 8px;
-  color: #ffffff;
+  color: $text-on-primary;
   cursor: pointer;
   display: inline-flex;
   font: inherit;
@@ -21,121 +50,71 @@
   height: 36px;
   margin-left: auto;
   padding: 0 14px;
-  transition: background 120ms ease, border-color 120ms ease;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease;
   white-space: nowrap;
+
+  &:hover {
+    background: $green-primary-hover;
+    border-color: $green-primary-hover;
+  }
 }
 
-.import-btn:hover {
-  background: #185940;
-  border-color: #185940;
-}
+// ── Search field ────────────────────────────────────────────────
 
 .search-field {
-  align-items: center;
-  background: #ffffff;
-  border: 1px solid #dce6df;
-  border-radius: 8px;
-  display: flex;
-  flex: 1;
-  min-width: 200px;
-  max-width: 340px;
-  min-height: 44px;
-  padding: 0 12px;
-  position: relative;
+  @include search-field;
 }
 
 .search-field__icon {
-  color: #a0b4a6;
-  flex-shrink: 0;
+  @include search-field__icon;
 }
 
 .search-field__input {
-  border: 0;
-  color: #14211b;
-  font: inherit;
-  font-size: 0.875rem;
-  outline: none;
-  padding: 0 8px;
-  width: 100%;
-}
-
-.search-field__input::placeholder {
-  color: #a0b4a6;
+  @include search-field__input;
 }
 
 .search-field__clear {
-  background: transparent;
-  border: 0;
-  color: #a0b4a6;
-  cursor: pointer;
-  font-size: 1.25rem;
-  font-weight: 700;
-  line-height: 1;
-  min-height: 24px;
-  min-width: 24px;
-  padding: 0;
+  @include search-field__clear;
 }
 
-.search-field__clear:hover {
-  color: #63746a;
-}
+// ── Toolbar select ──────────────────────────────────────────────
 
 .toolbar-select {
-  cursor: pointer;
-  outline: none;
-  position: relative;
-  user-select: none;
+  @include toolbar-select;
 }
 
 .toolbar-select__trigger {
-  align-items: center;
-  background: #ffffff;
-  border: 1px solid #dce6df;
-  border-radius: 8px;
-  color: #14211b;
-  display: inline-flex;
-  font-size: 0.875rem;
-  gap: 8px;
-  min-height: 44px;
-  min-width: 180px;
-  padding: 0 14px;
+  @include toolbar-select__trigger;
 }
 
 .toolbar-select__arrow {
-  color: #a0b4a6;
+  color: $text-muted;
   flex-shrink: 0;
   margin-left: auto;
 }
 
 .toolbar-select__options {
-  background: #ffffff;
-  border: 1px solid #dce6df;
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgb(20 33 27 / 15%);
-  left: 0;
-  list-style: none;
-  margin: 4px 0 0;
-  min-width: 100%;
-  padding: 4px;
-  position: absolute;
-  top: 100%;
-  z-index: 20;
+  @include toolbar-select__options;
+
+  li {
+    align-items: center;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    gap: 6px;
+    padding: 8px 12px;
+    white-space: nowrap;
+
+    &:hover,
+    &.active {
+      background: $bg-green-light;
+    }
+  }
 }
 
-.toolbar-select__options li {
-  align-items: center;
-  border-radius: 6px;
-  cursor: pointer;
-  display: flex;
-  gap: 6px;
-  padding: 8px 12px;
-  white-space: nowrap;
-}
-
-.toolbar-select__options li:hover,
-.toolbar-select__options li.active {
-  background: #eef5f0;
-}
+// ── Sport type filter ───────────────────────────────────────────
 
 .sport-type-filter {
   max-height: 320px;
@@ -144,17 +123,7 @@
 }
 
 .sport-type-group-header {
-  color: #63746a;
-  cursor: default;
-  font-size: 0.6875rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  padding: 8px 12px 4px;
-  text-transform: uppercase;
-}
-
-.sport-type-group-header:hover {
-  background: transparent;
+  @include sport-type-group-header;
 }
 
 .sport-type-option {
@@ -172,29 +141,17 @@
   width: 8px;
 }
 
+// ── Date range picker ───────────────────────────────────────────
+
 .drp-backdrop {
-  background: transparent;
-  left: 0;
-  min-height: 100vh;
-  position: fixed;
-  top: 0;
-  width: 100vw;
-  z-index: 1000;
+  @include drp-backdrop;
 }
+
 .drp-floating {
-  display: flex;
-  justify-content: center;
-  left: 0;
-  padding-top: 80px;
-  pointer-events: none;
-  position: fixed;
-  top: 0;
-  width: 100vw;
-  z-index: 1001;
+  @include drp-floating;
 }
-.drp-floating > * {
-  pointer-events: auto;
-}
+
+// ── Responsive ──────────────────────────────────────────────────
 
 @media (max-width: 640px) {
   .stats-grid {

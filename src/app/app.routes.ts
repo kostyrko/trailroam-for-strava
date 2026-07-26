@@ -12,6 +12,10 @@ export const routes: Routes = [
   },
   {
     path: 'activities',
+    redirectTo: 'logbook',
+  },
+  {
+    path: 'logbook',
     component: ActivitiesPageComponent,
   },
   {

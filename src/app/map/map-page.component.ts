@@ -15,14 +15,37 @@ import { MapLibreMapComponent } from './maplibre-map.component';
 import { LoadingSpinnerComponent } from '../shared/loading-spinner.component';
 import { DateRangePickerComponent } from '../shared/date-range-picker.component';
 import { type MapRouteFeature } from './mock-routes';
-import { FiltersService, CATEGORY_COLORS, isAfterOrEqual, isBeforeOrEqual, type DatePreset } from '../shared/filters.service';
+import {
+  FiltersService,
+  CATEGORY_COLORS,
+  isAfterOrEqual,
+  isBeforeOrEqual,
+  type DatePreset,
+} from '../shared/filters.service';
 import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
 import { MatDialog } from '@angular/material/dialog';
 import { EditActivityDialog } from '../shared/edit-activity-dialog.component';
+import { SavePlaceDialog, type SavePlaceDialogData } from '../shared/save-place-dialog.component';
+import type { SearchSelectedPayload } from './map-search-panel.component';
+import type { GeocodeResult } from './geocoding.service';
 import { RouteRendererService } from './route-renderer.service';
 import { type ActivityCategory } from '../storage/storage.models';
-import { formatSportType, formatCategory, mapSportTypeToCategory } from '../shared/activity-category';
-import { formatDurationHours, formatDistance, formatElevation, computeSpeed, formatSpeed, formatDuration, formatDate, fmtDate } from '../shared/formatters';
+import {
+  formatSportType,
+  formatCategory,
+  mapSportTypeToCategory,
+} from '../shared/activity-category';
+import {
+  formatDurationHours,
+  formatDistance,
+  formatElevation,
+  computeSpeed,
+  formatSpeed,
+  formatDuration,
+  formatDate,
+  formatDateShort,
+  fmtDate,
+} from '../shared/formatters';
 import { ToastService } from '../shared/toast.service';
 import { DataRefreshService } from '../shared/data-refresh.service';
 import { GpxExportService } from '../shared/gpx-export.service';
@@ -33,6 +56,14 @@ import { ActivityDetailPanelComponent } from '../activities/activity-detail-pane
 import { MapActivityPanelComponent } from './map-activity-panel.component';
 import { MapNoticeBannersComponent } from './map-notice-banners.component';
 import { MapFilterOverlayComponent } from './map-filter-overlay.component';
+import { MapPlacesPanelComponent } from './map-places-panel.component';
+import { MapAllPanelComponent } from './map-all-panel.component';
+import { SavedPlacesService } from './saved-places.service';
+import { GeocodingService } from './geocoding.service';
+import { sportTypeEmojiFromString } from '../shared/activity-display';
+import { TrailsService } from '../storage/trails.service';
+import type { SidebarTrailItem } from './map-activity-panel.component';
+import { TrailDetailPanelComponent } from './trail-detail-panel.component';
 import { logger } from '../shared/logger';
 
 const ROUTES_WARN_THRESHOLD = 1_000;
@@ -40,7 +71,19 @@ const POINTS_WARN_THRESHOLD = 1_000_000;
 
 @Component({
   selector: 'app-map-page',
-  imports: [MapLibreMapComponent, LoadingSpinnerComponent, ActivityCardComponent, ActivityDetailPanelComponent, MapActivityPanelComponent, MapNoticeBannersComponent, MapFilterOverlayComponent],
+  imports: [
+    MapLibreMapComponent,
+    LoadingSpinnerComponent,
+    ActivityCardComponent,
+    ActivityDetailPanelComponent,
+    MapActivityPanelComponent,
+    MapNoticeBannersComponent,
+    MapFilterOverlayComponent,
+    MapPlacesPanelComponent,
+    MapAllPanelComponent,
+    TrailDetailPanelComponent,
+    IconComponent,
+  ],
   templateUrl: './map-page.component.html',
   styleUrl: './map-page.component.scss',
 })
@@ -56,6 +99,9 @@ export class MapPage implements AfterViewInit {
   private readonly dialog = inject(MatDialog);
   private readonly dataRefresh = inject(DataRefreshService);
   private readonly destroyRef = inject(DestroyRef);
+  protected readonly savedPlacesService = inject(SavedPlacesService);
+  private readonly geocodingService = inject(GeocodingService);
+  protected readonly trailsService = inject(TrailsService);
 
   protected readonly CATEGORY_COLORS = CATEGORY_COLORS;
 
@@ -68,6 +114,24 @@ export class MapPage implements AfterViewInit {
     this.route.queryParamMap.pipe(map((params) => params.get('activityId'))),
     { initialValue: null },
   );
+  private readonly placeIdParam = toSignal(
+    this.route.queryParamMap.pipe(map((params) => params.get('placeId'))),
+    { initialValue: null },
+  );
+  private readonly fromParam = toSignal(
+    this.route.queryParamMap.pipe(
+      map((params) => {
+        const v = params.get('from');
+        if (v === 'places' || v === 'all') return v;
+        return null;
+      }),
+    ),
+    { initialValue: null },
+  );
+  private readonly trailIdParam = toSignal(
+    this.route.queryParamMap.pipe(map((params) => params.get('trailId'))),
+    { initialValue: null },
+  );
   private readonly basemapErrorParam = toSignal(
     this.route.queryParamMap.pipe(map((params) => params.get('basemapError') === 'true')),
     { initialValue: false },
@@ -77,6 +141,8 @@ export class MapPage implements AfterViewInit {
   private readonly selectedMapRoute = signal<MapRouteFeature | null>(null);
   protected readonly detailPanelOpen = signal(false);
   protected readonly detailPanelExpanded = signal(false);
+  /** True when an activity was opened from within a trail (drill-down overlay mode). */
+  protected readonly trailDrillDownActive = signal(false);
   protected readonly filterMenuOpen = signal(false);
   protected readonly mapFullscreen = signal(false);
   private readonly perfWarningDismissed = signal(false);
@@ -98,8 +164,64 @@ export class MapPage implements AfterViewInit {
 
   protected readonly sportTypeFilter = this.filtersService.sportTypeFilter;
   protected readonly hoveredActivityId = signal<string | null>(null);
+  /** Persisted placeId target from URL params — survives param cleanup so the effect works across map-ready state changes. */
+  protected readonly pendingPlaceId = signal<string | null>(null);
+  private readonly pendingPlaceSource = signal<'places' | 'all' | null>(null);
+  /** When true, the routes-loading spinner is suppressed (used when navigating to focus a place, not routes). */
+  protected readonly placeNavigationActive = signal(false);
+
+  /** Activities | Places | All segmented-control state for the left panel. */
+  protected readonly leftPanelView = signal<'activities' | 'places' | 'all'>('activities');
+  /** Id of the place currently focused on the map (for panel row highlight). */
+  protected readonly selectedPlaceId = signal<string | null>(null);
+  /** Id of the currently selected trail. */
+  protected readonly selectedTrailId = signal<string | null>(null);
+  /** The set of activity IDs that belong to trails (used to filter them from standalone lists). */
+  protected readonly trailedActivityIds = computed<Set<string>>(() => {
+    return this.trailsService.allTrailedActivityIds();
+  });
+  /** Standalone routes (activities NOT in a trail) for the sidebar. */
+  protected readonly standaloneRoutes = computed<MapRouteFeature[]>(() => {
+    const trailed = this.trailedActivityIds();
+    return this.filteredRoutes().filter((r) => !trailed.has(r.activityId));
+  });
+  /** Trail items computed for the sidebar, enriched with member route data. */
+  protected readonly sidebarTrailItems = computed<SidebarTrailItem[]>(() => {
+    const allRoutes = this.allRoutes();
+    const trails = this.trailsService.trails();
+    const result: SidebarTrailItem[] = [];
+    for (const trail of trails) {
+      const memberActivities = allRoutes.filter((r) => trail.activityIds.includes(r.activityId));
+      if (memberActivities.length < 2) continue;
+      const totalDistanceMeters = memberActivities.reduce(
+        (s, r) => s + (r.activity.distanceMeters ?? 0),
+        0,
+      );
+      const totalMovingSeconds = memberActivities.reduce(
+        (s, r) => s + (r.activity.movingTimeSeconds ?? 0),
+        0,
+      );
+      const dates = memberActivities
+        .map((r) => r.activity.startDate)
+        .filter(Boolean)
+        .sort();
+      result.push({
+        trail,
+        memberActivities,
+        totalDistanceMeters,
+        totalMovingSeconds,
+        firstDate: dates[0] ?? '',
+        lastDate: dates[dates.length - 1] ?? '',
+      });
+    }
+    return result;
+  });
+  /** The search result the user just selected (drives the save flow + "Saved" badge). */
+  protected readonly selectedSearchResult = signal<GeocodeResult | null>(null);
   protected readonly panelVisibleOnMap = signal(false);
-  protected readonly panelViewportBounds = signal<[[number, number], [number, number]] | null>(null);
+  protected readonly panelViewportBounds = signal<[[number, number], [number, number]] | null>(
+    null,
+  );
   protected readonly panelExpanded = signal(true);
   protected readonly panelNoTransition = signal(true);
   protected readonly panelReady = signal(false);
@@ -121,7 +243,9 @@ export class MapPage implements AfterViewInit {
     if (preset === 'custom') {
       const routes = this.allRoutes();
       if (routes.length > 0) {
-        const dates = routes.map((r) => new Date(r.activity.startDate).getTime()).filter((t) => !isNaN(t));
+        const dates = routes
+          .map((r) => new Date(r.activity.startDate).getTime())
+          .filter((t) => !isNaN(t));
         if (dates.length > 0) {
           const minDate = new Date(Math.min(...dates));
           const maxDate = new Date(Math.max(...dates));
@@ -166,9 +290,12 @@ export class MapPage implements AfterViewInit {
     if (!dateFrom && !dateTo) return 'all';
     const now = new Date();
     const today = fmtDate(now);
-    const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
-    const sevenAgo = new Date(now); sevenAgo.setDate(sevenAgo.getDate() - 7);
-    const thirtyAgo = new Date(now); thirtyAgo.setDate(thirtyAgo.getDate() - 30);
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const sevenAgo = new Date(now);
+    sevenAgo.setDate(sevenAgo.getDate() - 7);
+    const thirtyAgo = new Date(now);
+    thirtyAgo.setDate(thirtyAgo.getDate() - 30);
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const yearStart = new Date(now.getFullYear(), 0, 1);
 
@@ -185,18 +312,32 @@ export class MapPage implements AfterViewInit {
     this.filtersService.setNameSearch(value);
   }
 
-  protected readonly sportTypeGroups = computed<{ category: ActivityCategory; sportTypes: string[] }[]>(() => {
+  protected readonly sportTypeGroups = computed<
+    { category: ActivityCategory; sportTypes: string[] }[]
+  >(() => {
     const routes = this.allRoutes();
     const seen = new Set<string>();
     const groups = new Map<ActivityCategory, Set<string>>();
     for (const r of routes) {
-      if (seen.has(r.activity.sportType)) { continue; }
+      if (seen.has(r.activity.sportType)) {
+        continue;
+      }
       seen.add(r.activity.sportType);
       const cat = mapSportTypeToCategory(r.activity.sportType);
-      if (!groups.has(cat)) { groups.set(cat, new Set()); }
+      if (!groups.has(cat)) {
+        groups.set(cat, new Set());
+      }
       groups.get(cat)!.add(r.activity.sportType);
     }
-    const order: ActivityCategory[] = ['ride', 'run', 'walk', 'water', 'paddling', 'winter', 'other'];
+    const order: ActivityCategory[] = [
+      'ride',
+      'run',
+      'walk',
+      'water',
+      'paddling',
+      'winter',
+      'other',
+    ];
     return order
       .filter((cat) => groups.has(cat))
       .map((cat) => ({ category: cat, sportTypes: [...groups.get(cat)!].sort() }));
@@ -213,22 +354,33 @@ export class MapPage implements AfterViewInit {
       if (srcFilter.size > 0) {
         const isStrava = r.activity.provider === 'strava';
         const isPlanned = r.activity.activityStatus === 'planned';
-        const matchesSource = (srcFilter.has('strava') && isStrava)
-          || (srcFilter.has('imported') && !isStrava && !isPlanned)
-          || (srcFilter.has('planned') && isPlanned);
+        const matchesSource =
+          (srcFilter.has('strava') && isStrava) ||
+          (srcFilter.has('imported') && !isStrava && !isPlanned) ||
+          (srcFilter.has('planned') && isPlanned);
         if (!matchesSource) return false;
       }
       if (sportFilter) {
         if (sportFilter.startsWith('__cat__')) {
           const cat = sportFilter.slice(7) as ActivityCategory;
-          if (mapSportTypeToCategory(r.activity.sportType) !== cat) { return false; }
+          if (mapSportTypeToCategory(r.activity.sportType) !== cat) {
+            return false;
+          }
         } else {
-          if (r.activity.sportType !== sportFilter) { return false; }
+          if (r.activity.sportType !== sportFilter) {
+            return false;
+          }
         }
       }
-      if (fromDate && r.activity.startDate && !isAfterOrEqual(r.activity.startDate, fromDate)) { return false; }
-      if (toDate && r.activity.startDate && !isBeforeOrEqual(r.activity.startDate, toDate)) { return false; }
-      if (search && !r.activity.name.toLowerCase().includes(search)) { return false; }
+      if (fromDate && r.activity.startDate && !isAfterOrEqual(r.activity.startDate, fromDate)) {
+        return false;
+      }
+      if (toDate && r.activity.startDate && !isBeforeOrEqual(r.activity.startDate, toDate)) {
+        return false;
+      }
+      if (search && !r.activity.name.toLowerCase().includes(search)) {
+        return false;
+      }
       return true;
     });
   });
@@ -246,15 +398,24 @@ export class MapPage implements AfterViewInit {
       totalDistanceMeters += r.activity.distanceMeters ?? 0;
       totalMovingSeconds += r.activity.movingTimeSeconds ?? 0;
       totalPoints += r.coordinates.length;
-      const speed = computeSpeed(r.activity.averageSpeedMetersPerSecond, r.activity.distanceMeters, r.activity.movingTimeSeconds);
-      if (speed !== undefined) { speedSum += speed; speedCount++; }
+      const speed = computeSpeed(
+        r.activity.averageSpeedMetersPerSecond,
+        r.activity.distanceMeters,
+        r.activity.movingTimeSeconds,
+      );
+      if (speed !== undefined) {
+        speedSum += speed;
+        speedCount++;
+      }
     }
     return { totalDistanceMeters, totalMovingSeconds, totalPoints, speedSum, speedCount };
   });
 
   protected readonly statDistance = computed(() => {
     const { totalDistanceMeters } = this.routeStats();
-    if (totalDistanceMeters === 0) { return '0 km'; }
+    if (totalDistanceMeters === 0) {
+      return '0 km';
+    }
     const d = totalDistanceMeters / 1000;
     return d >= 100 ? `${d.toFixed(0)} km` : `${d.toFixed(1)} km`;
   });
@@ -266,7 +427,9 @@ export class MapPage implements AfterViewInit {
 
   protected readonly statAvgSpeed = computed(() => {
     const { speedSum, speedCount } = this.routeStats();
-    if (speedCount === 0) { return '—'; }
+    if (speedCount === 0) {
+      return '—';
+    }
     return `${((speedSum / speedCount) * 3.6).toFixed(1)} km/h`;
   });
 
@@ -275,13 +438,19 @@ export class MapPage implements AfterViewInit {
   protected readonly autoFilterTriggered = signal(false);
 
   protected readonly autoFilterHintBanner = computed<string | null>(() => {
-    if (this.autoFilterHintDismissed()) { return null; }
-    if (!this.autoFilterTriggered()) { return null; }
+    if (this.autoFilterHintDismissed()) {
+      return null;
+    }
+    if (!this.autoFilterTriggered()) {
+      return null;
+    }
     return 'Filtered to "This year" for better performance. You can change the date range in the filter below.';
   });
 
   protected readonly performanceWarning = computed<string | null>(() => {
-    if (this.perfWarningDismissed()) { return null; }
+    if (this.perfWarningDismissed()) {
+      return null;
+    }
     const routes = this.visibleRouteCount();
     const points = this.visiblePointCount();
     if (routes >= ROUTES_WARN_THRESHOLD) {
@@ -293,15 +462,32 @@ export class MapPage implements AfterViewInit {
     return null;
   });
 
-  protected readonly selectedActivityId = computed(() => this.activityIdParam() ?? this.selectedMapRoute()?.activityId ?? null);
-  protected readonly hasBasemapError = computed(() => this.basemapErrorParam() || this.mapBasemapError());
+  protected readonly selectedActivityId = computed(
+    () => this.activityIdParam() ?? this.selectedMapRoute()?.activityId ?? null,
+  );
+  protected readonly hasBasemapError = computed(
+    () => this.basemapErrorParam() || this.mapBasemapError(),
+  );
 
-  protected readonly selectedRouteGeometry = signal<import('../storage/storage.models').RouteGeometryRecord | null>(null);
+  /** Saved places as exposed to templates/markers (newest-first, from the service signal). */
+  protected readonly savedPlaces = computed(() => this.savedPlacesService.places());
+  protected readonly selectedRouteGeometry = signal<
+    import('../storage/storage.models').RouteGeometryRecord | null
+  >(null);
 
-  protected readonly detailPanelRoute = computed<import('../storage/storage.models').ActivityRouteRecord & { coordinates: [number, number][]; elevations?: number[]; cumulativeDistances?: number[] } | null>(() => {
+  protected readonly detailPanelRoute = computed<
+    | (import('../storage/storage.models').ActivityRouteRecord & {
+        coordinates: [number, number][];
+        elevations?: number[];
+        cumulativeDistances?: number[];
+      })
+    | null
+  >(() => {
     const geom = this.selectedRouteGeometry();
     const route = this.selectedRoute()?.route;
-    if (!geom || !route) { return null; }
+    if (!geom || !route) {
+      return null;
+    }
     return {
       activityId: route.activityId,
       providerActivityId: route.providerActivityId,
@@ -357,7 +543,9 @@ export class MapPage implements AfterViewInit {
       return false;
     }
     if (!this.dataLoaded()) return false;
-    return this.allRoutes().length > 0 && !this.allRoutes().some((r) => r.activityId === activityId);
+    return (
+      this.allRoutes().length > 0 && !this.allRoutes().some((r) => r.activityId === activityId)
+    );
   });
 
   protected readonly noRouteActivityName = computed(() => {
@@ -367,8 +555,10 @@ export class MapPage implements AfterViewInit {
   constructor() {
     this.destroyRef.onDestroy(() => this.retryDestroyed.set(true));
     this.loadRoutes().then(() => this.restorePanelState());
+    void this.savedPlacesService.load();
+    void this.trailsService.load();
     globalThis.addEventListener('click', (e) => {
-        const target = e.target as HTMLElement;
+      const target = e.target as HTMLElement;
       if (!target?.closest('.toolbar-select') && !target?.closest('app-date-range-picker')) {
         this.filterMenuOpen.set(false);
         this.datePresetOpen.set(false);
@@ -383,6 +573,7 @@ export class MapPage implements AfterViewInit {
     effect(() => {
       this.dataLoaded();
       this.mapReady();
+      this.leftPanelView();
       const filtered = this.filteredRoutes();
       if (this.dataLoaded() && this.mapReady()) {
         this.tryRenderRoutes('effect');
@@ -406,12 +597,182 @@ export class MapPage implements AfterViewInit {
         this.fetchFullGeometryForRoute(route);
       }
     });
+    // Capture placeId/from from URL into pending signals. Once consumed by the fly-to effect
+    // below, pendingPlaceId is set to null so the URL params are never re-processed on subsequent
+    // signal changes. We intentionally do NOT navigate to clear the URL params here — doing so
+    // from within a constructor effect can race with the component's async initialization and
+    // cause the component to be destroyed/re-created before the fly-to completes.
+    effect(() => {
+      const placeId = this.placeIdParam();
+      const from = this.fromParam();
+      if (placeId) {
+        this.placeNavigationActive.set(true);
+        this.pendingPlaceId.set(placeId);
+        this.pendingPlaceSource.set(from);
+      }
+    });
+    // Drive the fly-to logic from pending signals so it works regardless of URL state
+    effect(() => {
+      const placeId = this.pendingPlaceId();
+      const from = this.pendingPlaceSource();
+      const places = this.savedPlacesService.places();
+      const ready = this.mapReady();
+      if (!placeId) return;
+      const found = places.find((p) => p.id === placeId);
+      if (found && ready) {
+        this.selectedPlaceId.set(found.id);
+        this.leftPanelView.set(from === 'all' ? 'all' : 'places');
+        // focusSavedPlace handles map-not-ready internally with a retry loop.
+        this.mapComponent?.focusSavedPlace(found);
+        // Clear pending so we don't re-fly on every signal change
+        this.pendingPlaceId.set(null);
+        this.pendingPlaceSource.set(null);
+      }
+    });
+    // Auto-select trail from URL param (navigated from Logbook trail row)
+    effect(() => {
+      const trailId = this.trailIdParam();
+      const trails = this.trailsService.trails();
+      const ready = this.mapReady();
+      const loaded = this.dataLoaded();
+      if (!trailId || !ready || !loaded) return;
+      const exists = trails.some((t) => t.id === trailId);
+      if (exists) {
+        this.selectTrail(trailId);
+        // Navigate clean URL after processing
+        this.router.navigate(['/map'], { queryParams: {}, replaceUrl: true });
+      }
+    });
   }
 
   ngAfterViewInit(): void {
     this.mapReady.set(true);
     this.tryRenderRoutes('ngAfterViewInit');
     this.scheduleRenderRetry();
+  }
+
+  protected selectTrail(trailId: string): void {
+    this.selectedTrailId.set(trailId);
+    this.selectedMapRoute.set(null);
+    this.selectedRouteGeometry.set(null);
+    this.detailPanelOpen.set(true);
+    // Fit map to ALL routes in the trail (collective bounds)
+    const trail = this.trailsService.trails().find((t) => t.id === trailId);
+    if (trail) {
+      const trailRoutes = this.allRoutes().filter((r) => trail.activityIds.includes(r.activityId));
+      if (trailRoutes.length > 0) {
+        // Compute collective bounds from all member routes
+        const allCoords = trailRoutes.flatMap((r) => r.coordinates);
+        const trailActivityIds = new Set(trailRoutes.map((r) => r.activityId));
+        // Set emphasis/hide non-trail routes via the renderer's emphasis mechanism.
+        // This stores the state; syncRouteSource applies it when the map source exists.
+        this.routeRendererService.setEmphasis(trailActivityIds, null);
+        // Fit the map to trail bounds. The map may not be fully initialized yet
+        // (MapLibreMapComponent.ngAfterViewInit is async), so retry until the
+        // route renderer has a map reference and the style is loaded.
+        if (allCoords.length > 0) {
+          this.fitToTrailBoundsWithRetry(allCoords);
+        }
+      }
+    }
+  }
+
+  /**
+   * Fits the map to the given coordinates, retrying until the route renderer's
+   * map reference is available and the style is loaded. This handles the race
+   * where selectTrail runs before MapLibreMapComponent's async ngAfterViewInit
+   * has finished creating the map instance.
+   */
+  private fitToTrailBoundsWithRetry(coords: [number, number][], attempt = 0): void {
+    if (attempt >= 100) return; // ~3 seconds max
+    this.routeRendererService.fitToRoute(coords);
+    // fitToRoute is a no-op when the renderer's map ref is null, so retry
+    setTimeout(() => this.fitToTrailBoundsWithRetry(coords, attempt + 1), 30);
+  }
+
+  /** State preserved when user drills from trail panel into an activity. */
+  private readonly trailViewState = signal<{
+    scrollTop: number;
+    selectedActivityId: string | null;
+  } | null>(null);
+
+  /** When an activity was opened from a trail, show "Back to <trail name>". */
+  protected readonly trailBackLabel = computed<string | null>(() => {
+    const state = this.trailViewState();
+    if (!state) return null;
+    const trail = this.trailsService
+      .trails()
+      .find((t) => t.activityIds.includes(state.selectedActivityId ?? ''));
+    return trail?.name ?? null;
+  });
+
+  /** Called when user clicks an itinerary item in the trail panel. */
+  protected onTrailSelectActivity(route: MapRouteFeature): void {
+    // Preserve scroll position of the trail panel
+    const el = document.querySelector('.tdp-body');
+    this.trailViewState.set({
+      scrollTop: el?.scrollTop ?? 0,
+      selectedActivityId: route.activityId,
+    });
+    // Show ONLY this activity's route on the map, hiding all other trail routes
+    this.routeRendererService.setEmphasis(new Set([route.activityId]), route.activityId);
+    // Set drill-down BEFORE onPanelSelectRoute so it knows this is a trail drill-down
+    this.trailDrillDownActive.set(true);
+    // Select the route on the main map
+    this.onPanelSelectRoute(route);
+  }
+
+  /** Called when the user closes the activity overlay opened from a trail. */
+  protected onCloseDrillDown(): void {
+    this.trailDrillDownActive.set(false);
+    this.clearSelectedRoute();
+    // Restore trail emphasis (show all trail routes again) and re-fit the map
+    const trailId = this.selectedTrailId();
+    if (trailId) {
+      const trail = this.trailsService.trails().find((t) => t.id === trailId);
+      if (trail) {
+        const trailActivityIds = new Set(trail.activityIds);
+        this.routeRendererService.setEmphasis(trailActivityIds, null);
+        const trailRoutes = this.allRoutes().filter((r) =>
+          trail.activityIds.includes(r.activityId),
+        );
+        const allCoords = trailRoutes.flatMap((r) => r.coordinates);
+        if (allCoords.length > 0) {
+          this.fitToTrailBoundsWithRetry(allCoords);
+        }
+      }
+    }
+  }
+
+  /** Called when user clicks "Back to Trail" in the activity detail panel. */
+  protected onBackToTrail(): void {
+    const state = this.trailViewState();
+    if (!state) return;
+    // Re-select the trail
+    const trailId = this.trailsService
+      .trails()
+      .find((t) => t.activityIds.includes(state.selectedActivityId ?? ''))?.id;
+    if (trailId) {
+      this.selectTrail(trailId);
+      // Restore scroll position after the panel re-renders
+      setTimeout(() => {
+        const el = document.querySelector('.tdp-body');
+        if (el) el.scrollTop = state.scrollTop;
+      }, 0);
+    }
+    this.trailViewState.set(null);
+    this.trailDrillDownActive.set(false);
+    this.clearSelectedRoute();
+  }
+
+  protected clearSelectedTrail(): void {
+    this.selectedTrailId.set(null);
+    this.routeRendererService.clearEmphasis();
+    this.trailViewState.set(null);
+  }
+
+  protected getSidebarTrail(trailId: string): SidebarTrailItem | undefined {
+    return this.sidebarTrailItems().find((t) => t.trail.id === trailId);
   }
 
   private async loadRoutes(): Promise<void> {
@@ -430,7 +791,8 @@ export class MapPage implements AfterViewInit {
         if (!activity || activity.routeSyncStatus !== 'route_synced') {
           continue;
         }
-        const coords = (routeRecord as any).simplifiedCoordinates ?? (routeRecord as any).coordinates ?? [];
+        const coords =
+          (routeRecord as any).simplifiedCoordinates ?? (routeRecord as any).coordinates ?? [];
         routes.push({
           activityId: routeRecord.activityId,
           activity,
@@ -445,7 +807,11 @@ export class MapPage implements AfterViewInit {
       this.dataLoaded.set(true);
 
       const totalPoints = routes.reduce((sum, r) => sum + (r.route.pointCount ?? 0), 0);
-      if (totalPoints > POINTS_WARN_THRESHOLD / 2 && this.filtersService.datePreset() === 'all' && !this.filtersService.userInteracted) {
+      if (
+        totalPoints > POINTS_WARN_THRESHOLD / 2 &&
+        this.filtersService.datePreset() === 'all' &&
+        !this.filtersService.userInteracted
+      ) {
         this.applyDatePreset('year');
         this.autoFilterHighlight.set(true);
         setTimeout(() => this.autoFilterHighlight.set(false), 6_500);
@@ -465,12 +831,26 @@ export class MapPage implements AfterViewInit {
 
   private tryRenderRoutes(source?: string): void {
     const src = source ?? 'unknown';
-    logger.trace(`tryRenderRoutes from ${src}: dataLoaded=${this.dataLoaded()}, mapReady=${this.mapReady()}, mapComp=${!!this.mapComponent}, filteredRoutes=${this.filteredRoutes().length}`);
-    if (!this.dataLoaded() || !this.mapReady()) { logger.trace(`tryRenderRoutes from ${src}: SKIP (not ready)`); return; }
-    const routes = this.filteredRoutes();
+    logger.trace(
+      `tryRenderRoutes from ${src}: dataLoaded=${this.dataLoaded()}, mapReady=${this.mapReady()}, mapComp=${!!this.mapComponent}, filteredRoutes=${this.filteredRoutes().length}`,
+    );
+    if (!this.dataLoaded() || !this.mapReady()) {
+      logger.trace(`tryRenderRoutes from ${src}: SKIP (not ready)`);
+      return;
+    }
     const mapComp = this.mapComponent;
+    if (!mapComp) {
+      logger.trace(`tryRenderRoutes from ${src}: SKIP (no mapComp)`);
+      return;
+    }
+    // When the Places tab is active, clear route data from the map so only saved-place markers
+    // are visible. Routes re-render automatically when switching to Activities or All.
+    if (this.leftPanelView() === 'places') {
+      this.routeRendererService.clearRoutes();
+      return;
+    }
+    const routes = this.filteredRoutes();
     const selectId = this.selectedActivityId();
-    if (!mapComp) { logger.trace(`tryRenderRoutes from ${src}: SKIP (no mapComp)`); return; }
     mapComp.renderRouteFeatures(routes, selectId ?? undefined);
   }
 
@@ -483,25 +863,37 @@ export class MapPage implements AfterViewInit {
   }
 
   private scheduleRenderRetry(): void {
-    if (this.dataLoaded() && this.mapReady()) { return; }
-    if (this.renderRetryCount >= this.MAX_RENDER_RETRIES) { return; }
+    if (this.dataLoaded() && this.mapReady()) {
+      return;
+    }
+    if (this.renderRetryCount >= this.MAX_RENDER_RETRIES) {
+      return;
+    }
     this.renderRetryCount++;
     setTimeout(() => {
-      if (this.retryDestroyed()) { return; }
+      if (this.retryDestroyed()) {
+        return;
+      }
       if (this.dataLoaded() && this.mapReady()) {
         logger.trace('scheduleRenderRetry: condition met, calling tryRenderRoutes');
         this.tryRenderRoutes('retry');
       } else {
-        logger.trace(`scheduleRenderRetry: retry ${this.renderRetryCount}/${this.MAX_RENDER_RETRIES}, still waiting. dataLoaded=${this.dataLoaded()}, mapReady=${this.mapReady()}`);
+        logger.trace(
+          `scheduleRenderRetry: retry ${this.renderRetryCount}/${this.MAX_RENDER_RETRIES}, still waiting. dataLoaded=${this.dataLoaded()}, mapReady=${this.mapReady()}`,
+        );
         this.scheduleRenderRetry();
       }
     }, 100);
   }
 
-
   protected formatSportType = formatSportType;
   protected formatCategory = formatCategory;
   protected mapSportTypeToCategory = mapSportTypeToCategory;
+  protected readonly formatDurationHours = formatDurationHours;
+  protected readonly formatDate = formatDate;
+  protected readonly formatDateShort = formatDateShort;
+  protected readonly formatDistance = formatDistance;
+  protected readonly sportTypeEmojiFromString = sportTypeEmojiFromString;
 
   protected showBasemapError(): void {
     this.mapBasemapError.set(true);
@@ -545,7 +937,15 @@ export class MapPage implements AfterViewInit {
           const oldElevations = (route.route as any).elevations;
           const oldDistances = (route.route as any).cumulativeDistances;
           if (oldCoords && oldCoords.length > 0) {
-            this.selectedRouteGeometry.set({ activityId: route.fullGeometryId!, providerActivityId: '', coordinates: oldCoords, elevations: oldElevations, cumulativeDistances: oldDistances, syncedAt: '', updatedAt: '' });
+            this.selectedRouteGeometry.set({
+              activityId: route.fullGeometryId!,
+              providerActivityId: '',
+              coordinates: oldCoords,
+              elevations: oldElevations,
+              cumulativeDistances: oldDistances,
+              syncedAt: '',
+              updatedAt: '',
+            });
           } else {
             this.selectedRouteGeometry.set(null);
           }
@@ -600,14 +1000,12 @@ export class MapPage implements AfterViewInit {
     }
   }
 
-
   protected async downloadDetailGpx(route: MapRouteFeature): Promise<void> {
     const result = await this.gpxExportService.exportActivity(route.activity);
     if (!result.success) {
       this.toastService.show(result.reason);
     }
   }
-
 
   protected navigateToMapDetail(route: MapRouteFeature): void {
     this.detailPanelOpen.set(true);
@@ -630,7 +1028,12 @@ export class MapPage implements AfterViewInit {
     });
     const result = await ref.afterClosed().toPromise();
     if (!result) return;
-    if (result.name === a.name && result.sportType === a.sportType && result.activityStatus === (a.activityStatus ?? 'completed')) return;
+    if (
+      result.name === a.name &&
+      result.sportType === a.sportType &&
+      result.activityStatus === (a.activityStatus ?? 'completed')
+    )
+      return;
     await this.repositories.activities.updateMetadata(a.id, {
       name: result.name,
       sportType: result.sportType,
@@ -644,10 +1047,14 @@ export class MapPage implements AfterViewInit {
   }
 
   protected navigateToActivity(activity: import('../storage/storage.models').ActivityRecord): void {
-    this.router.navigate(['/activities'], { queryParams: { focusActivityId: activity.id } });
+    this.toastService.show(`Viewing activities for "${activity.name}"`);
+    this.router.navigate(['/logbook'], { queryParams: { focusActivityId: activity.id } });
   }
 
-  protected openOnStrava(event: MouseEvent, activity: import('../storage/storage.models').ActivityRecord): void {
+  protected openOnStrava(
+    event: MouseEvent,
+    activity: import('../storage/storage.models').ActivityRecord,
+  ): void {
     event.stopPropagation();
     const url = `https://www.strava.com/activities/${activity.providerActivityId}`;
     const c = (globalThis as any).chrome;
@@ -659,6 +1066,12 @@ export class MapPage implements AfterViewInit {
   }
 
   protected onPanelSelectRoute(route: MapRouteFeature): void {
+    // When a sidebar activity is selected while a trail is open (and NOT in drill-down mode),
+    // close the trail panel so only the activity detail is shown standalone.
+    if (this.selectedTrailId() && !this.trailDrillDownActive()) {
+      this.selectedTrailId.set(null);
+      this.trailDrillDownActive.set(false);
+    }
     this.hoveredActivityId.set(null);
     this.selectedRouteGeometry.set(null);
     this.selectedMapRoute.set(route);
@@ -675,6 +1088,197 @@ export class MapPage implements AfterViewInit {
     this.hoveredActivityId.set(route?.activityId ?? null);
   }
 
+  /** Centers the map on a saved place and opens its marker popup. */
+  protected onSelectPlace(place: import('../storage/storage.models').SavedPlaceRecord): void {
+    this.selectedPlaceId.set(place.id);
+    this.mapComponent?.focusSavedPlace(place);
+  }
+
+  /**
+   * Removes a saved place after a destructive confirmation. Triggered from the places-panel
+   * overflow menu and from a saved-marker popup. Preserves the current map position.
+   */
+  protected async onRemovePlace(
+    place: import('../storage/storage.models').SavedPlaceRecord,
+  ): Promise<void> {
+    const confirmed = await this.confirmService.confirm({
+      title: 'Remove saved place?',
+      message: `This will remove "${place.name}" from your saved places.`,
+      confirmLabel: 'Remove',
+      danger: true,
+    });
+    if (!confirmed) {
+      return;
+    }
+    await this.savedPlacesService.remove(place.id);
+    if (this.selectedPlaceId() === place.id) {
+      this.selectedPlaceId.set(null);
+    }
+  }
+
+  /** Persists the new coordinates when a saved-place marker is dragged to a new position. */
+  protected async onMarkerRepositioned(event: {
+    id: string;
+    latitude: number;
+    longitude: number;
+  }): Promise<void> {
+    await this.savedPlacesService.reposition(event.id, event.latitude, event.longitude);
+  }
+
+  /** Stores the selected search result and surfaces whether it is already saved. */
+  protected async onSearchResultSelected(payload: SearchSelectedPayload): Promise<void> {
+    this.selectedSearchResult.set(payload.result);
+    const alreadySaved = await this.savedPlacesService.isAlreadySaved(payload.result);
+    this.mapComponent?.selectedResultSaved.set(alreadySaved);
+  }
+
+  /**
+   * Opens the save-place name dialog for the selected search result and, on confirmation,
+   * persists it. A duplicate (already-saved) result is surfaced as saved instead of re-created.
+   */
+  protected async onSavePlaceRequested(result: GeocodeResult): Promise<void> {
+    const alreadySaved = await this.savedPlacesService.findDuplicate({
+      providerId: result.providerId,
+      latitude: result.center[1],
+      longitude: result.center[0],
+    });
+    if (alreadySaved) {
+      this.mapComponent?.selectedResultSaved.set(true);
+      this.selectedPlaceId.set(alreadySaved.id);
+      this.mapComponent?.focusSavedPlace(alreadySaved);
+      return;
+    }
+
+    const data: SavePlaceDialogData = {
+      mode: 'create',
+      suggestedName: result.providerName ?? result.label,
+      secondaryLabel: result.secondaryLabel,
+    };
+    const ref = this.dialog.open(SavePlaceDialog, { data, disableClose: true });
+    const confirmed = await ref.afterClosed().toPromise();
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      // GeocodeResult.center is [lng, lat].
+      const saved = await this.savedPlacesService.save({
+        name: confirmed.name,
+        notes: confirmed.notes,
+        latitude: result.center[1],
+        longitude: result.center[0],
+        providerName: result.providerName,
+        secondaryLabel: result.secondaryLabel,
+        providerId: result.providerId,
+      });
+      if (saved) {
+        this.selectedPlaceId.set(saved.id);
+        this.mapComponent?.selectedResultSaved.set(true);
+      } else {
+        // A concurrent save produced a duplicate — surface the existing one.
+        this.mapComponent?.selectedResultSaved.set(true);
+      }
+    } catch {
+      this.toastService.show('Could not save place. Please try again.');
+    }
+  }
+
+  /**
+   * Saves a place from the right-click context menu flow. Reverse-geocodes the clicked
+   * coordinates for a default name, shows the save dialog, and persists on confirmation.
+   */
+  protected async onSavePlaceFromContextMenu(event: {
+    longitude: number;
+    latitude: number;
+  }): Promise<void> {
+    const { longitude, latitude } = event;
+    let suggestedName = `Place at ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+    let secondaryLabel: string | undefined;
+
+    // Attempt reverse geocoding for a better default name — non-blocking.
+    try {
+      const reverseResult = await this.geocodingService.reverse(latitude, longitude);
+      if (reverseResult) {
+        suggestedName = reverseResult.providerName ?? reverseResult.label;
+        secondaryLabel = reverseResult.secondaryLabel;
+      }
+    } catch {
+      // Fall through with the coordinate-based name.
+    }
+
+    const data: SavePlaceDialogData = {
+      mode: 'create',
+      suggestedName,
+      secondaryLabel,
+    };
+    const ref = this.dialog.open(SavePlaceDialog, { data, disableClose: true });
+    const confirmed = await ref.afterClosed().toPromise();
+    if (!confirmed) {
+      this.mapComponent?.clearTempMarker();
+      return;
+    }
+
+    try {
+      const saved = await this.savedPlacesService.save({
+        name: confirmed.name,
+        notes: confirmed.notes,
+        latitude,
+        longitude,
+        source: 'map-context-menu',
+      });
+      if (saved) {
+        this.mapComponent?.clearTempMarker();
+        this.selectedPlaceId.set(saved.id);
+        this.toastService.show('Place saved');
+      } else {
+        // Near-duplicate — still allow saving in MVP (§10).
+        const savedAnyways = await this.savedPlacesService.save({
+          name: confirmed.name,
+          notes: confirmed.notes,
+          latitude,
+          longitude,
+          source: 'map-context-menu',
+        });
+        if (savedAnyways) {
+          this.mapComponent?.clearTempMarker();
+          this.selectedPlaceId.set(savedAnyways.id);
+          this.toastService.show('Place saved');
+        }
+      }
+    } catch {
+      this.toastService.show('The place could not be saved. Try again.');
+      // Keep the dialog and temp marker open so the user can retry or cancel.
+    }
+  }
+
+  /**
+   * Opens the edit dialog for an existing saved place and persists the new name/notes. The map
+   * marker popup/secondary label update automatically via the shared `savedPlaces` signal.
+   */
+  protected async onEditPlace(
+    place: import('../storage/storage.models').SavedPlaceRecord,
+  ): Promise<void> {
+    const data: SavePlaceDialogData = {
+      mode: 'edit',
+      suggestedName: place.name,
+      suggestedNotes: place.notes,
+      secondaryLabel: place.secondaryLabel,
+    };
+    const ref = this.dialog.open(SavePlaceDialog, { data, disableClose: true });
+    const confirmed = await ref.afterClosed().toPromise();
+    if (!confirmed) {
+      return;
+    }
+    try {
+      await this.savedPlacesService.update(place.id, {
+        name: confirmed.name,
+        notes: confirmed.notes,
+      });
+    } catch {
+      this.toastService.show('Could not update place. Please try again.');
+    }
+  }
+
   protected onPanelExpandedChange(expanded: boolean): void {
     this.panelExpanded.set(expanded);
     this.persistPanelState(expanded);
@@ -682,8 +1286,13 @@ export class MapPage implements AfterViewInit {
 
   protected async onDownloadPanelGpx(routes: MapRouteFeature[]): Promise<void> {
     const activities = routes.map((r) => r.activity);
-    if (activities.length === 0) { return; }
-    const count = await this.gpxExportService.buildZip(new (await import('jszip')).default(), activities);
+    if (activities.length === 0) {
+      return;
+    }
+    const count = await this.gpxExportService.buildZip(
+      new (await import('jszip')).default(),
+      activities,
+    );
     if (count.exported === 0) {
       this.toastService.show('No GPS routes available for the displayed activities.');
       return;
@@ -695,13 +1304,17 @@ export class MapPage implements AfterViewInit {
         confirmLabel: 'Download',
         danger: false,
       });
-      if (!confirmed) { return; }
+      if (!confirmed) {
+        return;
+      }
     }
     await this.gpxExportService.exportActivitiesAsZip(activities);
   }
 
   private async restorePanelState(): Promise<void> {
-    if (this.panelLoaded) { return; }
+    if (this.panelLoaded) {
+      return;
+    }
     this.panelLoaded = true;
     const settings = await this.repositories.settings.getOrCreateDefault();
     this.panelExpanded.set(settings.mapExplorerPanelExpanded ?? true);
@@ -726,12 +1339,22 @@ export class MapPage implements AfterViewInit {
   }
 
   private scheduleEmphasisUpdate(): void {
-    if (this.emphasisTimeout) { clearTimeout(this.emphasisTimeout); }
+    if (this.emphasisTimeout) {
+      clearTimeout(this.emphasisTimeout);
+    }
     this.emphasisTimeout = setTimeout(() => this.updateEmphasis(), 50);
   }
 
   private updateEmphasis(): void {
-    if (!this.dataLoaded()) { return; }
+    if (!this.dataLoaded()) {
+      return;
+    }
+    // When a trail is selected, preserve trail emphasis — don't let the
+    // filter-based emphasis logic override it. The trail emphasis is set
+    // by selectTrail() and cleared by clearSelectedTrail().
+    if (this.selectedTrailId()) {
+      return;
+    }
     const filtered = this.filteredRoutes();
     const selectedId = this.selectedRoute()?.activityId ?? null;
 

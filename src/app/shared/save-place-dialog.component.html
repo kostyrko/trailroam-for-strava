@@ -1,0 +1,73 @@
+<div class="save-overlay" (click)="dialogRef.close()">
+  <div class="save-dialog" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="save-place-title">
+    <button class="save-close" type="button" (click)="dialogRef.close()" aria-label="Close dialog">
+      <app-icon name="x" [size]="14" strokeWidth="2"></app-icon>
+    </button>
+
+    <div class="save-icon">
+      <app-icon name="map-pin" [size]="20" strokeWidth="2"></app-icon>
+    </div>
+
+    <h2 class="save-title" id="save-place-title">{{ isEdit ? 'Edit place' : 'Save place' }}</h2>
+    @if (data.secondaryLabel) {
+      <p class="save-subtitle">{{ data.secondaryLabel }}</p>
+    } @else {
+      <p class="save-subtitle">{{ isEdit ? 'Update the name or notes for this place' : 'Name this place to find it later' }}</p>
+    }
+
+    <div class="save-field">
+      <label class="save-label" for="save-place-input">Place name</label>
+      <div class="save-input-wrap">
+        <input
+          id="save-place-input"
+          class="save-input"
+          [class.save-input--error]="!!errorMessage()"
+          [(ngModel)]="name"
+          (input)="onInput()"
+          (keydown.enter)="onSave()"
+          (keydown.escape)="dialogRef.close()"
+          [attr.maxlength]="MAX_PLACE_NAME_LENGTH"
+          placeholder="e.g. Kraków main square"
+          #nameInput
+          autocomplete="off"
+        />
+        <span
+          class="save-chars"
+          [class.save-chars--warn]="name.length >= MAX_PLACE_NAME_LENGTH"
+        >{{ name.length }}/{{ MAX_PLACE_NAME_LENGTH }}</span>
+      </div>
+      @if (errorMessage(); as msg) {
+        <p class="save-error" role="alert">{{ msg }}</p>
+      }
+    </div>
+
+    <div class="save-field">
+      <label class="save-label" for="save-place-notes">Notes</label>
+      <div class="save-textarea-wrap">
+        <textarea
+          id="save-place-notes"
+          class="save-textarea"
+          [(ngModel)]="notes"
+          (input)="onInput()"
+          (keydown.escape)="dialogRef.close()"
+          [attr.maxlength]="MAX_PLACE_NOTES_LENGTH"
+          placeholder="Optional notes (e.g. meeting point, terrain, access)"
+          rows="3"
+          aria-label="Place notes"
+        ></textarea>
+        <span
+          class="save-chars save-chars--textarea"
+          [class.save-chars--warn]="notes.length >= MAX_PLACE_NOTES_LENGTH"
+        >{{ notes.length }}/{{ MAX_PLACE_NOTES_LENGTH }}</span>
+      </div>
+    </div>
+
+    <div class="save-actions">
+      <button class="save-btn save-btn--secondary" type="button" (click)="dialogRef.close()">Cancel</button>
+      <button class="save-btn save-btn--primary" type="button" [disabled]="!canSave()" (click)="onSave()">
+        <app-icon name="check-circle" [size]="14" strokeWidth="2"></app-icon>
+        {{ isEdit ? 'Save changes' : 'Save' }}
+      </button>
+    </div>
+  </div>
+</div>

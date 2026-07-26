@@ -13,7 +13,14 @@ body {
 
 body {
   background: #f7faf8;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
 }
 
 .route-page {
@@ -88,7 +95,9 @@ p {
 .map-container .maplibregl-ctrl-top-left {
   margin: 12px 0 0 10px;
   top: 60px !important;
-  transition: margin 200ms ease, top 200ms ease;
+  transition:
+    margin 200ms ease,
+    top 200ms ease;
 }
 
 .map-container .maplibregl-ctrl-top-right {
@@ -352,6 +361,37 @@ p {
   background: #15503b;
 }
 
+.map-search-btn {
+  align-items: center;
+  background: #ffffff;
+  border: 2px solid #1f6f50;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgb(20 33 27 / 18%);
+  color: #1f6f50;
+  cursor: pointer;
+  display: flex;
+  height: 30px;
+  justify-content: center;
+  margin-top: 8px;
+  padding: 0;
+  position: relative;
+  width: 48px;
+}
+
+.map-search-btn:hover,
+.map-search-btn.active {
+  background: #e6f7ef;
+  border-color: #15503b;
+  color: #15503b;
+}
+
+.map-search-popover {
+  position: absolute;
+  right: calc(100% + 8px);
+  top: 0;
+  z-index: 20;
+}
+
 .heatmap-legend {
   align-items: center;
   background: rgba(255, 255, 255, 0.92);
@@ -565,7 +605,14 @@ p {
 }
 
 .trailroam-confirm-dialog .mat-mdc-dialog-surface {
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
 }
 
 .history-header {
@@ -719,4 +766,19 @@ p {
 .route-page--empty .pagination,
 .route-page--empty .page-size-control {
   display: none;
+}
+
+/* Saved-place card popup — override MapLibre's default popup-content styles so the card
+   component controls its own background, padding, border-radius, and shadow.
+   The flex centering ensures the popup tip (arrow) stays aligned to the card center even
+   when the card is narrower than the min-width of its host wrapper. */
+.maplibregl-popup-content:has(.saved-place-card) {
+  align-items: center !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+  max-width: none !important;
+  padding: 0 !important;
 }

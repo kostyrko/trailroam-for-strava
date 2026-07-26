@@ -8,6 +8,7 @@ import {
   ActivityRouteRecord,
   DATABASE_SCHEMA_VERSION,
   DEFAULT_RECORD_ID,
+  SavedPlaceRecord,
   SettingsRecord,
   SyncStateRecord,
 } from './storage.models';
@@ -34,9 +35,11 @@ describe('TrailroamDatabase', () => {
       'activities',
       'activity_routes',
       'route_geometry',
+      'saved_places',
       'settings',
       'sync_history',
       'sync_state',
+      'trails',
     ]);
   });
 
@@ -195,7 +198,10 @@ describe('TrailroamDatabase', () => {
 
       await repositories.activities.upsert(activity);
 
-      const updatedActivity = createActivity({ name: 'Updated Name', routeSyncStatus: 'not_attempted' });
+      const updatedActivity = createActivity({
+        name: 'Updated Name',
+        routeSyncStatus: 'not_attempted',
+      });
       const result = await repositories.activities.upsert(updatedActivity);
 
       expect(result.activity.name).toBe('Updated Name');
@@ -245,8 +251,12 @@ describe('TrailroamDatabase', () => {
     it('should upsert multiple distinct activities without conflict', async () => {
       const repositories = createRepositories(db);
 
-      const result1 = await repositories.activities.upsert(createActivity({ id: 'strava:1', providerActivityId: '1' }));
-      const result2 = await repositories.activities.upsert(createActivity({ id: 'strava:2', providerActivityId: '2' }));
+      const result1 = await repositories.activities.upsert(
+        createActivity({ id: 'strava:1', providerActivityId: '1' }),
+      );
+      const result2 = await repositories.activities.upsert(
+        createActivity({ id: 'strava:2', providerActivityId: '2' }),
+      );
 
       expect(result1.inserted).toBe(true);
       expect(result2.inserted).toBe(true);
@@ -296,7 +306,14 @@ describe('TrailroamDatabase', () => {
 
       await repositories.activityRoutes.upsert(route);
 
-      const updatedRoute = createRoute({ simplifiedCoordinates: [[19.95, 50.07], [19.96, 50.08]], simplifiedPointCount: 2, pointCount: 2 });
+      const updatedRoute = createRoute({
+        simplifiedCoordinates: [
+          [19.95, 50.07],
+          [19.96, 50.08],
+        ],
+        simplifiedPointCount: 2,
+        pointCount: 2,
+      });
       const result = await repositories.activityRoutes.upsert(updatedRoute);
 
       expect(result.route.syncedAt).toBe(route.syncedAt);
@@ -310,7 +327,11 @@ describe('TrailroamDatabase', () => {
 
       await new Promise((resolve) => setTimeout(resolve, 10));
 
-      const updatedRoute = createRoute({ simplifiedCoordinates: [[19.95, 50.07]], simplifiedPointCount: 1, pointCount: 1 });
+      const updatedRoute = createRoute({
+        simplifiedCoordinates: [[19.95, 50.07]],
+        simplifiedPointCount: 1,
+        pointCount: 1,
+      });
       const result = await repositories.activityRoutes.upsert(updatedRoute);
 
       expect(new Date(result.route.updatedAt).getTime()).toBeGreaterThan(
@@ -322,8 +343,20 @@ describe('TrailroamDatabase', () => {
       const repositories = createRepositories(db);
 
       await repositories.activityRoutes.upsert(createRoute());
-      await repositories.activityRoutes.upsert(createRoute({ simplifiedCoordinates: [[19.95, 50.07]], simplifiedPointCount: 1, pointCount: 1 }));
-      await repositories.activityRoutes.upsert(createRoute({ simplifiedCoordinates: [[19.96, 50.08]], simplifiedPointCount: 1, pointCount: 1 }));
+      await repositories.activityRoutes.upsert(
+        createRoute({
+          simplifiedCoordinates: [[19.95, 50.07]],
+          simplifiedPointCount: 1,
+          pointCount: 1,
+        }),
+      );
+      await repositories.activityRoutes.upsert(
+        createRoute({
+          simplifiedCoordinates: [[19.96, 50.08]],
+          simplifiedPointCount: 1,
+          pointCount: 1,
+        }),
+      );
 
       const all = await repositories.activityRoutes.list();
       expect(all).toHaveLength(1);
@@ -399,5 +432,350 @@ describe('TrailroamDatabase', () => {
     await expect(
       createRepositories(db).settings.getOrCreateDefault(new Date('2026-05-26T11:00:00.000Z')),
     ).resolves.toEqual(settings);
+  });
+
+  describe('saved places repository', () => {
+    it('lists saved places newest-first and supports get/put/delete', async () => {
+      const repositories = createRepositories(db);
+      const base = {
+        name: 'Kraków',
+        latitude: 50.0614,
+        longitude: 19.9372,
+      };
+      const older: SavedPlaceRecord = {
+        ...base,
+        id: 'place:older',
+        createdAt: '2026-05-01T00:00:00.000Z',
+        updatedAt: '2026-05-01T00:00:00.000Z',
+      };
+      const newer: SavedPlaceRecord = {
+        ...base,
+        id: 'place:newer',
+        name: 'Zakopane',
+        latitude: 49.2992,
+        longitude: 19.9496,
+        createdAt: '2026-06-01T00:00:00.000Z',
+        updatedAt: '2026-06-01T00:00:00.000Z',
+      };
+      await repositories.savedPlaces.put(older);
+      await repositories.savedPlaces.put(newer);
+
+      const list = await repositories.savedPlaces.list();
+      expect(list.map((p) => p.id)).toEqual(['place:newer', 'place:older']);
+
+      expect((await repositories.savedPlaces.get('place:newer'))?.name).toBe('Zakopane');
+
+      await repositories.savedPlaces.delete('place:older');
+      expect(await repositories.savedPlaces.list()).toHaveLength(1);
+      expect(await repositories.savedPlaces.count()).toBe(1);
+    });
+
+    it('finds a duplicate by providerId and by 10m proximity', async () => {
+      const repositories = createRepositories(db);
+      const existing: SavedPlaceRecord = {
+        id: 'place:1',
+        name: 'Kraków',
+        latitude: 50.0614,
+        longitude: 19.9372,
+        providerId: 'R123456',
+        createdAt: '2026-05-01T00:00:00.000Z',
+        updatedAt: '2026-05-01T00:00:00.000Z',
+      };
+      await repositories.savedPlaces.put(existing);
+
+      expect(await repositories.savedPlaces.findByProviderId('R123456')).toBeDefined();
+      expect(await repositories.savedPlaces.findByProviderId('N999')).toBeUndefined();
+
+      // ~5m away — within the 10m duplicate radius.
+      const nearby = await repositories.savedPlaces.findWithinRadiusMeters(50.06143, 19.93723);
+      expect(nearby?.id).toBe('place:1');
+      // ~1km away — not a duplicate.
+      expect(await repositories.savedPlaces.findWithinRadiusMeters(50.07, 19.94)).toBeUndefined();
+    });
+
+    it('updateCoordinates persists new coordinates and updates updatedAt', async () => {
+      const repositories = createRepositories(db);
+      const now = '2026-05-01T00:00:00.000Z';
+      const place: SavedPlaceRecord = {
+        id: 'place:1',
+        name: 'Kraków',
+        latitude: 50.0614,
+        longitude: 19.9372,
+        createdAt: now,
+        updatedAt: now,
+      };
+      await repositories.savedPlaces.put(place);
+
+      const updated = await repositories.savedPlaces.updateCoordinates('place:1', 50.062, 19.938);
+
+      expect(updated).toBeDefined();
+      expect(updated?.latitude).toBe(50.062);
+      expect(updated?.longitude).toBe(19.938);
+      expect(updated?.updatedAt).not.toBe(now);
+      expect(updated?.name).toBe('Kraków');
+      expect(updated?.createdAt).toBe(now);
+
+      // Verify persistence.
+      const reloaded = await repositories.savedPlaces.get('place:1');
+      expect(reloaded?.latitude).toBe(50.062);
+      expect(reloaded?.longitude).toBe(19.938);
+    });
+
+    it('updateCoordinates returns undefined for a non-existent place', async () => {
+      const repositories = createRepositories(db);
+      const result = await repositories.savedPlaces.updateCoordinates('place:missing', 50.0, 19.0);
+      expect(result).toBeUndefined();
+    });
+  });
+
+  describe('trails repository', () => {
+    it('lists trails newest-first, supports get/put/delete/count', async () => {
+      const repositories = createRepositories(db);
+      const base = {
+        name: 'Test Trail',
+        activityIds: ['strava:1', 'strava:2'],
+      };
+      const older = {
+        ...base,
+        id: 'trail:older',
+        createdAt: '2026-05-01T00:00:00.000Z',
+        updatedAt: '2026-05-01T00:00:00.000Z',
+      };
+      const newer = {
+        ...base,
+        id: 'trail:newer',
+        name: 'Newer Trail',
+        createdAt: '2026-06-01T00:00:00.000Z',
+        updatedAt: '2026-06-01T00:00:00.000Z',
+      };
+      await repositories.trails.put(older);
+      await repositories.trails.put(newer);
+
+      // list() returns newest-first (createdAt desc).
+      const list = await repositories.trails.list();
+      expect(list.map((t) => t.id)).toEqual(['trail:newer', 'trail:older']);
+
+      // get() works.
+      expect((await repositories.trails.get('trail:newer'))?.name).toBe('Newer Trail');
+
+      // delete() removes the record.
+      await repositories.trails.delete('trail:older');
+      expect(await repositories.trails.list()).toHaveLength(1);
+      expect(await repositories.trails.count()).toBe(1);
+    });
+
+    it('updateName renames and bumps updatedAt', async () => {
+      const repositories = createRepositories(db);
+      const now = '2026-06-01T00:00:00.000Z';
+      await repositories.trails.put({
+        id: 'trail:1',
+        name: 'Original',
+        activityIds: ['strava:1'],
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      const updated = await repositories.trails.updateName('trail:1', 'Renamed');
+      expect(updated?.name).toBe('Renamed');
+      expect(updated?.updatedAt).not.toBe(now);
+      expect(updated?.activityIds).toEqual(['strava:1']); // other fields preserved
+
+      // Persisted.
+      const reloaded = await repositories.trails.get('trail:1');
+      expect(reloaded?.name).toBe('Renamed');
+    });
+
+    it('updateName returns undefined for non-existent trail', async () => {
+      const result = await createRepositories(db).trails.updateName('trail:ghost', 'Nope');
+      expect(result).toBeUndefined();
+    });
+
+    it('updateActivityIds replaces ids and preserves other fields', async () => {
+      const repositories = createRepositories(db);
+      const now = '2026-06-01T00:00:00.000Z';
+      await repositories.trails.put({
+        id: 'trail:1',
+        name: 'Test',
+        activityIds: ['strava:1', 'strava:2'],
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      const updated = await repositories.trails.updateActivityIds('trail:1', [
+        'strava:3',
+        'strava:4',
+      ]);
+      expect(updated?.activityIds).toEqual(['strava:3', 'strava:4']);
+      expect(updated?.name).toBe('Test'); // name preserved
+      expect(updated?.updatedAt).not.toBe(now);
+
+      // Persisted.
+      const reloaded = await repositories.trails.get('trail:1');
+      expect(reloaded?.activityIds).toEqual(['strava:3', 'strava:4']);
+      expect(reloaded?.name).toBe('Test');
+    });
+
+    it('updateActivityIds returns undefined for non-existent trail', async () => {
+      const result = await createRepositories(db).trails.updateActivityIds('trail:ghost', []);
+      expect(result).toBeUndefined();
+    });
+
+    it('findByActivityId finds the trail containing an activity', async () => {
+      const repositories = createRepositories(db);
+      const now = '2026-06-01T00:00:00.000Z';
+      await repositories.trails.put({
+        id: 'trail:a',
+        name: 'Trail A',
+        activityIds: ['strava:1', 'strava:2'],
+        createdAt: now,
+        updatedAt: now,
+      });
+      await repositories.trails.put({
+        id: 'trail:b',
+        name: 'Trail B',
+        activityIds: ['strava:3', 'strava:4'],
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      expect((await repositories.trails.findByActivityId('strava:2'))?.id).toBe('trail:a');
+      expect((await repositories.trails.findByActivityId('strava:4'))?.id).toBe('trail:b');
+      expect(await repositories.trails.findByActivityId('strava:999')).toBeUndefined();
+    });
+  });
+
+  describe('schema upgrades', () => {
+    it('upgrades an existing v3 database to the current version with saved_places and prior data intact', async () => {
+      const databaseName = `trailroam_upgrade_${Date.now()}_${Math.random()}`;
+
+      // Seed a database at v3 (no route_geometry, no saved_places) with an activity.
+      const legacy = new Dexie(databaseName);
+      legacy.version(3).stores({
+        activities:
+          'id, providerActivityId, startDate, sportType, activityCategory, hasRoute, routeSyncStatus',
+        activity_routes:
+          'activityId, providerActivityId, syncedAt, pointCount, simplifiedPointCount',
+        sync_state: 'id, status, lastSuccessfulSyncAt',
+        settings: 'id, mapProvider, updatedAt',
+        access_state: 'id, status, updatedAt',
+        sync_history: 'id, trigger, completedAt',
+      });
+      await legacy.open();
+      const now = '2026-07-01T00:00:00.000Z';
+      await legacy.table('activities').put({
+        id: 'strava:1',
+        provider: 'strava',
+        providerActivityId: '1',
+        name: 'Legacy Ride',
+        sportType: 'Ride',
+        activityCategory: 'ride',
+        startDate: now,
+        hasRoute: true,
+        routeSyncStatus: 'route_synced',
+        importedAt: now,
+        updatedAt: now,
+      });
+      legacy.close();
+
+      // Reopen with the current schema; Dexie must run the v4 + v5 + v6 upgrade steps.
+      const upgraded = new TrailroamDatabase(databaseName);
+      await upgraded.open();
+      expect(upgraded.verno).toBe(DATABASE_SCHEMA_VERSION);
+      expect(upgraded.tables.map((t) => t.name).sort()).toContain('saved_places');
+      expect(upgraded.tables.map((t) => t.name).sort()).toContain('route_geometry');
+      expect(upgraded.tables.map((t) => t.name).sort()).toContain('trails');
+
+      // Prior data survives the upgrade.
+      const surviving = await createRepositories(upgraded).activities.get('strava:1');
+      expect(surviving?.name).toBe('Legacy Ride');
+
+      // The new saved_places store is writable.
+      const place: SavedPlaceRecord = {
+        id: 'place:1',
+        name: 'Kraków',
+        latitude: 50.0614,
+        longitude: 19.9372,
+        createdAt: now,
+        updatedAt: now,
+      };
+      await createRepositories(upgraded).savedPlaces.put(place);
+      expect(await createRepositories(upgraded).savedPlaces.list()).toHaveLength(1);
+
+      upgraded.close();
+      await upgraded.delete();
+    });
+
+    it('upgrades an existing v5 database to the current version with trails store created and prior data intact', async () => {
+      const databaseName = `trailroam_upgrade_v5_${Date.now()}_${Math.random()}`;
+
+      // Seed a database at v5 (saved_places exists, trails does not).
+      const legacy = new Dexie(databaseName);
+      legacy.version(5).stores({
+        activities:
+          'id, providerActivityId, startDate, sportType, activityCategory, hasRoute, routeSyncStatus',
+        activity_routes:
+          'activityId, providerActivityId, syncedAt, pointCount, simplifiedPointCount',
+        route_geometry: 'activityId, providerActivityId, syncedAt',
+        sync_state: 'id, status, lastSuccessfulSyncAt',
+        settings: 'id, mapProvider, updatedAt',
+        access_state: 'id, status, updatedAt',
+        sync_history: 'id, trigger, completedAt',
+        saved_places: 'id, providerId, createdAt',
+      });
+      await legacy.open();
+      const now = '2026-07-01T00:00:00.000Z';
+      await legacy.table('activities').put({
+        id: 'strava:1',
+        provider: 'strava',
+        providerActivityId: '1',
+        name: 'Existing Activity',
+        sportType: 'Ride',
+        activityCategory: 'ride',
+        startDate: now,
+        hasRoute: true,
+        routeSyncStatus: 'route_synced',
+        importedAt: now,
+        updatedAt: now,
+      });
+      await legacy.table('saved_places').put({
+        id: 'place:1',
+        name: 'Warsaw',
+        latitude: 52.2297,
+        longitude: 21.0122,
+        createdAt: now,
+        updatedAt: now,
+      });
+      legacy.close();
+
+      // Reopen with the current schema; Dexie must run the v5→v6 upgrade step.
+      const upgraded = new TrailroamDatabase(databaseName);
+      await upgraded.open();
+      expect(upgraded.verno).toBe(DATABASE_SCHEMA_VERSION);
+
+      const tableNames = upgraded.tables.map((t) => t.name).sort();
+      expect(tableNames).toContain('trails');
+      expect(tableNames).toContain('saved_places');
+
+      // Prior data survives the upgrade.
+      const activity = await createRepositories(upgraded).activities.get('strava:1');
+      expect(activity?.name).toBe('Existing Activity');
+
+      const place = await createRepositories(upgraded).savedPlaces.get('place:1');
+      expect(place?.name).toBe('Warsaw');
+
+      // The new trails store is writable.
+      const trailRec = {
+        id: 'trail:test-1',
+        name: 'Test Trail',
+        activityIds: ['strava:1'],
+        createdAt: now,
+        updatedAt: now,
+      };
+      await createRepositories(upgraded).trails.put(trailRec);
+      expect(await createRepositories(upgraded).trails.count()).toBe(1);
+
+      upgraded.close();
+      await upgraded.delete();
+    });
   });
 });

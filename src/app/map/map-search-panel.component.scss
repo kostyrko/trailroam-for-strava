@@ -1,0 +1,236 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+
+:host {
+  display: block;
+  pointer-events: auto;
+  width: min(340px, calc(100vw - 80px));
+}
+
+.map-search {
+  background: $bg-white;
+  border: 1px solid $border-primary;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px $shadow-xl;
+  color: $text-primary;
+  display: flex;
+  flex-direction: column;
+  font-size: 0.875rem;
+  padding: 10px 12px;
+}
+
+.map-search__box {
+  align-items: center;
+  background: $bg-search-box;
+  border: 1px solid $border-primary;
+  border-radius: 8px;
+  color: $text-secondary;
+  display: flex;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 12px;
+}
+
+.map-search__input {
+  background: transparent;
+  border: 0;
+  color: $text-primary;
+  flex: 1;
+  font-size: 0.875rem;
+  min-width: 0;
+  outline: none;
+
+  &::placeholder {
+    color: $text-muted;
+  }
+}
+
+.map-search__spinner {
+  @include spinner(14px, 2px, $border-primary, $green-primary);
+  flex-shrink: 0;
+}
+
+.map-search__hint {
+  color: $text-muted;
+  font-size: 0.75rem;
+  margin: 6px 4px 0;
+}
+
+.map-search__error {
+  background: $danger-bg-light;
+  border: 1px solid #f5c2c2;
+  border-radius: 6px;
+  color: #b42318;
+  font-size: 0.75rem;
+  margin: 8px 0 0;
+  padding: 6px 10px;
+}
+
+.map-search__suggestions {
+  background: $bg-white;
+  border: 1px solid $border-primary;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px $shadow-xl;
+  list-style: none;
+  margin: 6px 0 0;
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.map-search__suggestion {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: $text-primary;
+  cursor: pointer;
+  display: flex;
+  font-size: 0.875rem;
+  gap: 6px;
+  padding: 8px 10px;
+  text-align: left;
+  width: 100%;
+
+  &:hover,
+  &:focus-visible {
+    background: $bg-green-light;
+  }
+}
+
+.map-search__suggestion-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.map-search__recent {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 10px;
+}
+
+.map-search__recent-title {
+  color: $text-secondary;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  margin: 0 4px 4px;
+  text-transform: uppercase;
+}
+
+.map-search__recent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.map-search__recent-item {
+  align-items: center;
+  border-radius: 6px;
+  display: flex;
+  gap: 4px;
+
+  &:hover {
+    background: $bg-green-light;
+  }
+}
+
+.map-search__recent-button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: $text-primary;
+  cursor: pointer;
+  display: flex;
+  flex: 1;
+  font-size: 0.8125rem;
+  gap: 8px;
+  min-height: 40px;
+  min-width: 0;
+  padding: 0 4px 0 6px;
+  text-align: left;
+}
+
+.map-search__recent-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.map-search__remove {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: $text-muted;
+  cursor: pointer;
+  display: inline-flex;
+  flex-shrink: 0;
+  height: 28px;
+  justify-content: center;
+  width: 28px;
+
+  &:hover {
+    background: #f5d9d9;
+    color: #b42318;
+  }
+}
+
+.map-search__selected {
+  align-items: center;
+  background: $bg-green-subtle;
+  border: 1px solid $border-primary;
+  border-radius: 8px;
+  color: $green-primary;
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 8px 10px;
+}
+
+.map-search__selected-label {
+  color: $text-primary;
+  flex: 1;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.map-search__save-btn {
+  align-items: center;
+  background: $green-primary;
+  border: 0;
+  border-radius: 6px;
+  color: $text-on-primary;
+  cursor: pointer;
+  display: inline-flex;
+  flex-shrink: 0;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  gap: 4px;
+  padding: 6px 10px;
+
+  &:hover {
+    background: $green-bright-hover;
+  }
+
+  @include focus-green;
+}
+
+.map-search__saved-badge {
+  align-items: center;
+  color: $green-primary;
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  gap: 4px;
+}

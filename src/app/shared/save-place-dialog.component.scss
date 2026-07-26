@@ -1,0 +1,202 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+
+.save-overlay {
+  @include dialog-overlay;
+}
+
+.save-dialog {
+  background: $bg-white;
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgb(20 33 27 / 14%);
+  box-sizing: border-box;
+  max-width: 370px;
+  padding: 28px;
+  position: relative;
+  width: 100%;
+  @include dialog-enter(save-in);
+}
+
+.save-close {
+  @include dialog-close-btn;
+}
+
+.save-icon {
+  align-items: center;
+  background: $bg-green-lighter;
+  border-radius: 50%;
+  color: $green-primary;
+  display: flex;
+  height: 44px;
+  justify-content: center;
+  margin: 0 auto 14px;
+  width: 44px;
+}
+
+.save-title {
+  color: $text-primary;
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 0;
+  text-align: center;
+}
+
+.save-subtitle {
+  color: $text-secondary;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  margin: 3px 0 0;
+  text-align: center;
+}
+
+.save-field {
+  margin-top: 18px;
+}
+
+.save-label {
+  color: $green-medium;
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.save-input-wrap {
+  position: relative;
+}
+
+.save-input {
+  border: 1px solid $border-primary;
+  border-radius: 10px;
+  box-sizing: border-box;
+  color: $text-primary;
+  font: inherit;
+  font-size: 0.875rem;
+  height: 42px;
+  line-height: 1.4;
+  padding: 0 60px 0 12px;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+  width: 100%;
+}
+
+.save-input::placeholder {
+  color: $text-muted;
+}
+
+.save-input:focus {
+  border-color: $green-primary;
+  box-shadow: 0 0 0 3px $focus-input-ring;
+  outline: 0;
+}
+
+.save-input--error {
+  border-color: $text-danger;
+}
+
+.save-input--error:focus {
+  border-color: $text-danger;
+  box-shadow: 0 0 0 3px $focus-error-ring;
+}
+
+.save-chars {
+  color: $text-muted-lighter;
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  pointer-events: none;
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.save-chars--warn {
+  color: $text-danger;
+}
+
+.save-textarea-wrap {
+  position: relative;
+}
+
+.save-textarea {
+  border: 1px solid $border-primary;
+  border-radius: 10px;
+  box-sizing: border-box;
+  color: $text-primary;
+  font: inherit;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  min-height: 72px;
+  padding: 10px 60px 10px 12px;
+  resize: vertical;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+  width: 100%;
+}
+
+.save-textarea::placeholder {
+  color: $text-muted;
+}
+
+.save-textarea:focus {
+  border-color: $green-primary;
+  box-shadow: 0 0 0 3px $focus-input-ring;
+  outline: 0;
+}
+
+.save-chars--textarea {
+  bottom: 8px;
+  pointer-events: none;
+  position: absolute;
+  right: 10px;
+  top: auto;
+  transform: none;
+}
+
+.save-error {
+  color: $text-danger;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  margin: 5px 0 0;
+}
+
+.save-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 22px;
+}
+
+.save-btn {
+  align-items: center;
+  border-radius: 10px;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  gap: 6px;
+  height: 40px;
+  justify-content: center;
+  line-height: 1;
+  padding: 0 18px;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease;
+}
+
+.save-btn:focus-visible {
+  box-shadow: 0 0 0 2px $focus-green;
+  outline: 0;
+}
+
+.save-btn--secondary {
+  @include btn-dialog-secondary;
+}
+
+.save-btn--primary {
+  @include btn-dialog-primary;
+}

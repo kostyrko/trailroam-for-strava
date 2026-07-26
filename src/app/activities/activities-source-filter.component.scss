@@ -1,3 +1,5 @@
+@use 'variables' as *;
+
 .source-filter-collapsible-header {
   align-items: center;
   cursor: pointer;
@@ -6,16 +8,16 @@
   margin-top: 10px;
   margin-bottom: 10px;
   user-select: none;
-}
 
-.source-filter-collapsible-header:focus-visible {
-  outline: 2px solid #1f6f50;
-  outline-offset: 2px;
-  border-radius: 4px;
+  &:focus-visible {
+    outline: 2px solid $green-primary;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
 }
 
 .source-filter-toggle {
-  color: #63746a;
+  color: $text-secondary;
   font-size: 0.65rem;
   flex-shrink: 0;
 }
@@ -23,7 +25,9 @@
 .source-filter-collapsible-body {
   max-height: 0;
   overflow: hidden;
-  transition: max-height 200ms ease, opacity 200ms ease;
+  transition:
+    max-height 200ms ease,
+    opacity 200ms ease;
   opacity: 0;
 }
 
@@ -41,7 +45,7 @@
 }
 
 .source-filter-label {
-  color: #63746a;
+  color: $text-secondary;
   font-size: 0.75rem;
   font-weight: 600;
   margin-right: 4px;
@@ -49,8 +53,8 @@
 
 .source-filter-chip {
   align-items: center;
-  background: #f4f9f6;
-  border: 1px solid #cbd8d0;
+  background: $bg-green-subtle;
+  border: 1px solid $border-light;
   border-radius: 8px;
   cursor: pointer;
   display: inline-flex;
@@ -59,26 +63,28 @@
   gap: 4px;
   height: 30px;
   padding: 0 12px;
-  transition: background 120ms ease, border-color 120ms ease;
-}
+  transition:
+    background 120ms ease,
+    border-color 120ms ease;
 
-.source-filter-chip:hover {
-  background: #dce6df;
-  border-color: #b6cdbe;
+  &:hover {
+    background: $border-primary;
+    border-color: #b6cdbe;
+  }
 }
 
 .source-filter-chip--active {
-  background: #1f6f50;
-  border-color: #1f6f50;
-  color: #ffffff;
-}
+  background: $green-primary;
+  border-color: $green-primary;
+  color: $text-on-primary;
 
-.source-filter-chip--active:hover {
-  background: #185940;
+  &:hover {
+    background: $green-primary-hover;
+  }
 }
 
 .source-filter-count {
-  background: rgb(0 0 0 / 10%);
+  background: $black-trans-10;
   border-radius: 10px;
   font-size: 0.6875rem;
   font-variant-numeric: tabular-nums;
@@ -86,5 +92,5 @@
 }
 
 .source-filter-chip--active .source-filter-count {
-  background: rgb(255 255 255 / 20%);
+  background: $black-trans-20;
 }

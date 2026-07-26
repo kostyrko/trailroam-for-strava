@@ -1,132 +1,276 @@
-      <app-map-notice-banners
-        [performanceWarning]="performanceWarning()"
-        [autoFilterHint]="autoFilterHintBanner()"
-        [hasBasemapError]="hasBasemapError()"
-        (dismissPerformance)="dismissPerformanceWarning()"
-        (dismissAutoFilter)="dismissAutoFilterHint()"
-        (retryBasemap)="retryBasemapLoad()"
-      />
+<app-map-notice-banners
+  [performanceWarning]="performanceWarning()"
+  [autoFilterHint]="autoFilterHintBanner()"
+  [hasBasemapError]="hasBasemapError()"
+  (dismissPerformance)="dismissPerformanceWarning()"
+  (dismissAutoFilter)="dismissAutoFilterHint()"
+  (retryBasemap)="retryBasemapLoad()"
+/>
 
-    <section class="map-page-layout" [class.map-page-layout--panel-open]="panelReady() && panelExpanded()" aria-labelledby="map-title">
+<section
+  class="map-page-layout"
+  [class.map-page-layout--panel-open]="panelReady() && panelExpanded()"
+  aria-labelledby="map-title"
+>
+  @if (!hasBasemapError()) {
+    @if (panelReady()) {
+      <div class="map-panel-switcher" [class.map-panel-switcher--hidden]="!panelExpanded()">
+        <button
+          class="map-panel-switcher__btn"
+          type="button"
+          [class.active]="leftPanelView() === 'activities'"
+          (click)="leftPanelView.set('activities')"
+        >
+          Activities
+        </button>
+        <button
+          class="map-panel-switcher__btn"
+          type="button"
+          [class.active]="leftPanelView() === 'places'"
+          (click)="leftPanelView.set('places')"
+        >
+          Places
+        </button>
+        <button
+          class="map-panel-switcher__btn"
+          type="button"
+          [class.active]="leftPanelView() === 'all'"
+          (click)="leftPanelView.set('all')"
+        >
+          All
+        </button>
+      </div>
 
-      @if (!hasBasemapError()) {
-        @if (panelReady()) {
-          <app-map-activity-panel
-            #activityPanel
-            [routes]="filteredRoutes()"
-            [totalRoutes]="allRoutes().length"
-            [selectedActivityId]="selectedActivityId()"
-            [hoveredActivityId]="hoveredActivityId()"
-            [viewBounds]="panelViewportBounds()"
-            [isFullscreen]="mapFullscreen()"
-            [panelExpanded]="panelExpanded()"
-            [noTransition]="panelNoTransition()"
-            (panelExpandedChange)="onPanelExpandedChange($event)"
-            (selectRoute)="onPanelSelectRoute($event)"
-            (hoverRoute)="onPanelHoverRoute($event)"
-            (visibleOnMapChange)="onPanelVisibleOnMapChange($event)"
-            (downloadPanelGpx)="onDownloadPanelGpx($event)"
-            (sourceFilterChange)="onSourceFilterChange($event)"
-          />
-        }
-        <app-map-filter-overlay
-          [sportTypeFilter]="sportTypeFilter()"
-          [filterMenuOpen]="filterMenuOpen()"
-          [sportTypeGroups]="sportTypeGroups()"
-          [CATEGORY_COLORS]="CATEGORY_COLORS"
-          [datePresetLabel]="datePresetLabel()"
-          [datePresetOpen]="datePresetOpen()"
-          [filtersDateFrom]="filtersService.dateFrom()"
-          [filtersDateTo]="filtersService.dateTo()"
-          [autoFilterHighlight]="autoFilterHighlight()"
-          (sportTypeChange)="onSportTypeChange($event)"
-          (categoryFilterChange)="onCategoryFilterChange($event)"
-          (toggleFilterMenu)="toggleFilterMenu()"
-          (closeFilterMenu)="closeFilterMenu()"
-          (toggleDatePreset)="autoFilterHighlight.set(false); datePresetOpen.set(!datePresetOpen())"
-          (closeDatePreset)="datePresetOpen.set(false)"
-          (rangeApplied)="onRangeApplied($event)"
+      @if (leftPanelView() === 'activities') {
+        <app-map-activity-panel
+          #activityPanel
+          [routes]="standaloneRoutes()"
+          [totalRoutes]="allRoutes().length"
+          [selectedActivityId]="selectedActivityId()"
+          [selectedTrailId]="selectedTrailId()"
+          [hoveredActivityId]="hoveredActivityId()"
+          [trails]="sidebarTrailItems()"
+          [viewBounds]="panelViewportBounds()"
+          [isFullscreen]="mapFullscreen()"
+          [panelExpanded]="panelExpanded()"
+          [noTransition]="panelNoTransition()"
+          (panelExpandedChange)="onPanelExpandedChange($event)"
+          (selectRoute)="onPanelSelectRoute($event)"
+          (selectTrail)="selectTrail($event)"
+          (hoverRoute)="onPanelHoverRoute($event)"
+          (visibleOnMapChange)="onPanelVisibleOnMapChange($event)"
+          (downloadPanelGpx)="onDownloadPanelGpx($event)"
+          (sourceFilterChange)="onSourceFilterChange($event)"
         />
+      } @else if (leftPanelView() === 'places') {
+        <app-map-places-panel
+          [places]="savedPlaces()"
+          [selectedPlaceId]="selectedPlaceId()"
+          [panelExpanded]="panelExpanded()"
+          [noTransition]="panelNoTransition()"
+          (selectPlace)="onSelectPlace($event)"
+          (editPlace)="onEditPlace($event)"
+          (removePlace)="onRemovePlace($event)"
+          (panelExpandedChange)="onPanelExpandedChange($event)"
+        />
+      } @else {
+        <app-map-all-panel
+          [routes]="standaloneRoutes()"
+          [places]="savedPlaces()"
+          [trails]="sidebarTrailItems()"
+          [selectedActivityId]="selectedActivityId()"
+          [selectedTrailId]="selectedTrailId()"
+          [selectedPlaceId]="selectedPlaceId()"
+          [panelExpanded]="panelExpanded()"
+          [noTransition]="panelNoTransition()"
+          (selectRoute)="onPanelSelectRoute($event)"
+          (selectTrail)="selectTrail($event)"
+          (hoverRoute)="onPanelHoverRoute($event)"
+          (selectPlace)="onSelectPlace($event)"
+          (editPlace)="onEditPlace($event)"
+          (removePlace)="onRemovePlace($event)"
+          (panelExpandedChange)="onPanelExpandedChange($event)"
+        />
+      }
 
-        @if (routesLoading() || filterLoading() || (allRoutes().length > 0 && !routesRendered())) {
-          <div class="map-loading-overlay">
-            <app-loading-spinner />
-          </div>
-        } @else if (allRoutes().length > 0 && filteredRoutes().length === 0) {
-          <div class="map-empty-overlay">
-            <article class="empty-state map-empty-modal" aria-labelledby="no-filtered-title">
-              <p class="empty-state-kicker">No routes match</p>
-              <h2 id="no-filtered-title">No routes match the current filters.</h2>
-              <p>Try changing your activity type or date range.</p>
-              <button class="primary-action" type="button" (click)="clearAllFilters()">Clear all filters</button>
-            </article>
-          </div>
-        } @else if (!noRouteActivity() && !selectedRoute() && !selectedActivityId() && allRoutes().length === 0 && !mapEmptyDismissed()) {
-          <div class="map-empty-overlay" (click)="dismissMapEmpty()">
-            <article class="empty-state map-empty-modal" aria-labelledby="map-empty-title">
-              <button class="map-empty-close" type="button" (click)="dismissMapEmpty(); $event.stopPropagation()" aria-label="Close empty state notice">&times;</button>
-              <p class="empty-state-kicker">No routes yet</p>
-              <h2 id="map-empty-title">Synced GPS routes will appear here.</h2>
-              <p>
-                Start a sync to import Strava activities and show available route lines on this map.
-              </p>
-              <p class="privacy-note">Your data stays private — everything is stored locally in your browser.</p>
-              <button class="primary-action" type="button" (click)="syncActivities()">Sync activities</button>
-            </article>
-          </div>
-        }
-        <div class="map-content-area" [class.map-content-area--with-panel]="detailPanelOpen()">
-          <div class="map-content-main">
-            <app-maplibre-map
-              [fullscreenOverride]="mapFullscreen()"
-              (basemapLoadFailed)="showBasemapError()"
-              (routeSelected)="selectRoute($event)"
-              (fullscreenChanged)="mapFullscreen.set($event)"
-              (routesRendered)="onRoutesRendered()"
-              (mapIdle)="onMapIdle()"
-              (viewportChanged)="onViewportChanged($event)"
+      <!-- Sidebar collapse handle on the right edge — only visible when expanded -->
+      <button
+        class="sidebar-collapse-handle"
+        [class.sidebar-collapse-handle--hidden]="!panelExpanded()"
+        type="button"
+        (click)="onPanelExpandedChange(false)"
+        aria-label="Collapse sidebar"
+      >
+        <span class="sidebar-collapse-icon-bubble">
+          <app-icon name="chevron-left" [size]="20" strokeWidth="2.5"></app-icon>
+        </span>
+      </button>
+    }
+    <app-map-filter-overlay
+      [sportTypeFilter]="sportTypeFilter()"
+      [filterMenuOpen]="filterMenuOpen()"
+      [sportTypeGroups]="sportTypeGroups()"
+      [CATEGORY_COLORS]="CATEGORY_COLORS"
+      [datePresetLabel]="datePresetLabel()"
+      [datePresetOpen]="datePresetOpen()"
+      [filtersDateFrom]="filtersService.dateFrom()"
+      [filtersDateTo]="filtersService.dateTo()"
+      [autoFilterHighlight]="autoFilterHighlight()"
+      (sportTypeChange)="onSportTypeChange($event)"
+      (categoryFilterChange)="onCategoryFilterChange($event)"
+      (toggleFilterMenu)="toggleFilterMenu()"
+      (closeFilterMenu)="closeFilterMenu()"
+      (toggleDatePreset)="autoFilterHighlight.set(false); datePresetOpen.set(!datePresetOpen())"
+      (closeDatePreset)="datePresetOpen.set(false)"
+      (rangeApplied)="onRangeApplied($event)"
+    />
+
+    @if (
+      !placeNavigationActive() &&
+      (routesLoading() || filterLoading() || (allRoutes().length > 0 && !routesRendered()))
+    ) {
+      <div class="map-loading-overlay">
+        <app-loading-spinner />
+      </div>
+    } @else if (allRoutes().length > 0 && filteredRoutes().length === 0) {
+      <div class="map-empty-overlay">
+        <article class="empty-state map-empty-modal" aria-labelledby="no-filtered-title">
+          <p class="empty-state-kicker">No routes match</p>
+          <h2 id="no-filtered-title">No routes match the current filters.</h2>
+          <p>Try changing your activity type or date range.</p>
+          <button class="primary-action" type="button" (click)="clearAllFilters()">
+            Clear all filters
+          </button>
+        </article>
+      </div>
+    } @else if (
+      !placeNavigationActive() &&
+      !noRouteActivity() &&
+      !selectedRoute() &&
+      !selectedActivityId() &&
+      allRoutes().length === 0 &&
+      !mapEmptyDismissed()
+    ) {
+      <div class="map-empty-overlay" (click)="dismissMapEmpty()">
+        <article class="empty-state map-empty-modal" aria-labelledby="map-empty-title">
+          <button
+            class="map-empty-close"
+            type="button"
+            (click)="dismissMapEmpty(); $event.stopPropagation()"
+            aria-label="Close empty state notice"
+          >
+            &times;
+          </button>
+          <p class="empty-state-kicker">No routes yet</p>
+          <h2 id="map-empty-title">Synced GPS routes will appear here.</h2>
+          <p>
+            Start a sync to import Strava activities and show available route lines on this map.
+          </p>
+          <p class="privacy-note">
+            Your data stays private — everything is stored locally in your browser.
+          </p>
+          <button class="primary-action" type="button" (click)="syncActivities()">
+            Sync activities
+          </button>
+        </article>
+      </div>
+    }
+    <div class="map-content-area" [class.map-content-area--with-panel]="detailPanelOpen()">
+      <div class="map-content-main">
+        <app-maplibre-map
+          [fullscreenOverride]="mapFullscreen()"
+          [savedPlaces]="savedPlaces()"
+          [showSavedPlaceMarkers]="leftPanelView() !== 'activities'"
+          (basemapLoadFailed)="showBasemapError()"
+          (routeSelected)="selectRoute($event)"
+          (fullscreenChanged)="mapFullscreen.set($event)"
+          (routesRendered)="onRoutesRendered()"
+          (mapIdle)="onMapIdle()"
+          (viewportChanged)="onViewportChanged($event)"
+          (placeSelected)="onSearchResultSelected($event)"
+          (savePlaceRequested)="onSavePlaceRequested($event)"
+          (savePlaceFromContextMenu)="onSavePlaceFromContextMenu($event)"
+          (editPlaceRequested)="onEditPlace($event)"
+          (removePlaceRequested)="onRemovePlace($event)"
+          (markerRepositioned)="onMarkerRepositioned($event)"
+        />
+        @if (selectedRoute(); as route) {
+          @if (!detailPanelOpen()) {
+            <app-activity-card
+              [route]="route"
+              [geometry]="selectedRouteGeometry()"
+              (close)="clearSelectedRoute()"
+              (viewDetails)="navigateToMapDetail($event)"
+              (downloadGpx)="downloadDetailGpx($event)"
+              (openStrava)="openOnStravaFromCard($event)"
+              (rename)="onRenameActivity($event)"
+              (elevationHover)="onElevationHover($event)"
             />
-            @if (selectedRoute(); as route) {
-              @if (!detailPanelOpen()) {
-                <app-activity-card
-                  [route]="route"
-                  [geometry]="selectedRouteGeometry()"
-                  (close)="clearSelectedRoute()"
-                  (viewDetails)="navigateToMapDetail($event)"
-                  (downloadGpx)="downloadDetailGpx($event)"
-                  (openStrava)="openOnStravaFromCard($event)"
-                  (rename)="onRenameActivity($event)"
-                  (elevationHover)="onElevationHover($event)"
-                />
-              }
+          }
+        }
+      </div>
+      <div
+        class="detail-panel-wrapper"
+        [class.detail-panel-wrapper--open]="detailPanelOpen()"
+        [class.detail-panel-wrapper--expanded]="detailPanelOpen() && detailPanelExpanded()"
+      >
+        @if (detailPanelOpen()) {
+          <!-- ── Trail panel (always rendered when trail is selected) ── -->
+          @if (selectedTrailId(); as trailId) {
+            @let trail = getSidebarTrail(trailId);
+            @if (trail) {
+              <app-trail-detail-panel
+                [trail]="trail"
+                [allRoutes]="allRoutes()"
+                [allActivities]="allRoutes().map((r) => r.activity)"
+                (selectActivity)="onTrailSelectActivity($event)"
+                (close)="closeDetailPanel(); clearSelectedTrail()"
+                (mapExpandChange)="detailPanelExpanded.set($event)"
+              />
             }
-          </div>
-          <div class="detail-panel-wrapper" [class.detail-panel-wrapper--open]="detailPanelOpen()" [class.detail-panel-wrapper--expanded]="detailPanelOpen() && detailPanelExpanded()">
-            @if (detailPanelOpen()) {
+          }
+
+          <!-- ── Activity panel (standalone or drill-down overlay) ── -->
+          @if (selectedRoute()?.activity ?? null; as activity) {
+            @if (trailDrillDownActive()) {
+              <div class="detail-panel-overlay detail-panel-overlay--active">
+                <app-activity-detail-panel
+                  [activity]="activity"
+                  [route]="detailPanelRoute()"
+                  [pushMode]="false"
+                  [showInActivities]="true"
+                  [backLabel]="trailBackLabel()"
+                  [expanded]="detailPanelExpanded()"
+                  (backToTrail)="onBackToTrail()"
+                  (panelExpand)="detailPanelExpanded.set($event)"
+                  (close)="onCloseDrillDown()"
+                />
+              </div>
+            } @else {
               <app-activity-detail-panel
-                [activity]="selectedRoute()?.activity ?? null"
+                [activity]="activity"
                 [route]="detailPanelRoute()"
                 [pushMode]="true"
                 [showInActivities]="true"
+                [expanded]="detailPanelExpanded()"
                 (panelExpand)="detailPanelExpanded.set($event)"
                 (close)="closeDetailPanel(); clearSelectedRoute()"
               />
             }
-          </div>
-        </div>
-      }
+          }
+        }
+      </div>
+    </div>
+  }
 
-      @if (noRouteActivity()) {
-        <article class="empty-state" aria-labelledby="no-route-title">
-          <p class="empty-state-kicker">No route available</p>
-          <h2 id="no-route-title">{{ noRouteActivityName() }} has no GPS route data.</h2>
-          <p>
-            This activity was recorded without GPS or the route data is not available.
-          </p>
-          <button class="secondary-action" type="button" (click)="clearSelectedActivity()">
-            Browse all activities
-          </button>
-        </article>
-      }
-
-    </section>
+  @if (noRouteActivity()) {
+    <article class="empty-state" aria-labelledby="no-route-title">
+      <p class="empty-state-kicker">No route available</p>
+      <h2 id="no-route-title">{{ noRouteActivityName() }} has no GPS route data.</h2>
+      <p>This activity was recorded without GPS or the route data is not available.</p>
+      <button class="secondary-action" type="button" (click)="clearSelectedActivity()">
+        Browse all activities
+      </button>
+    </article>
+  }
+</section>

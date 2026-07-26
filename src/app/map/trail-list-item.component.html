@@ -1,0 +1,29 @@
+<button
+  class="panel-item panel-item--trail"
+  [class.panel-item--selected]="selected()"
+  type="button"
+  (click)="selectTrail.emit(trailItem().trail.id)"
+>
+  <span class="panel-item-emoji panel-item-emoji--trail">
+    <app-icon name="globe" [size]="16" strokeWidth="2"></app-icon>
+  </span>
+  <div class="panel-item-body">
+    <div class="panel-item-name-row">
+      <span class="panel-item-name panel-item-name--trail">{{ trailItem().trail.name }}</span>
+      <span class="panel-trail-badge">Trail</span>
+    </div>
+    <div class="panel-item-meta">
+      {{ trailItem().memberActivities.length }}
+      {{ trailItem().memberActivities.length === 1 ? 'activity' : 'activities' }}
+      @if (trailItem().totalDistanceMeters > 0) {
+        &middot; {{ formatDistance(trailItem().totalDistanceMeters) }}
+      }
+    </div>
+    <div class="panel-item-meta">
+      {{ formatDateShort(trailItem().firstDate) }}
+      @if (trailItem().firstDate !== trailItem().lastDate) {
+        – {{ formatDateShort(trailItem().lastDate) }}
+      }
+    </div>
+  </div>
+</button>

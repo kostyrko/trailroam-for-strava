@@ -1,0 +1,172 @@
+<div
+  class="map-panel"
+  [class.map-panel--fullscreen]="false"
+  [class.map-panel--collapsed]="!panelExpanded()"
+  [class.map-panel--no-transition]="noTransition()"
+>
+  <div class="map-panel-side" [class.map-panel-side--hidden]="panelExpanded()">
+    <button
+      class="map-panel-handle"
+      type="button"
+      (click)="toggle()"
+      [attr.aria-label]="panelExpanded() ? 'Collapse panel' : 'Expand panel'"
+      title="All"
+    >
+      <app-icon name="layers" [size]="25" strokeWidth="2"></app-icon>
+      @if (!panelExpanded()) {
+        <span class="panel-handle-count">{{ activityCount() + placeCount() }}</span>
+      }
+    </button>
+  </div>
+
+  <div class="map-panel-inner">
+    <div class="panel-header">
+      <h2 class="panel-title">
+        All
+        <span class="panel-count">({{ activityCount() + placeCount() + trailCount() }})</span>
+      </h2>
+    </div>
+
+    <div class="panel-controls">
+      <div class="panel-search-wrap">
+        <app-icon
+          name="search"
+          [size]="14"
+          strokeWidth="2"
+          [class]="'panel-search-icon'"
+        ></app-icon>
+        <input
+          class="panel-search-input"
+          type="search"
+          placeholder="Search activities and places..."
+          [value]="searchQuery()"
+          (input)="onSearchInput($any($event.target).value)"
+          aria-label="Search activities and places"
+        />
+        @if (searchQuery()) {
+          <button
+            class="panel-search-clear"
+            type="button"
+            (click)="clearSearch()"
+            aria-label="Clear search"
+          >
+            <app-icon name="x" [size]="12" strokeWidth="2"></app-icon>
+          </button>
+        }
+      </div>
+    </div>
+
+    <div class="panel-list">
+      @if (filteredRows().length === 0) {
+        <div class="panel-empty">
+          <p>No activities or places yet</p>
+          <p class="panel-empty-hint">Sync activities or save places from the map.</p>
+        </div>
+      }
+
+      @for (
+        row of filteredRows();
+        track row.kind === 'activity'
+          ? row.activityId
+          : row.kind === 'trail'
+            ? row.trailItem.trail.id
+            : row.id
+      ) {
+        @if (row.kind === 'trail') {
+          <app-trail-list-item
+            [trailItem]="row.trailItem"
+            [selected]="row.trailItem.trail.id === selectedTrailId()"
+            (selectTrail)="selectTrail.emit($event)"
+          />
+        } @else if (row.kind === 'activity') {
+          <button
+            class="panel-item"
+            [class.panel-item--selected]="row.activityId === selectedActivityId()"
+            type="button"
+            (click)="onSelectActivity(row.route)"
+            (mouseenter)="onHoverActivity(row.route)"
+            (mouseleave)="onHoverActivity(null)"
+          >
+            <span class="panel-item-emoji">{{
+              sportTypeEmojiFromString(row.route.activity.sportType)
+            }}</span>
+            <div class="panel-item-body">
+              <span class="panel-item-name">{{ row.route.activity.name }}</span>
+              <div class="panel-item-meta">
+                {{ formatDistance(row.route.activity.distanceMeters) }} &middot;
+                {{ formatDuration(row.route.activity.movingTimeSeconds) }}
+              </div>
+            </div>
+            <div class="panel-item-date">{{ formatDateShort(row.route.activity.startDate) }}</div>
+          </button>
+        } @else {
+          <div class="place-row" [class.place-row--selected]="row.id === selectedPlaceId()">
+            <button
+              class="place-row__main"
+              type="button"
+              (click)="onSelectPlace(row.place)"
+              [attr.aria-label]="'Open saved place ' + row.place.name"
+            >
+              <span class="place-row__icon"
+                ><app-icon name="map-pin" [size]="16" strokeWidth="2"></app-icon
+              ></span>
+              <span class="place-row__body">
+                <span class="place-row__name">{{ row.place.name }}</span>
+                @if (row.place.secondaryLabel) {
+                  <span class="place-row__secondary">{{ row.place.secondaryLabel }}</span>
+                }
+              </span>
+            </button>
+            <div class="place-row__menu">
+              <button
+                class="place-row__overflow"
+                type="button"
+                (click)="toggleMenu(row.id, $event)"
+                aria-haspopup="menu"
+                [attr.aria-expanded]="openMenuId() === row.id"
+                [attr.aria-label]="'Place actions'"
+                title="Place actions"
+              >
+                <app-icon name="more-horizontal" [size]="16" strokeWidth="2"></app-icon>
+              </button>
+              @if (openMenuId() === row.id) {
+                <ul class="place-dropdown" role="menu" (click)="$event.stopPropagation()">
+                  <li role="none">
+                    <button
+                      class="place-dropdown-item"
+                      role="menuitem"
+                      (click)="onEditPlace(row.place, $event)"
+                    >
+                      <app-icon
+                        name="pencil"
+                        [size]="14"
+                        strokeWidth="2"
+                        [class]="'place-dd-icon'"
+                      ></app-icon>
+                      Edit
+                    </button>
+                  </li>
+                  <li role="none">
+                    <button
+                      class="place-dropdown-item place-dropdown-item--danger"
+                      role="menuitem"
+                      (click)="onRemovePlace(row.place, $event)"
+                    >
+                      <app-icon
+                        name="trash-2"
+                        [size]="14"
+                        strokeWidth="2"
+                        [class]="'place-dd-icon'"
+                      ></app-icon>
+                      Delete
+                    </button>
+                  </li>
+                </ul>
+              }
+            </div>
+          </div>
+        }
+      }
+    </div>
+  </div>
+</div>

@@ -2,7 +2,13 @@
   <header class="app-header">
     <div class="app-header__brand">
       <a class="app-header__brand-link" routerLink="/map">
-        <img class="app-header__logo" src="assets/trailroam-logo.svg" alt="" width="32" height="32" />
+        <img
+          class="app-header__logo"
+          src="assets/trailroam-logo.svg"
+          alt=""
+          width="32"
+          height="32"
+        />
         <div class="app-header__brand-copy">
           <div class="app-header__title">TrailRoam for Strava</div>
           <div class="app-header__subtitle">Chrome extension</div>
@@ -11,13 +17,38 @@
     </div>
 
     <nav class="main-nav-switcher" aria-label="Primary navigation">
-      <a class="main-nav-item" routerLink="/activities" routerLinkActive="main-nav-item--active" ariaCurrentWhenActive="page">Activities</a>
-      <a class="main-nav-item" routerLink="/map" routerLinkActive="main-nav-item--active" ariaCurrentWhenActive="page">Map Explorer</a>
-      <a class="main-nav-item" routerLink="/settings" routerLinkActive="main-nav-item--active" ariaCurrentWhenActive="page">Settings</a>
+      <a
+        class="main-nav-item"
+        routerLink="/logbook"
+        routerLinkActive="main-nav-item--active"
+        ariaCurrentWhenActive="page"
+        >Logbook</a
+      >
+      <a
+        class="main-nav-item"
+        routerLink="/map"
+        routerLinkActive="main-nav-item--active"
+        ariaCurrentWhenActive="page"
+        >Map Explorer</a
+      >
+      <a
+        class="main-nav-item"
+        routerLink="/settings"
+        routerLinkActive="main-nav-item--active"
+        ariaCurrentWhenActive="page"
+        >Settings</a
+      >
     </nav>
 
     <div class="app-header__actions">
-      <button class="refresh-btn" type="button" [disabled]="syncInProgress()" (click)="refreshExtension()" title="Reload app" aria-label="Reload app">
+      <button
+        class="refresh-btn"
+        type="button"
+        [disabled]="syncInProgress()"
+        (click)="refreshExtension()"
+        title="Reload app"
+        aria-label="Reload app"
+      >
         <app-icon name="refresh-cw-alt" [size]="16" strokeWidth="2"></app-icon>
         <span class="refresh-btn__label-full">Refresh view</span>
         <span class="refresh-btn__label-short">Refresh</span>
@@ -37,17 +68,38 @@
         </button>
 
         @if (syncMenuOpen()) {
-          <ul class="sync-dropdown" role="menu" aria-label="Sync actions" (click)="$event.stopPropagation()">
+          <ul
+            class="sync-dropdown"
+            role="menu"
+            aria-label="Sync actions"
+            (click)="$event.stopPropagation()"
+          >
             <li class="sync-dropdown__lastsynced" role="none">
-              <span class="sync-dropdown__label">@if (lastSyncLabel(); as label) { Last synced: {{ label }} } @else { No sync history }</span>
+              <span class="sync-dropdown__label">
+                @if (lastSyncLabel(); as label) {
+                  Last synced: {{ label }}
+                } @else {
+                  No sync history
+                }
+              </span>
             </li>
             <li role="none">
-              <button class="dropdown-item" role="menuitem" [disabled]="syncInProgress()" (click)="syncNewActivities()">
+              <button
+                class="dropdown-item"
+                role="menuitem"
+                [disabled]="syncInProgress()"
+                (click)="syncNewActivities()"
+              >
                 Sync activities
               </button>
             </li>
             <li role="none">
-              <button class="dropdown-item" role="menuitem" [disabled]="syncInProgress()" (click)="syncMissingRoutes()">
+              <button
+                class="dropdown-item"
+                role="menuitem"
+                [disabled]="syncInProgress()"
+                (click)="syncMissingRoutes()"
+              >
                 Sync missing routes
               </button>
             </li>
@@ -56,24 +108,113 @@
       </div>
 
       <div class="app-menu-wrapper">
-        <button class="app-menu-btn" type="button" aria-haspopup="menu" [attr.aria-expanded]="appMenuOpen()" (click)="toggleAppMenu($event)">⋮</button>
+        <button
+          class="app-menu-btn"
+          type="button"
+          aria-haspopup="menu"
+          [attr.aria-expanded]="appMenuOpen()"
+          (click)="toggleAppMenu($event)"
+        >
+          ⋮
+        </button>
         @if (appMenuOpen()) {
-          <ul class="app-dropdown" role="menu" aria-label="App menu" (click)="$event.stopPropagation()">
+          <ul
+            class="app-dropdown"
+            role="menu"
+            aria-label="App menu"
+            (click)="$event.stopPropagation()"
+          >
             <li role="none">
-              <button class="dropdown-item menu-item-with-icon" role="menuitem" (click)="openReleaseNotes()"><span>Release notes</span><span class="menu-icons-right"><app-icon name="external-link" [size]="12" strokeWidth="2" [class]="'menu-external-icon'"></app-icon><app-icon name="file-text" [size]="16" strokeWidth="2" [class]="'menu-icon-right'"></app-icon></span></button>
+              <button
+                class="dropdown-item menu-item-with-icon"
+                role="menuitem"
+                (click)="openReleaseNotes()"
+              >
+                <span>Release notes</span
+                ><span class="menu-icons-right"
+                  ><app-icon
+                    name="external-link"
+                    [size]="12"
+                    strokeWidth="2"
+                    [class]="'menu-external-icon'"
+                  ></app-icon
+                  ><app-icon
+                    name="file-text"
+                    [size]="16"
+                    strokeWidth="2"
+                    [class]="'menu-icon-right'"
+                  ></app-icon
+                ></span>
+              </button>
             </li>
             <li role="none">
-              <button class="dropdown-item menu-item-with-icon" role="menuitem" (click)="reportBug()"><span>Report a bug</span><app-icon name="bug" [size]="16" strokeWidth="2" [class]="'menu-icon-right'"></app-icon></button>
+              <button
+                class="dropdown-item menu-item-with-icon"
+                role="menuitem"
+                (click)="reportBug()"
+              >
+                <span>Report a bug</span
+                ><app-icon
+                  name="bug"
+                  [size]="16"
+                  strokeWidth="2"
+                  [class]="'menu-icon-right'"
+                ></app-icon>
+              </button>
             </li>
             <li role="none">
-              <button class="dropdown-item menu-item-with-icon" role="menuitem" (click)="openDocs()"><span>Documentation</span><span class="menu-icons-right"><app-icon name="external-link" [size]="12" strokeWidth="2" [class]="'menu-external-icon'"></app-icon><app-icon name="book-open" [size]="16" strokeWidth="2" [class]="'menu-icon-right'"></app-icon></span></button>
+              <button
+                class="dropdown-item menu-item-with-icon"
+                role="menuitem"
+                (click)="openDocs()"
+              >
+                <span>Documentation</span
+                ><span class="menu-icons-right"
+                  ><app-icon
+                    name="external-link"
+                    [size]="12"
+                    strokeWidth="2"
+                    [class]="'menu-external-icon'"
+                  ></app-icon
+                  ><app-icon
+                    name="book-open"
+                    [size]="16"
+                    strokeWidth="2"
+                    [class]="'menu-icon-right'"
+                  ></app-icon
+                ></span>
+              </button>
             </li>
             <li role="none">
-              <button class="dropdown-item menu-item-with-icon" role="menuitem" (click)="openDonate()"><span>Donate / Support</span><app-icon name="heart" [size]="16" strokeWidth="2" [class]="'menu-icon-right'"></app-icon></button>
+              <button
+                class="dropdown-item menu-item-with-icon"
+                role="menuitem"
+                (click)="openDonate()"
+              >
+                <span>Donate / Support</span
+                ><app-icon
+                  name="heart"
+                  [size]="16"
+                  strokeWidth="2"
+                  [class]="'menu-icon-right'"
+                ></app-icon>
+              </button>
             </li>
             <li role="separator" class="dropdown-separator"></li>
             <li role="none">
-              <button class="dropdown-item menu-item-with-icon" role="menuitem" (click)="openAbout()"><span>About</span><app-icon name="book-open" [size]="16" strokeWidth="2" [class]="'menu-icon-right'"></app-icon></button>
+              <button
+                class="dropdown-item menu-item-with-icon"
+                role="menuitem"
+                (click)="openAbout()"
+              >
+                <span>About</span
+                ><app-icon
+                  name="book-open"
+                  [size]="16"
+                  strokeWidth="2"
+                  [class]="'menu-icon-right'"
+                ></app-icon>
+              </button>
             </li>
           </ul>
         }
@@ -87,15 +228,29 @@
         <span class="sync-progress__spinner"></span>
         <span class="sync-progress__label">{{ syncProgressLabel() }}</span>
       </div>
-      <span class="sync-progress__hint">Do not refresh or close this page until the process finishes.</span>
+      <span class="sync-progress__hint"
+        >Do not refresh or close this page until the process finishes.</span
+      >
     </section>
   }
 
   @if (syncSummary(); as summary) {
     <section class="sync-summary" aria-labelledby="sync-summary-title" role="status">
       <div>
-        <p class="sync-summary-kicker">Sync completed @if (summary.completedAt; as completedAt) { · {{ formatTimestamp(completedAt) }} }</p>
-        @if (summary.importedCount || summary.updatedCount || summary.skippedCount || summary.failedCount || summary.rateLimitedCount || summary.lastErrorMessage) {
+        <p class="sync-summary-kicker">
+          Sync completed
+          @if (summary.completedAt; as completedAt) {
+            · {{ formatTimestamp(completedAt) }}
+          }
+        </p>
+        @if (
+          summary.importedCount ||
+          summary.updatedCount ||
+          summary.skippedCount ||
+          summary.failedCount ||
+          summary.rateLimitedCount ||
+          summary.lastErrorMessage
+        ) {
           <p id="sync-summary-title">
             @if (summary.importedCount) {
               Imported: {{ summary.importedCount }}
@@ -120,7 +275,12 @@
           <p id="sync-summary-title">No new data imported.</p>
         }
       </div>
-      <button class="sync-summary-dismiss" type="button" (click)="dismissSyncSummary()" aria-label="Dismiss sync summary">
+      <button
+        class="sync-summary-dismiss"
+        type="button"
+        (click)="dismissSyncSummary()"
+        aria-label="Dismiss sync summary"
+      >
         Dismiss
       </button>
     </section>

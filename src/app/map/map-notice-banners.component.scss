@@ -1,30 +1,21 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+
 .notice-bar {
-  align-items: center;
-  border-bottom: 1px solid #d2b96d;
-  display: flex;
-  gap: 18px;
-  justify-content: space-between;
-  padding: 12px 24px;
-  width: 100%;
+  @include notice-bar;
 }
 
 .notice-bar.warning-state {
-  background: #fbf5e1;
-  color: #7a621a;
+  @include notice-bar--warning;
 }
 
 .notice-bar.info-state {
-  background: #fbf5e1;
-  color: #7a621a;
-  border-bottom-color: #d2b96d;
+  @include notice-bar--warning;
+  border-bottom-color: $border-notice;
 }
 
 .notice-bar-kicker {
-  font-size: 0.75rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  margin: 0 0 2px;
-  text-transform: uppercase;
+  @include notice-bar-kicker;
 }
 
 .notice-bar p {
@@ -33,17 +24,17 @@
 
 .notice-bar-dismiss {
   background: transparent;
-  border: 1px solid #f0c674;
+  border: 1px solid $border-notice-btn;
   border-radius: 6px;
-  color: #7a621a;
+  color: $warning-text;
   cursor: pointer;
   font: inherit;
   font-weight: 700;
   min-height: 32px;
   padding: 5px 11px;
   white-space: nowrap;
-}
 
-.notice-bar-dismiss:hover {
-  background: #fdf3d1;
+  &:hover {
+    background: $warning-btn-bg-hover;
+  }
 }

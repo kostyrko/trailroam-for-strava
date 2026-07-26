@@ -1,0 +1,53 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+@use 'trail-detail-common';
+
+// ── Outer panel ─────────────────────────────────────────────────
+
+.trail-detail-panel {
+  background: $bg-white;
+  border-left: 3px solid $border-light;
+  box-shadow: -4px 0 24px $shadow-lg;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+// ── Minimap (with margin for map overlay variant) ───────────────
+
+.tdp-minimap {
+  margin: 0;
+
+  &__map {
+    cursor: pointer;
+  }
+}
+
+.tdp-minimap__btn {
+  @include minimap-btn;
+  position: absolute;
+  right: 10px;
+  top: 8px;
+  z-index: 30;
+
+  &[data-tooltip] {
+    @include minimap-btn-tooltip;
+  }
+}
+
+// ── MapLibre control overrides (host-scoped) ────────────────────
+
+:host ::ng-deep .tdp-minimap__map .maplibregl-ctrl-top-left {
+  @include maplibregl-ctrl-override;
+}
+
+// ── Elevation chart scaling ──────────────────────────────────────────
+
+.tdp-elevation :deep(.elevation-chart-wrap) {
+  width: 100% !important;
+}
+
+.tdp-elevation :deep(.elevation-svg) {
+  width: 100% !important;
+}

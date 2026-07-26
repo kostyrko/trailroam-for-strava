@@ -1,11 +1,14 @@
 <div class="stats-grid">
-  <div class="stat-card">
+  <div class="stat-card stat-card--with-tooltip" title="Includes activities grouped inside Trails.">
     <div class="stat-card__icon stat-card__icon--activities">
       <app-icon name="activity" [size]="18" strokeWidth="2"></app-icon>
     </div>
     <div class="stat-card__body">
       <span class="stat-card__value">{{ statCount }}</span>
       <span class="stat-card__label">Activities</span>
+    </div>
+    <div class="stat-card__tooltip-icon" aria-label="Includes activities grouped inside Trails.">
+      <app-icon name="info" [size]="12" strokeWidth="2"></app-icon>
     </div>
   </div>
   <div class="stat-card">

@@ -380,6 +380,20 @@ export class RouteRendererService {
     this.syncRouteSource();
   }
 
+  /** Removes all route features from the map sources but retains the layers. */
+  clearRoutes(): void {
+    this.routes = [];
+    this.routesLookup = new Map();
+    const map = this.map;
+    if (!map) { return; }
+    const routeSource = map.getSource(ROUTES_SOURCE_ID) as GeoJSONSource | undefined;
+    if (routeSource) { routeSource.setData({ type: 'FeatureCollection', features: [] }); }
+    const centroidSource = map.getSource(ROUTES_POINTS_SOURCE_ID) as GeoJSONSource | undefined;
+    if (centroidSource) { centroidSource.setData({ type: 'FeatureCollection', features: [] }); }
+    const heatmapSource = map.getSource(HEATMAP_SOURCE_ID) as GeoJSONSource | undefined;
+    if (heatmapSource) { heatmapSource.setData({ type: 'FeatureCollection', features: [] }); }
+  }
+
   private syncRouteSource(): void {
     const source = this.map?.getSource(ROUTES_SOURCE_ID) as GeoJSONSource | undefined;
     if (!source) { return; }

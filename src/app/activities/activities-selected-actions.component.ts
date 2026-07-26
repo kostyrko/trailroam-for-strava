@@ -14,4 +14,5 @@ export class ActivitiesSelectedActionsComponent {
   @Output() downloadGpx = new EventEmitter<void>();
   @Output() deleteSelected = new EventEmitter<void>();
   @Output() clearSelection = new EventEmitter<void>();
+  @Output() createTrail = new EventEmitter<void>();
 }

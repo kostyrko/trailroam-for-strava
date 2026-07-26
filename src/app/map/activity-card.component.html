@@ -1,84 +1,116 @@
-    <article class="activity-card" aria-label="Selected route details">
-      <div class="card-header">
-        <div class="card-header-left">
-          <h2 class="card-title" [title]="route().name">{{ route().name }}</h2>
-        </div>
-        <div class="card-header-right">
-          <button class="card-icon-btn" type="button" (click)="onRename()" aria-label="Edit activity name" title="Edit name">
-            <app-icon name="pencil" [size]="16" strokeWidth="2"></app-icon>
-          </button>
-          <button class="card-icon-btn" type="button" (click)="close.emit()" aria-label="Close route details">
-            <app-icon name="x" [size]="16" strokeWidth="2"></app-icon>
-          </button>
-        </div>
-      </div>
+<article class="activity-card" aria-label="Selected route details">
+  <div class="card-header">
+    <div class="card-header-left">
+      <h2 class="card-title" [title]="route().name">{{ route().name }}</h2>
+    </div>
+    <div class="card-header-right">
+      <button
+        class="card-icon-btn"
+        type="button"
+        (click)="onRename()"
+        aria-label="Edit activity name"
+        title="Edit name"
+      >
+        <app-icon name="pencil" [size]="16" strokeWidth="2"></app-icon>
+      </button>
+      <button
+        class="card-icon-btn"
+        type="button"
+        (click)="close.emit()"
+        aria-label="Close route details"
+      >
+        <app-icon name="x" [size]="16" strokeWidth="2"></app-icon>
+      </button>
+    </div>
+  </div>
 
-      <div class="card-meta">
-        <span class="meta-item">
-          <span class="meta-emoji">{{ sportTypeEmoji(route().activity.sportType) }}</span>
-          <span class="meta-text sport-type-name">{{ formatSportType(route().activity.sportType) }}</span>
-        </span>
-        <span class="meta-item">
-          <app-icon name="calendar" [size]="14" strokeWidth="2" [class]="'meta-icon'"></app-icon>
-          <span class="meta-text">{{ formatDate(route().activity.startDate) }}</span>
-        </span>
-      </div>
+  <div class="card-meta">
+    <span class="meta-item">
+      <span class="meta-emoji">{{ sportTypeEmoji(route().activity.sportType) }}</span>
+      <span class="meta-text sport-type-name">{{
+        formatSportType(route().activity.sportType)
+      }}</span>
+    </span>
+    <span class="meta-item">
+      <app-icon name="calendar" [size]="14" strokeWidth="2" [class]="'meta-icon'"></app-icon>
+      <span class="meta-text">{{ formatDate(route().activity.startDate) }}</span>
+    </span>
+  </div>
 
-      <div class="card-stats">
-        <div class="stat-block">
-          <span class="stat-value">{{ formatDistance(route().activity.distanceMeters) }}</span>
-          <span class="stat-label">Distance</span>
-        </div>
-        <div class="stat-block">
-          <span class="stat-value">{{ formatDuration(route().activity.movingTimeSeconds) }}</span>
-          <span class="stat-label">Moving time</span>
-        </div>
-        <div class="stat-block">
-          <span class="stat-value">{{ formatElevation(route().activity.totalElevationGainMeters) }}</span>
-          <span class="stat-label">Elev. gain</span>
-        </div>
-      </div>
+  <div class="card-stats">
+    <div class="stat-block">
+      <span class="stat-value">{{ formatDistance(route().activity.distanceMeters) }}</span>
+      <span class="stat-label">Distance</span>
+    </div>
+    <div class="stat-block">
+      <span class="stat-value">{{ formatDuration(route().activity.movingTimeSeconds) }}</span>
+      <span class="stat-label">Moving time</span>
+    </div>
+    <div class="stat-block">
+      <span class="stat-value">{{
+        formatElevation(route().activity.totalElevationGainMeters)
+      }}</span>
+      <span class="stat-label">Elev. gain</span>
+    </div>
+  </div>
 
-      @if (geometry(); as geom) {
-        @if (geom.elevations && geom.elevations.length > 0) {
-          <div class="card-elevation">
-            <app-elevation-profile
-              [elevations]="geom.elevations"
-              [cumulativeDistances]="geom.cumulativeDistances"
-              [coordinates]="geom.coordinates"
-              [totalDistanceMeters]="route().activity.distanceMeters"
-              (hoveredPosition)="elevationHover.emit($event)"
-            />
-          </div>
-        }
+  @if (geometry(); as geom) {
+    @if (geom.elevations && geom.elevations.length > 0) {
+      <div class="card-elevation" aria-label="Elevation profile chart">
+        <app-elevation-profile
+          [elevations]="geom.elevations"
+          [cumulativeDistances]="geom.cumulativeDistances"
+          [coordinates]="geom.coordinates"
+          [totalDistanceMeters]="route().activity.distanceMeters"
+          (hoveredPosition)="elevationHover.emit($event)"
+        />
+      </div>
+    }
+  }
+
+  <div class="card-footer">
+    <div class="card-footer-center">
+      <button class="card-btn card-btn--outline" type="button" (click)="viewDetails.emit(route())">
+        View Details
+      </button>
+    </div>
+    <div class="card-menu-wrapper">
+      <button
+        class="card-icon-btn card-menu-trigger"
+        type="button"
+        (click)="toggleMenu($event)"
+        aria-haspopup="menu"
+        [attr.aria-expanded]="menuOpen()"
+        aria-label="More actions"
+      >
+        <app-icon
+          class="menu-icon-rotated"
+          name="more-horizontal"
+          [size]="20"
+          strokeWidth="2"
+        ></app-icon>
+      </button>
+      @if (menuOpen()) {
+        <ul class="card-dropdown" role="menu" (click)="$event.stopPropagation()">
+          <li role="none">
+            <button class="card-dropdown-item" role="menuitem" (click)="onDownloadGpx($event)">
+              <app-icon name="download" [size]="16" strokeWidth="2" [class]="'dd-icon'"></app-icon>
+              Download GPX
+            </button>
+          </li>
+          <li role="none">
+            <button class="card-dropdown-item" role="menuitem" (click)="onOpenStrava($event)">
+              <app-icon
+                name="external-link"
+                [size]="16"
+                strokeWidth="2"
+                [class]="'dd-icon'"
+              ></app-icon>
+              Open in Strava
+            </button>
+          </li>
+        </ul>
       }
-
-      <div class="card-footer">
-        <div class="card-footer-center">
-          <button class="card-btn card-btn--outline" type="button" (click)="viewDetails.emit(route())">
-            View Details
-          </button>
-        </div>
-        <div class="card-menu-wrapper">
-          <button class="card-icon-btn card-menu-trigger" type="button" (click)="toggleMenu($event)" aria-haspopup="menu" [attr.aria-expanded]="menuOpen()" aria-label="More actions">
-            <app-icon class="menu-icon-rotated" name="more-horizontal" [size]="20" strokeWidth="2"></app-icon>
-          </button>
-          @if (menuOpen()) {
-            <ul class="card-dropdown" role="menu" (click)="$event.stopPropagation()">
-              <li role="none">
-                <button class="card-dropdown-item" role="menuitem" (click)="onDownloadGpx($event)">
-                  <app-icon name="download" [size]="16" strokeWidth="2" [class]="'dd-icon'"></app-icon>
-                  Download GPX
-                </button>
-              </li>
-              <li role="none">
-                <button class="card-dropdown-item" role="menuitem" (click)="onOpenStrava($event)">
-                  <app-icon name="external-link" [size]="16" strokeWidth="2" [class]="'dd-icon'"></app-icon>
-                  Open in Strava
-                </button>
-              </li>
-            </ul>
-          }
-        </div>
-      </div>
-    </article>
+    </div>
+  </div>
+</article>

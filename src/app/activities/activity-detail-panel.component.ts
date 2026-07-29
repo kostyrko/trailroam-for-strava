@@ -243,9 +243,24 @@ export class ActivityDetailPanelComponent {
     }
 
     const segFeatures = this.buildSpeedSegments(route.coordinates, route.cumulativeDistances);
+
+    // When there is no usable speed data (e.g. an imported track without timestamps, whose
+    // average speed is 0), buildSpeedSegments returns an empty list and the route would not be
+    // drawn. Fall back to a single solid-colour segment so the track is always visible, matching
+    // the trail detail panel's behaviour.
+    const routeFeatures =
+      segFeatures.length > 0
+        ? segFeatures
+        : [
+            {
+              type: 'Feature' as const,
+              properties: { speedRatio: 1 },
+              geometry: { type: 'LineString' as const, coordinates: route.coordinates },
+            },
+          ];
     this.speedLegend.set(segFeatures.length > 0);
 
-    const speedRatios = segFeatures
+    const speedRatios = routeFeatures
       .map((f) => f.properties?.['speedRatio'] as number)
       .filter((v) => v !== undefined);
     const minRatio = speedRatios.length > 0 ? Math.min(...speedRatios) : 0.5;
@@ -265,7 +280,7 @@ export class ActivityDetailPanelComponent {
       ...colorStops,
     ];
 
-    const routeData = { type: 'FeatureCollection' as const, features: segFeatures };
+    const routeData = { type: 'FeatureCollection' as const, features: routeFeatures };
 
     try {
       map.addSource(sourceId, { type: 'geojson', data: routeData });

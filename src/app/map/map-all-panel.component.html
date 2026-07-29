@@ -91,7 +91,14 @@
               sportTypeEmojiFromString(row.route.activity.sportType)
             }}</span>
             <div class="panel-item-body">
-              <span class="panel-item-name">{{ row.route.activity.name }}</span>
+              <div class="panel-item-name-row">
+                <span class="panel-item-name">{{ row.route.activity.name }}</span>
+                @if (row.route.activity.provider !== 'strava') {
+                  <span class="panel-source-mark panel-source-mark--imported" title="Imported"
+                    >&#11014;</span
+                  >
+                }
+              </div>
               <div class="panel-item-meta">
                 {{ formatDistance(row.route.activity.distanceMeters) }} &middot;
                 {{ formatDuration(row.route.activity.movingTimeSeconds) }}

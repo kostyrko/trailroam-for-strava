@@ -9,7 +9,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivityParserService } from '../shared/activity-parser.service';
+import { ActivityParserService, estimateMovingTime, typicalSpeedMs } from '../shared/activity-parser.service';
 import { ImportActivityDialog } from '../shared/import-activity-dialog.component';
 import { EditActivityDialog } from '../shared/edit-activity-dialog.component';
 import { generateId } from '../shared/uuid';
@@ -1597,6 +1597,18 @@ export class ActivitiesPageComponent {
     const now = new Date().toISOString();
     const category = mapSportTypeToCategory(result.sportType);
 
+    // Tracks without usable timestamps (absent or sparser than the 5-minute moving window) yield
+    // movingTimeSeconds = 0. In that case, estimate moving time and average speed from the chosen
+    // sport type's typical pace so the activity's duration and speed are still meaningful. When the
+    // parsed file has a real moving time, keep it unchanged.
+    const hasUsableMovingTime = parsed.movingTimeSeconds > 0;
+    const movingTimeSeconds = hasUsableMovingTime
+      ? parsed.movingTimeSeconds
+      : estimateMovingTime(parsed.totalDistanceMeters, result.sportType);
+    const averageSpeedMetersPerSecond = hasUsableMovingTime
+      ? parsed.averageSpeedMetersPerSecond
+      : typicalSpeedMs(result.sportType);
+
     const activityRecord: ActivityRecord = {
       id,
       provider: 'local',
@@ -1606,10 +1618,10 @@ export class ActivitiesPageComponent {
       activityCategory: category,
       startDate: parsed.startTime,
       distanceMeters: parsed.totalDistanceMeters,
-      movingTimeSeconds: parsed.movingTimeSeconds,
-      elapsedTimeSeconds: parsed.elapsedTimeSeconds,
+      movingTimeSeconds,
+      elapsedTimeSeconds: movingTimeSeconds,
       totalElevationGainMeters: parsed.totalElevationGainMeters,
-      averageSpeedMetersPerSecond: parsed.averageSpeedMetersPerSecond,
+      averageSpeedMetersPerSecond,
       activityStatus: result.activityStatus,
       hasRoute: true,
       routeSyncStatus: 'route_synced',
@@ -1634,7 +1646,7 @@ export class ActivitiesPageComponent {
       activityId: id,
       providerActivityId: id,
       coordinates: parsed.coordinates,
-      elevations: parsed.elevations.length > 0 ? parsed.elevations : undefined,
+      elevations: parsed.elevations.some((e) => e !== 0) ? parsed.elevations : undefined,
       cumulativeDistances: parsed.cumulativeDistances,
       syncedAt: now,
       updatedAt: now,

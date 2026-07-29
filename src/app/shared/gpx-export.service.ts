@@ -27,7 +27,12 @@ export function sportTypeSlug(sportType: string): string {
 
 export function buildTrailGpx(
   trailName: string,
-  segments: { name: string; startDate: string | undefined; coordinates: [number, number][] }[],
+  segments: {
+    name: string;
+    startDate: string | undefined;
+    coordinates: [number, number][];
+    elevations?: number[];
+  }[],
 ): string {
   const lines: string[] = [
     '<?xml version="1.0" encoding="UTF-8"?>',
@@ -42,9 +47,16 @@ export function buildTrailGpx(
       lines.push(`    <time>${new Date(seg.startDate).toISOString()}</time>`);
     }
     lines.push('    <trkseg>');
-    for (const [lng, lat] of seg.coordinates) {
-      lines.push(`      <trkpt lat="${lat}" lon="${lng}"></trkpt>`);
-    }
+    const hasElevation = !!seg.elevations && seg.elevations.length === seg.coordinates.length;
+    seg.coordinates.forEach(([lng, lat], i) => {
+      if (hasElevation) {
+        lines.push(
+          `      <trkpt lat="${lat}" lon="${lng}"><ele>${seg.elevations![i]}</ele></trkpt>`,
+        );
+      } else {
+        lines.push(`      <trkpt lat="${lat}" lon="${lng}"></trkpt>`);
+      }
+    });
     lines.push('    </trkseg>');
     lines.push('  </trk>');
   }
@@ -63,12 +75,17 @@ export function buildGpx(activity: ActivityRecord, route: RouteGeometryRecord): 
     ...(activity.startDate
       ? [`    <time>${new Date(activity.startDate).toISOString()}</time>`]
       : []),
-    '    <trkseg>',
+    '  <trkseg>',
   ];
 
-  for (const [lng, lat] of route.coordinates) {
-    lines.push(`      <trkpt lat="${lat}" lon="${lng}"></trkpt>`);
-  }
+  const hasElevation = !!route.elevations && route.elevations.length === route.coordinates.length;
+  route.coordinates.forEach(([lng, lat], i) => {
+    if (hasElevation) {
+      lines.push(`      <trkpt lat="${lat}" lon="${lng}"><ele>${route.elevations![i]}</ele></trkpt>`);
+    } else {
+      lines.push(`      <trkpt lat="${lat}" lon="${lng}"></trkpt>`);
+    }
+  });
 
   lines.push('    </trkseg>', '  </trk>', '</gpx>');
 
@@ -182,6 +199,7 @@ export class GpxExportService {
       name: string;
       startDate: string | undefined;
       coordinates: [number, number][];
+      elevations?: number[];
     }[] = [];
 
     for (const seg of segments) {
@@ -193,6 +211,7 @@ export class GpxExportService {
         name: seg.name,
         startDate: seg.startDate,
         coordinates: geometry.coordinates,
+        elevations: geometry.elevations,
       });
     }
 

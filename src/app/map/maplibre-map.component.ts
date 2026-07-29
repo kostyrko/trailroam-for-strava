@@ -25,6 +25,13 @@ import { type MapRouteFeature } from './mock-routes';
 import type { RouteBounds, SavedPlaceRecord } from '../storage/storage.models';
 import { MapLibreService } from './maplibre.service';
 import { RouteRendererService } from './route-renderer.service';
+import {
+  STRAVA_HEATMAP_DEFAULT_OPACITY,
+  STRAVA_HEATMAP_SPORT_OPTIONS,
+  StravaHeatmapService,
+  type StravaHeatmapSport,
+} from './strava-heatmap.service';
+import { StravaHeatmapAuthService } from '../extension/strava-heatmap-auth.service';
 import { IconComponent } from '../shared/icon.component';
 import { MapSearchPanelComponent, type SearchSelectedPayload } from './map-search-panel.component';
 import type { GeocodeResult } from './geocoding.service';
@@ -123,6 +130,8 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
   private readonly mapLibreService = inject(MapLibreService);
   private readonly basemapProviderService = inject(BasemapProviderService);
   private readonly routeRendererService = inject(RouteRendererService);
+  private readonly stravaHeatmapService = inject(StravaHeatmapService);
+  private readonly stravaHeatmapAuthService = inject(StravaHeatmapAuthService);
   private readonly appRef = inject(ApplicationRef);
   private readonly environmentInjector = inject(EnvironmentInjector);
   private isHeatmapMode = false;
@@ -174,6 +183,24 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
   protected readonly sliderVisible = signal(false);
   protected readonly searchPanelVisible = signal(false);
 
+  /**
+   * Strava global heatmap overlay state.
+   *
+   * - `stravaMenuOpen` mirrors the basemap `layerMenuOpen` pattern for outside-click
+   *   + Escape closing.
+   * - `stravaActiveSport` is `'none'` when the overlay is off, otherwise the sport
+   *   token; selecting a sport turns it on, selecting `None` turns it off.
+   * - `stravaOpacityVisible` reveals the dedicated raster-opacity slider only while
+   *   the overlay is active (0..100; default 50).
+   */
+  protected readonly STRAVA_HEATMAP_SPORT_OPTIONS = STRAVA_HEATMAP_SPORT_OPTIONS;
+  protected readonly stravaMenuOpen = signal(false);
+  protected readonly stravaActiveSport = signal<StravaHeatmapSport | 'none'>('none');
+  protected readonly stravaOpacityValue = signal(STRAVA_HEATMAP_DEFAULT_OPACITY * 100);
+  protected readonly stravaOpacityVisible = signal(false);
+  /** Exposes the auth-service signal to the template (the service itself is private). */
+  protected readonly stravaAuthState = this.stravaHeatmapAuthService.authState;
+
   protected toggleLayerMenu(): void {
     this.layerMenuOpen.update((v) => !v);
     if (this.layerMenuOpen()) {
@@ -200,8 +227,12 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
     this.pendingReadyTasks = [];
     map.once('style.load', () => {
       this.routeRendererService.init(map);
+      this.stravaHeatmapService.init(map);
       this.drainPendingTasks('selectLayer');
       this.rerenderRoutes();
+      // Re-create the Strava heatmap overlay (setStyle wipes all sources/layers).
+      // The overlay stays hidden unless previously visible; ensureOverlay restores state.
+      this.stravaHeatmapService.ensureOverlay();
       // Markers are DOM overlays and normally survive a style change, but reconcile defensively
       // so saved-place markers are always present after switching basemaps.
       void this.reconcileSavedPlaceMarkers();
@@ -334,6 +365,7 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
 
     this.mapInstance = map;
     this.routeRendererService.init(map);
+    this.stravaHeatmapService.init(map);
 
     map.once('load', () => this.addMapControls());
 
@@ -406,6 +438,9 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
       } else {
         logger.trace('ngAfterViewInit render: no cached routes');
       }
+      // Register the Strava heatmap overlay source/layer. It starts hidden; no tile
+      // requests are issued until Phase 2/3 expose it to the user and auth lands.
+      this.stravaHeatmapService.ensureOverlay();
       // Reconcile saved-place markers explicitly once the map is ready. The signal `effect` may
       // have run before the map existed (or before `SavedPlacesService.load()` resolved), so this
       // guarantees loaded places render at startup, not only after a new place is saved.
@@ -787,6 +822,7 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
     this.mapInstance = null;
     document.removeEventListener('click', this.closeLayerMenu);
     document.removeEventListener('click', this.closeSearchPanel);
+    document.removeEventListener('click', this.closeStravaMenu);
   }
 
   protected toggleSliderVisibility(): void {
@@ -849,6 +885,61 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
     this.heatmapOpacity.set(parseInt(value, 10));
   }
 
+  protected toggleStravaMenu(): void {
+    this.stravaMenuOpen.update((v) => !v);
+    if (this.stravaMenuOpen()) {
+      // Lazy auth check on open: re-reads cookies + revalidates so the dropdown
+      // reflects the current session state (e.g. after the user logged in via the
+      // CTA). The signal drives the button badge and which dropdown view renders.
+      void this.stravaHeatmapAuthService.ensureAuth();
+      setTimeout(() => document.addEventListener('click', this.closeStravaMenu));
+    } else {
+      document.removeEventListener('click', this.closeStravaMenu);
+    }
+  }
+
+  private readonly closeStravaMenu = (): void => {
+    this.stravaMenuOpen.set(false);
+    document.removeEventListener('click', this.closeStravaMenu);
+  };
+
+  /**
+   * Selects a Strava heatmap sport (turning the overlay on) or `'none'` (off).
+   * On first activation the opacity slider is revealed at the default (50%).
+   */
+  protected selectStravaSport(sport: StravaHeatmapSport | 'none'): void {
+    this.stravaActiveSport.set(sport);
+    this.stravaMenuOpen.set(false);
+    document.removeEventListener('click', this.closeStravaMenu);
+    if (sport === 'none') {
+      this.stravaHeatmapService.setVisible(false);
+      this.stravaOpacityVisible.set(false);
+      return;
+    }
+    this.stravaHeatmapService.setSport(sport);
+    this.stravaHeatmapService.setVisible(true);
+    if (!this.stravaOpacityVisible()) {
+      this.stravaOpacityValue.set(STRAVA_HEATMAP_DEFAULT_OPACITY * 100);
+      this.stravaHeatmapService.setOpacity(STRAVA_HEATMAP_DEFAULT_OPACITY);
+      this.stravaOpacityVisible.set(true);
+    }
+  }
+
+  protected onStravaOpacityChange(value: string): void {
+    const pct = parseInt(value, 10);
+    this.stravaOpacityValue.set(pct);
+    this.stravaHeatmapService.setOpacity(pct / 100);
+  }
+
+  /**
+   * Opens the Strava login page when the user is not authenticated, routed through
+   * the auth service so the chrome API stays behind the extension boundary. On
+   * return, the next dropdown open re-reads cookies via {@link toggleStravaMenu}.
+   */
+  protected onStravaLoginRequested(): void {
+    this.stravaHeatmapAuthService.openStravaLogin();
+  }
+
   protected toggleFullscreen(): void {
     const next = !this.fullscreen();
     this.fullscreen.set(next);
@@ -864,8 +955,10 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
     if (event.key === 'Escape') {
       this.layerMenuOpen.set(false);
       this.searchPanelVisible.set(false);
+      this.stravaMenuOpen.set(false);
       this.closeContextMenu();
       document.removeEventListener('click', this.closeLayerMenu);
+      document.removeEventListener('click', this.closeStravaMenu);
     }
   }
 

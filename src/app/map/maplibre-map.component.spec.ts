@@ -7,6 +7,8 @@ import { MapLibreMapComponent } from './maplibre-map.component';
 import { MapLibreService } from './maplibre.service';
 import { type MapRouteFeature } from './mock-routes';
 import { RouteRendererService } from './route-renderer.service';
+import { StravaHeatmapService } from './strava-heatmap.service';
+import { StravaHeatmapAuthService } from '../extension/strava-heatmap-auth.service';
 import type { SavedPlaceRecord } from '../storage/storage.models';
 
 function makePopupMock() {
@@ -120,6 +122,18 @@ describe('MapLibreMapComponent', () => {
   let mapFitBounds: ReturnType<typeof vi.fn>;
   let mapGetZoom: ReturnType<typeof vi.fn>;
   let mockRenderer: Record<string, any>;
+  let stravaHeatmap: {
+    init: ReturnType<typeof vi.fn>;
+    ensureOverlay: ReturnType<typeof vi.fn>;
+    setSport: ReturnType<typeof vi.fn>;
+    setOpacity: ReturnType<typeof vi.fn>;
+    setVisible: ReturnType<typeof vi.fn>;
+  };
+  let stravaAuth: {
+    authState: ReturnType<typeof vi.fn>;
+    ensureAuth: ReturnType<typeof vi.fn>;
+    openStravaLogin: ReturnType<typeof vi.fn>;
+  };
   let remove: ReturnType<typeof vi.fn>;
   let resolvedProvider: ResolvedBasemapProvider;
   let fixture: ComponentFixture<MapLibreMapComponent>;
@@ -149,6 +163,18 @@ describe('MapLibreMapComponent', () => {
       showHoverPoint: vi.fn(),
       clearEmphasis: vi.fn(),
       setEmphasis: vi.fn(),
+    };
+    stravaHeatmap = {
+      init: vi.fn(),
+      ensureOverlay: vi.fn(),
+      setSport: vi.fn(),
+      setOpacity: vi.fn(),
+      setVisible: vi.fn(),
+    };
+    stravaAuth = {
+      authState: vi.fn().mockReturnValue('ready'),
+      ensureAuth: vi.fn().mockResolvedValue('ready'),
+      openStravaLogin: vi.fn(),
     };
     createMap = vi.fn().mockResolvedValue({
       once,
@@ -180,6 +206,8 @@ describe('MapLibreMapComponent', () => {
           provide: RouteRendererService,
           useValue: mockRenderer,
         },
+        { provide: StravaHeatmapService, useValue: stravaHeatmap },
+        { provide: StravaHeatmapAuthService, useValue: stravaAuth },
       ],
     });
   });
@@ -340,6 +368,96 @@ describe('MapLibreMapComponent', () => {
     searchBtn.click();
     fixture.detectChanges();
     expect(native.querySelector('app-map-search-panel')).toBeNull();
+  });
+
+  describe('Strava heatmap dropdown', () => {
+    it('opens the dropdown and triggers an auth check on button click', async () => {
+      fixture = TestBed.createComponent(MapLibreMapComponent);
+      const instance = fixture.componentInstance as any;
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      const btn = fixture.nativeElement.querySelector('.map-strava-btn') as HTMLButtonElement;
+      expect(btn).toBeTruthy();
+      btn.click();
+      fixture.detectChanges();
+
+      expect(instance.stravaMenuOpen()).toBe(true);
+      expect(stravaAuth.ensureAuth).toHaveBeenCalledTimes(1);
+      // Dropdown body renders when open.
+      expect(fixture.nativeElement.querySelector('.map-layer-menu')).toBeTruthy();
+    });
+
+    it('selecting a sport turns the overlay on and switches the sport', async () => {
+      fixture = TestBed.createComponent(MapLibreMapComponent);
+      const instance = fixture.componentInstance as any;
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      instance.selectStravaSport('ride');
+      fixture.detectChanges();
+
+      expect(instance.stravaActiveSport()).toBe('ride');
+      expect(stravaHeatmap.setSport).toHaveBeenCalledWith('ride');
+      expect(stravaHeatmap.setVisible).toHaveBeenCalledWith(true);
+      expect(stravaHeatmap.setOpacity).toHaveBeenCalledTimes(1); // default applied on first activation
+      expect(instance.stravaOpacityVisible()).toBe(true);
+    });
+
+    it("selecting 'none' turns the overlay off and hides the opacity slider", async () => {
+      fixture = TestBed.createComponent(MapLibreMapComponent);
+      const instance = fixture.componentInstance as any;
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      instance.selectStravaSport('run');
+      instance.selectStravaSport('none');
+      fixture.detectChanges();
+
+      expect(instance.stravaActiveSport()).toBe('none');
+      expect(stravaHeatmap.setVisible).toHaveBeenLastCalledWith(false);
+      expect(instance.stravaOpacityVisible()).toBe(false);
+    });
+
+    it('the opacity slider drives the raster-opacity value', async () => {
+      fixture = TestBed.createComponent(MapLibreMapComponent);
+      const instance = fixture.componentInstance as any;
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      instance.selectStravaSport('all');
+      instance.onStravaOpacityChange('70');
+
+      expect(stravaHeatmap.setOpacity).toHaveBeenLastCalledWith(0.7);
+      expect(instance.stravaOpacityValue()).toBe(70);
+    });
+
+    it("the login CTA is routed through the auth service's openStravaLogin", async () => {
+      fixture = TestBed.createComponent(MapLibreMapComponent);
+      const instance = fixture.componentInstance as any;
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      instance.onStravaLoginRequested();
+      expect(stravaAuth.openStravaLogin).toHaveBeenCalledTimes(1);
+    });
+
+    it('renders the login view (not sport list) when auth is not-ready', async () => {
+      stravaAuth.authState.mockReturnValue('not-ready');
+      fixture = TestBed.createComponent(MapLibreMapComponent);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      const btn = fixture.nativeElement.querySelector('.map-strava-btn') as HTMLButtonElement;
+      btn.click();
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('.map-strava-login')).toBeTruthy();
+      // Sport rows are absent in the not-ready state.
+      expect(
+        fixture.nativeElement.querySelectorAll('.map-layer-menu-item').length,
+      ).toBe(0);
+    });
   });
 
   describe('saved-place markers', () => {

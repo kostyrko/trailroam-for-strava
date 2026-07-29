@@ -31,10 +31,11 @@
       "run_at": "document_idle"
     }
   ],
-  "permissions": [],
+  "permissions": ["cookies", "declarativeNetRequest"],
   "host_permissions": [
     "https://www.strava.com/*",
     "https://strava.com/*",
+    "https://content-a.strava.com/*",
     "https://tiles.openfreemap.org/*",
     "https://photon.komoot.io/*"
   ],

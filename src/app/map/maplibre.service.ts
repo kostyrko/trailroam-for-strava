@@ -10,6 +10,18 @@ const ALLOWED_TILE_HOSTS = [
   'tiles.versatiles.org',
 ];
 
+/**
+ * Strava hosts serving the global heatmap raster tiles. Requests are matched the
+ * same way as {@link ALLOWED_TILE_HOSTS} (exact host or any subdomain).
+ *
+ * Note: these tiles are authenticated via CloudFront signing cookies injected by
+ * a `declarativeNetRequest` rule (not via `credentials: 'include'`). Returning
+ * `credentials: 'same-origin'` keeps the request anonymous from MapLibre's side
+ * so the DNR-injected `Cookie` header and CORS response (`Access-Control-Allow-
+ * Origin: *`) apply without a credentials-mode conflict.
+ */
+const STRAVA_HEATMAP_HOST = 'strava.com';
+
 const DEFAULT_CENTER: [number, number] = [0, 20];
 const DEFAULT_ZOOM = 2;
 
@@ -30,6 +42,9 @@ export class MapLibreService {
       transformRequest: (url, resourceType) => {
         if (resourceType === 'Style' || resourceType === 'Source' || resourceType === 'Tile') {
           const host = new URL(url).hostname;
+          if (host === STRAVA_HEATMAP_HOST || host.endsWith('.' + STRAVA_HEATMAP_HOST)) {
+            return { url, credentials: 'same-origin' };
+          }
           if (
             ALLOWED_TILE_HOSTS.some((allowed) => host === allowed || host.endsWith('.' + allowed))
           ) {

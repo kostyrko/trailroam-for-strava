@@ -70,6 +70,10 @@ const ICONS: Record<string, string> = {
   x: '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
   'sidebar-collapse':
     '<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><polyline points="12 9 9 12 12 15"/>',
+  // Lightning bolt — the Strava identifier used across the app (logbook badges,
+  // source filter chips use the ⚡ glyph). Registered here as a vector so the map
+  // layer button renders consistently with the other <app-icon> controls.
+  zap: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
 };
 
 const SVG_NS = 'http://www.w3.org/2000/svg';

@@ -133,7 +133,10 @@ describe('MapLibreMapComponent', () => {
     authState: ReturnType<typeof vi.fn>;
     ensureAuth: ReturnType<typeof vi.fn>;
     openStravaLogin: ReturnType<typeof vi.fn>;
+    markNotReady: ReturnType<typeof vi.fn>;
   };
+  /** Map event-name -> handler captured from `map.on(...)`, for dispatching in tests. */
+  let mapOnHandlers: globalThis.Map<string, (...args: unknown[]) => void>;
   let remove: ReturnType<typeof vi.fn>;
   let resolvedProvider: ResolvedBasemapProvider;
   let fixture: ComponentFixture<MapLibreMapComponent>;
@@ -175,10 +178,15 @@ describe('MapLibreMapComponent', () => {
       authState: vi.fn().mockReturnValue('ready'),
       ensureAuth: vi.fn().mockResolvedValue('ready'),
       openStravaLogin: vi.fn(),
+      markNotReady: vi.fn().mockResolvedValue(undefined),
     };
+    mapOnHandlers = new globalThis.Map();
     createMap = vi.fn().mockResolvedValue({
       once,
-      on: vi.fn(),
+      on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+        // Record handlers so tests can dispatch them (e.g. the 'error' listener).
+        mapOnHandlers.set(event, handler);
+      }),
       remove,
       addControl: vi.fn(),
       isStyleLoaded: () => true,
@@ -450,6 +458,9 @@ describe('MapLibreMapComponent', () => {
 
       const btn = fixture.nativeElement.querySelector('.map-strava-btn') as HTMLButtonElement;
       btn.click();
+      // Let the ensureAuth promise + its .finally(checking=false) settle so the
+      // spinner clears and the not-ready login view renders.
+      await new Promise((r) => setTimeout(r, 0));
       fixture.detectChanges();
 
       expect(fixture.nativeElement.querySelector('.map-strava-login')).toBeTruthy();
@@ -457,6 +468,62 @@ describe('MapLibreMapComponent', () => {
       expect(
         fixture.nativeElement.querySelectorAll('.map-layer-menu-item').length,
       ).toBe(0);
+    });
+  });
+
+  describe('Strava tile error handling', () => {
+    it('routes a Strava-host tile error to markNotReady, not emitBasemapLoadFailed', async () => {
+      const basemapFailed = vi.fn();
+      fixture = TestBed.createComponent(MapLibreMapComponent);
+      fixture.componentInstance.basemapLoadFailed.subscribe(basemapFailed);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      const errorHandler = mapOnHandlers.get('error')!;
+      errorHandler({
+        error: {
+          message: 'AJAXError: Forbidden (403): https://content-a.strava.com/identified/globalheat/all/hot/8/198/114.png?v=19',
+        },
+      });
+
+      expect(stravaAuth.markNotReady).toHaveBeenCalledTimes(1);
+      expect(basemapFailed).not.toHaveBeenCalled();
+    });
+
+    it('still treats a non-Strava tile error as a basemap failure', async () => {
+      const basemapFailed = vi.fn();
+      fixture = TestBed.createComponent(MapLibreMapComponent);
+      fixture.componentInstance.basemapLoadFailed.subscribe(basemapFailed);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      const errorHandler = mapOnHandlers.get('error')!;
+      errorHandler({ error: { status: 404, message: 'AJAXError: Not Found (404): https://tiles.openfreemap.org/0/0/0' } });
+
+      expect(basemapFailed).toHaveBeenCalledTimes(1);
+      expect(stravaAuth.markNotReady).not.toHaveBeenCalled();
+    });
+
+    it('shows the checking state during ensureAuth and clears it after', async () => {
+      // Tie ensureAuth's resolution to a controllable promise so we can observe
+      // the in-flight checking state.
+      let resolveEnsure!: (v: 'ready') => void;
+      stravaAuth.ensureAuth.mockReturnValue(
+        new Promise<'ready'>((r) => {
+          resolveEnsure = r;
+        }),
+      );
+      fixture = TestBed.createComponent(MapLibreMapComponent);
+      const instance = fixture.componentInstance as any;
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      instance.toggleStravaMenu();
+      expect(instance.stravaAuthChecking()).toBe(true);
+
+      resolveEnsure('ready');
+      await new Promise((r) => setTimeout(r, 0));
+      expect(instance.stravaAuthChecking()).toBe(false);
     });
   });
 

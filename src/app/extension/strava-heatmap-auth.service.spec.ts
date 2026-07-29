@@ -151,4 +151,21 @@ describe('StravaHeatmapAuthService', () => {
     );
     openSpy.mockRestore();
   });
+
+  it('markNotReady flips auth state to not-ready and removes the DNR rule', async () => {
+    const mock = installMockChrome();
+    // Start from a ready state so the flip is observable.
+    globalThis.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200, type: 'basic' }) as unknown as typeof fetch;
+    await service.ensureAuth();
+    expect(service.authState()).toBe('ready');
+
+    await service.markNotReady();
+
+    expect(service.authState()).toBe('not-ready');
+    // The last updateDynamicRules call removed the rule (no addRules).
+    const lastCall = mock.declarativeNetRequest.updateDynamicRules.mock.calls.at(-1)![0];
+    expect(lastCall.removeRuleIds).toEqual([1]);
+    expect(lastCall.addRules).toBeUndefined();
+    mock.restore();
+  });
 });

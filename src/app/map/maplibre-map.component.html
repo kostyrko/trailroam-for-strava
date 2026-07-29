@@ -111,7 +111,9 @@
       </button>
       @if (stravaMenuOpen()) {
         <div class="map-layer-menu" (click)="$event.stopPropagation()">
-          @if (stravaAuthState() === 'not-ready') {
+          @if (stravaAuthChecking()) {
+            <div class="map-strava-checking" aria-live="polite">Checking Strava login…</div>
+          } @else if (stravaAuthState() === 'not-ready') {
             <div class="map-strava-login">
               <span class="map-strava-login-hint"
                 >A free Strava login is required to show the global heatmap.</span

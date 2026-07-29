@@ -198,6 +198,8 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
   protected readonly stravaActiveSport = signal<StravaHeatmapSport | 'none'>('none');
   protected readonly stravaOpacityValue = signal(STRAVA_HEATMAP_DEFAULT_OPACITY * 100);
   protected readonly stravaOpacityVisible = signal(false);
+  /** True while {@link ensureAuth} is in flight on dropdown open. */
+  protected readonly stravaAuthChecking = signal(false);
   /** Exposes the auth-service signal to the template (the service itself is private). */
   protected readonly stravaAuthState = this.stravaHeatmapAuthService.authState;
 
@@ -422,6 +424,15 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
     });
 
     map.on('error', (err) => {
+      // Strava heatmap tile errors are an auth concern, not a basemap failure:
+      // they fire when the CloudFront signing cookies expire mid-session. Route
+      // them to the heatmap auth state (→ login view) instead of surfacing a
+      // misleading "basemap failed" message.
+      if (this.isStravaHeatmapError(err?.error)) {
+        logger.error('Strava heatmap tile error:', err?.error?.message);
+        void this.stravaHeatmapAuthService.markNotReady();
+        return;
+      }
       if (err?.error?.status === 404 || err?.error?.status === 403 || err?.error?.status === 500) {
         logger.error('MapLibre runtime error:', err);
         this.emitBasemapLoadFailed();
@@ -891,7 +902,10 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
       // Lazy auth check on open: re-reads cookies + revalidates so the dropdown
       // reflects the current session state (e.g. after the user logged in via the
       // CTA). The signal drives the button badge and which dropdown view renders.
-      void this.stravaHeatmapAuthService.ensureAuth();
+      this.stravaAuthChecking.set(true);
+      this.stravaHeatmapAuthService
+        .ensureAuth()
+        .finally(() => this.stravaAuthChecking.set(false));
       setTimeout(() => document.addEventListener('click', this.closeStravaMenu));
     } else {
       document.removeEventListener('click', this.closeStravaMenu);
@@ -992,5 +1006,19 @@ export class MapLibreMapComponent implements AfterViewInit, OnDestroy {
     this.ngZone.run(() => {
       this.basemapLoadFailed.emit();
     });
+  }
+
+  /**
+   * Detects a MapLibre error originating from a Strava heatmap tile request.
+   * MapLibre wraps failed tile fetches in an `AJAXError` whose `.url` holds the
+   * tile URL and whose message embeds it (`AJAXError: <text> (<status>): <url>`);
+   * it does NOT set `.status` on the error passed to listeners. We check both
+   * fields defensively so a 403 from expired CloudFront cookies is caught.
+   */
+  private isStravaHeatmapError(error: { url?: string; message?: string } | undefined): boolean {
+    if (!error) {
+      return false;
+    }
+    return Boolean(error.url?.includes('strava.com') || error.message?.includes('strava.com'));
   }
 }

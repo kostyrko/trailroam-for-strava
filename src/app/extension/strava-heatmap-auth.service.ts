@@ -104,6 +104,18 @@ export class StravaHeatmapAuthService {
     window.open('https://www.strava.com/login', '_blank', 'noopener');
   }
 
+  /**
+   * Forces auth state to `not-ready` and removes the DNR rule. Called when a
+   * Strava tile request fails at runtime (e.g. CloudFront cookies expired
+   * mid-session), so the map component can surface the login view instead of a
+   * misleading "basemap failed" error. The next dropdown open re-validates via
+   * {@link ensureAuth}.
+   */
+  async markNotReady(): Promise<void> {
+    this.authStateSignal.set('not-ready');
+    await this.removeDnrRule();
+  }
+
   private isExtensionContext(): boolean {
     const c = this.chrome();
     return Boolean(c?.cookies?.get && c?.declarativeNetRequest?.updateDynamicRules);

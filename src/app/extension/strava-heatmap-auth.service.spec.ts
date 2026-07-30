@@ -30,9 +30,11 @@ function installMockChrome(overrides: Partial<MockChrome> = {}): InstalledMockCh
   ]);
   const mock: MockChrome = {
     cookies: {
-      get: overrides.cookies?.get ?? vi.fn(async ({ name }: { url: string; name: string }) =>
-        cookieJar.has(name) ? { value: cookieJar.get(name) } : null,
-      ),
+      get:
+        overrides.cookies?.get ??
+        vi.fn(async ({ name }: { url: string; name: string }) =>
+          cookieJar.has(name) ? { value: cookieJar.get(name) } : null,
+        ),
     },
     declarativeNetRequest: {
       updateDynamicRules:
@@ -93,7 +95,9 @@ describe('StravaHeatmapAuthService', () => {
 
   it('reports ready and installs the DNR rule when cookies are present and the probe succeeds', async () => {
     const mock = installMockChrome();
-    globalThis.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200, type: 'basic' }) as unknown as typeof fetch;
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValue({ ok: true, status: 200, type: 'basic' }) as unknown as typeof fetch;
 
     await expect(service.ensureAuth()).resolves.toBe('ready');
     expect(service.authState()).toBe('ready');
@@ -122,7 +126,9 @@ describe('StravaHeatmapAuthService', () => {
 
   it('reports not-ready and removes the rule when the probe 403s (expired cookies)', async () => {
     const mock = installMockChrome();
-    globalThis.fetch = vi.fn().mockResolvedValue({ ok: false, status: 403, type: 'basic' }) as unknown as typeof fetch;
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValue({ ok: false, status: 403, type: 'basic' }) as unknown as typeof fetch;
 
     await expect(service.ensureAuth()).resolves.toBe('not-ready');
     expect(service.authState()).toBe('not-ready');
@@ -133,10 +139,10 @@ describe('StravaHeatmapAuthService', () => {
     mock.restore();
   });
 
-  it('openStravaLogin opens the login tab via chrome.tabs when available', () => {
+  it('openStravaLogin opens the heatmap page via chrome.tabs when available', () => {
     const mock = installMockChrome();
     service.openStravaLogin();
-    expect(mock.tabs!.create).toHaveBeenCalledWith({ url: 'https://www.strava.com/login' });
+    expect(mock.tabs!.create).toHaveBeenCalledWith({ url: 'https://www.strava.com/heatmap' });
     mock.restore();
   });
 
@@ -144,18 +150,16 @@ describe('StravaHeatmapAuthService', () => {
     delete (globalThis as { chrome?: unknown }).chrome;
     const openSpy = vi.spyOn(globalThis, 'open').mockImplementation(() => null);
     service.openStravaLogin();
-    expect(openSpy).toHaveBeenCalledWith(
-      'https://www.strava.com/login',
-      '_blank',
-      'noopener',
-    );
+    expect(openSpy).toHaveBeenCalledWith('https://www.strava.com/heatmap', '_blank', 'noopener');
     openSpy.mockRestore();
   });
 
   it('markNotReady flips auth state to not-ready and removes the DNR rule', async () => {
     const mock = installMockChrome();
     // Start from a ready state so the flip is observable.
-    globalThis.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200, type: 'basic' }) as unknown as typeof fetch;
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValue({ ok: true, status: 200, type: 'basic' }) as unknown as typeof fetch;
     await service.ensureAuth();
     expect(service.authState()).toBe('ready');
 

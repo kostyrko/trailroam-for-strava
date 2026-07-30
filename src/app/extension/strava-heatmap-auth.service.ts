@@ -60,48 +60,89 @@ export class StravaHeatmapAuthService {
   private readonly authStateSignal = signal<StravaHeatmapAuthState>('unknown');
   readonly authState = this.authStateSignal.asReadonly();
 
+  constructor() {
+    this.initVisibilityCheck();
+  }
+
+  /**
+   * Listens for the tab becoming visible again (e.g. the user returns from the
+   * Strava login page) and re-checks auth when the current state is `not-ready`.
+   */
+  private initVisibilityCheck(): void {
+    if (typeof document === 'undefined') {
+      return;
+    }
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && this.authStateSignal() === 'not-ready') {
+        void this.ensureAuth();
+      }
+    });
+  }
+
   /**
    * Reads + validates the heatmap cookies and installs the DNR rule when valid.
    * Sets {@link authState} accordingly. Safe to call repeatedly; it re-reads
    * cookies each time so it recovers after the user logs in via {@link openStravaLogin}.
    */
   async ensureAuth(): Promise<StravaHeatmapAuthState> {
+    console.log('[StravaHeatmapAuth] ensureAuth() called');
+
     if (!this.isExtensionContext()) {
+      console.log(
+        '[StravaHeatmapAuth] NOT extension context — chrome.cookies or declarativeNetRequest missing',
+      );
       this.authStateSignal.set('not-ready');
       return 'not-ready';
     }
+    console.log('[StravaHeatmapAuth] Extension context OK');
 
     const cookieHeader = await this.readCookieHeader();
     if (!cookieHeader) {
+      console.log(
+        '[StravaHeatmapAuth] Cookie header empty — one or more CloudFront cookies missing from content-a.strava.com',
+      );
       this.authStateSignal.set('not-ready');
       await this.removeDnrRule();
       return 'not-ready';
     }
+    console.log(
+      '[StravaHeatmapAuth] Cookie header assembled successfully:',
+      cookieHeader.slice(0, 80) + '...',
+    );
 
     const valid = await this.validateCookies();
     if (!valid) {
+      console.log(
+        '[StravaHeatmapAuth] Cookie validation FAILED — test tile fetch did not return 200/redirect',
+      );
       this.authStateSignal.set('not-ready');
       await this.removeDnrRule();
       return 'not-ready';
     }
+    console.log('[StravaHeatmapAuth] Cookie validation PASSED — test tile fetch was successful');
 
     await this.installDnrRule(cookieHeader);
+    console.log('[StravaHeatmapAuth] DNR rule installed, auth is READY');
     this.authStateSignal.set('ready');
     return 'ready';
   }
 
   /**
-   * Opens the Strava login page so the user can (re)establish a session. After
-   * logging in, the signing cookies become available and {@link ensureAuth} will
-   * succeed on the next dropdown open.
+   * Opens the Strava global heatmap page so the user can (re)establish a
+   * session and the CloudFront signing cookies for the heatmap tile host get
+   * set. Simply logging in at strava.com/login does NOT issue the
+   * CloudFront-Key-Pair-Id / CloudFront-Policy / CloudFront-Signature cookies
+   * on content-a.strava.com — those are only set when you visit the heatmap
+   * page. After logging in (or if already logged in), the heatmap page sets
+   * these cookies and {@link ensureAuth} will succeed on the next attempt.
    */
   openStravaLogin(): void {
     const chrome = this.chrome();
     if (chrome?.tabs?.create) {
-      chrome.tabs.create({ url: 'https://www.strava.com/login' });
+      chrome.tabs.create({ url: 'https://www.strava.com/heatmap' });
       return;
     }
-    window.open('https://www.strava.com/login', '_blank', 'noopener');
+    window.open('https://www.strava.com/heatmap', '_blank', 'noopener');
   }
 
   /**
@@ -128,9 +169,10 @@ export class StravaHeatmapAuthService {
             get: (details: { url: string; name: string }) => Promise<ChromeCookie | null>;
           };
           declarativeNetRequest?: {
-            updateDynamicRules: (
-              rules: { removeRuleIds?: number[]; addRules?: unknown[] },
-            ) => Promise<void>;
+            updateDynamicRules: (rules: {
+              removeRuleIds?: number[];
+              addRules?: unknown[];
+            }) => Promise<void>;
           };
           tabs?: { create?: (p: { url: string }) => void };
         }
@@ -144,16 +186,23 @@ export class StravaHeatmapAuthService {
   private async readCookieHeader(): Promise<string> {
     const chrome = this.chrome();
     if (!chrome?.cookies?.get) {
+      console.log('[StravaHeatmapAuth] readCookieHeader: chrome.cookies.get not available');
       return '';
     }
     const parts: string[] = [];
     for (const name of HEATMAP_COOKIE_NAMES) {
       const cookie = await chrome.cookies.get({ url: 'https://content-a.strava.com', name });
+      console.log(
+        `[StravaHeatmapAuth] readCookieHeader: ${name} =`,
+        cookie ? cookie.value.slice(0, 20) + '...' : 'null (MISSING!)',
+      );
       if (!cookie) {
+        console.log(`[StravaHeatmapAuth] readCookieHeader: MISSING cookie "${name}" — aborting`);
         return '';
       }
       parts.push(`${name}=${cookie.value}`);
     }
+    console.log('[StravaHeatmapAuth] readCookieHeader: ALL 4 cookies found');
     return parts.join('; ');
   }
 
@@ -170,9 +219,16 @@ export class StravaHeatmapAuthService {
    */
   private async validateCookies(): Promise<boolean> {
     try {
+      console.log('[StravaHeatmapAuth] validateCookies: fetching test tile...');
       const res = await fetch(TEST_TILE_URL, { method: 'GET', credentials: 'include' });
-      return res.ok || res.type === 'opaqueredirect' || res.status === 0;
+      console.log(
+        `[StravaHeatmapAuth] validateCookies: response status=${res.status}, type=${res.type}, ok=${res.ok}`,
+      );
+      const result = res.ok || res.type === 'opaqueredirect' || res.status === 0;
+      console.log(`[StravaHeatmapAuth] validateCookies: returning ${result}`);
+      return result;
     } catch (err) {
+      console.error('[StravaHeatmapAuth] validateCookies: fetch threw:', err);
       logger.error('Strava heatmap auth probe failed:', err);
       return false;
     }
@@ -201,9 +257,7 @@ export class StravaHeatmapAuthService {
           priority: 1,
           action: {
             type: 'modifyHeaders',
-            requestHeaders: [
-              { header: 'Cookie', operation: 'set', value: cookieHeader },
-            ],
+            requestHeaders: [{ header: 'Cookie', operation: 'set', value: cookieHeader }],
             responseHeaders: [
               { header: 'Access-Control-Allow-Origin', operation: 'set', value: '*' },
             ],

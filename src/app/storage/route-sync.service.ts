@@ -72,6 +72,12 @@ export class RouteSyncService {
       'route_synced',
     );
 
+    // Merge performance-stream aggregates (HR avg/max/min, max speed, avg temperature)
+    // onto the activity. Only fields with usable data are written.
+    if (normalized.stats && Object.keys(normalized.stats).length > 0) {
+      await this.repositories.activities.updateStreamStats(activityId, normalized.stats);
+    }
+
     return { routeStored: true, routeSyncStatus: 'route_synced', route: routeResult };
   }
 

@@ -13,6 +13,7 @@ import {
   fmtDate,
   computeSpeed,
   formatHeartrate,
+  formatTemperature,
 } from './index';
 
 describe('formatDistance', () => {
@@ -167,5 +168,20 @@ describe('formatHeartrate', () => {
   });
   it('should format bpm', () => {
     expect(formatHeartrate(145)).toBe('145 bpm');
+  });
+});
+
+describe('formatTemperature', () => {
+  it('should return em-dash for undefined', () => {
+    expect(formatTemperature(undefined)).toBe('\u2014');
+  });
+  it('should round to integer degrees', () => {
+    expect(formatTemperature(18.4)).toBe('18\u00B0C');
+  });
+  it('should format negative degrees', () => {
+    expect(formatTemperature(-3.6)).toBe('-4\u00B0C');
+  });
+  it('should format zero degrees (0 is a valid temperature)', () => {
+    expect(formatTemperature(0)).toBe('0\u00B0C');
   });
 });

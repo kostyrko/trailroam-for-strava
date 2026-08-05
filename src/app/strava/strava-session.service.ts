@@ -42,6 +42,14 @@ export interface RouteStreamsData {
   coordinates: [number, number][];
   elevations?: number[];
   cumulativeDistances?: number[];
+  /** Per-sample heart rate (bpm). Absent when the activity has no HR data. */
+  heartrate?: number[];
+  /** Per-sample smoothed velocity (m/s). Source of max/avg speed. */
+  velocitySmooth?: number[];
+  /** Per-sample temperature (°C). Rarely recorded. */
+  temp?: number[];
+  /** Per-sample seconds since activity start. Used to time-weight averages. */
+  timeStream?: number[];
 }
 
 export type RouteFetchResult =
@@ -116,7 +124,7 @@ export class StravaSessionService {
   }
 
   async fetchActivityRoute(activityId: number): Promise<RouteFetchResult> {
-    const url = `${environment.stravaApiBase}${STRAVA_STREAMS_PATH}/${activityId}/streams?keys=latlng,altitude,distance&key_by_type=true`;
+    const url = `${environment.stravaApiBase}${STRAVA_STREAMS_PATH}/${activityId}/streams?keys=latlng,altitude,distance,heartrate,velocity_smooth,temp,time&key_by_type=true`;
 
     try {
       const response = await fetch(url, { credentials: 'include' });
@@ -155,7 +163,29 @@ export class StravaSessionService {
           ? data.distance.data
           : undefined;
 
-      return { success: true, coordinates, elevations, cumulativeDistances };
+      // Performance/sensor streams used to compute activity aggregates (HR avg/max/min,
+      // max speed, avg temperature). Absent when the activity recorded no such data.
+      const heartrate: number[] | undefined =
+        data?.heartrate && Array.isArray(data.heartrate.data) ? data.heartrate.data : undefined;
+      const velocitySmooth: number[] | undefined =
+        data?.velocity_smooth && Array.isArray(data.velocity_smooth.data)
+          ? data.velocity_smooth.data
+          : undefined;
+      const temp: number[] | undefined =
+        data?.temp && Array.isArray(data.temp.data) ? data.temp.data : undefined;
+      const timeStream: number[] | undefined =
+        data?.time && Array.isArray(data.time.data) ? data.time.data : undefined;
+
+      return {
+        success: true,
+        coordinates,
+        elevations,
+        cumulativeDistances,
+        heartrate,
+        velocitySmooth,
+        temp,
+        timeStream,
+      };
     } catch {
       return { success: false, errorCode: 'ACTIVITY_ROUTE_FETCH_FAILED' };
     }

@@ -39,6 +39,22 @@ export class ActivitiesRepository {
     await this.db.activities.update(id, { hasRoute, routeSyncStatus, updatedAt: new Date().toISOString() });
   }
 
+  /**
+   * Merges performance-stream aggregates (HR avg/max/min, max speed, avg temperature)
+   * onto an activity. Only provided keys are written, so absent sensor data never erases
+   * a previously-stored value.
+   */
+  async updateStreamStats(
+    id: string,
+    stats: Partial<Pick<ActivityRecord, 'averageHeartrateBpm' | 'maxHeartrateBpm' | 'minHeartrateBpm' | 'maxSpeedMetersPerSecond' | 'averageTemperatureCelsius'>>,
+  ): Promise<void> {
+    const patch: Record<string, unknown> = { updatedAt: new Date().toISOString() };
+    for (const [k, v] of Object.entries(stats)) {
+      if (v !== undefined) patch[k] = v;
+    }
+    await this.db.activities.update(id, patch);
+  }
+
   async updateName(id: string, name: string): Promise<void> {
     await this.db.activities.update(id, { name, updatedAt: new Date().toISOString() });
   }

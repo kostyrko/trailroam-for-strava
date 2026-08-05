@@ -1,10 +1,11 @@
 import { Injectable } from '@angular/core';
-import type { ActivityRouteRecord, RouteGeometryRecord } from '../storage/storage.models';
+import type { ActivityRecord, ActivityRouteRecord, RouteGeometryRecord } from '../storage/storage.models';
 import type { RouteFetchResult } from './strava-session.service';
 import { normalizeRouteCoordinates, simplifyCoordinates } from './route-coordinate-utils';
+import { computeStreamStats } from '../shared/stream-stats';
 
 export type RouteNormalizationResult =
-  | { success: true; route: ActivityRouteRecord; geometry?: RouteGeometryRecord }
+  | { success: true; route: ActivityRouteRecord; geometry?: RouteGeometryRecord; stats?: Partial<Pick<ActivityRecord, 'averageHeartrateBpm' | 'maxHeartrateBpm' | 'minHeartrateBpm' | 'maxSpeedMetersPerSecond' | 'averageTemperatureCelsius'>> }
   | { success: false; errorCode: 'NO_GPS_ROUTE' | 'EMPTY_ROUTE' | 'INVALID_COORDINATES' };
 
 @Injectable({
@@ -51,6 +52,16 @@ export class StravaRouteNormalizer {
       updatedAt: now,
     };
 
-    return { success: true, route, geometry };
+    // Performance aggregates (HR avg/max/min, max speed, avg temperature) from the sensor
+    // streams requested alongside the route. Absent sensor data yields no fields, so merging
+    // never overwrites a previously-stored value.
+    const stats = computeStreamStats({
+      heartrate: fetchResult.heartrate,
+      velocitySmooth: fetchResult.velocitySmooth,
+      temp: fetchResult.temp,
+      timeStream: fetchResult.timeStream,
+    });
+
+    return { success: true, route, geometry, stats };
   }
 }

@@ -25,13 +25,13 @@ import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.tok
 import { type ActivityRecord, type ActivityRouteRecord } from '../storage/storage.models';
 import { IconComponent } from '../shared/icon.component';
 import { EditActivityDialog } from '../shared/edit-activity-dialog.component';
-import { formatSportType } from '../shared/activity-category';
 import {
   formatDistance,
   formatDuration,
   formatSpeedKmh,
   formatElevation,
   formatDateWithTime,
+  formatTemperature,
 } from '../shared/formatters';
 import { SPEED_COLORS, buildSpeedSegments } from '../shared/speed-segments';
 
@@ -121,12 +121,16 @@ export class ActivityDetailPanelComponent {
     return el[0];
   });
 
-  protected readonly calories = computed(() => {
+  protected readonly maxSpeedMs = computed(() => this.activity()?.maxSpeedMetersPerSecond);
+  protected readonly temperature = computed(() => formatTemperature(this.activity()?.averageTemperatureCelsius));
+
+  // Heart-rate values exposed individually for the grouped (Avg / Min / Max) detail-row layout.
+  protected readonly hrAvg = computed(() => roundBpm(this.activity()?.averageHeartrateBpm));
+  protected readonly hrMin = computed(() => roundBpm(this.activity()?.minHeartrateBpm));
+  protected readonly hrMax = computed(() => roundBpm(this.activity()?.maxHeartrateBpm));
+  protected readonly hasHr = computed(() => {
     const a = this.activity();
-    if (!a) {
-      return '—';
-    }
-    return (a as any).calories ?? '—';
+    return a?.averageHeartrateBpm !== undefined || a?.maxHeartrateBpm !== undefined || a?.minHeartrateBpm !== undefined;
   });
 
   private readonly mapContainer = viewChild<ElementRef<HTMLDivElement>>('mapContainer');
@@ -184,7 +188,7 @@ export class ActivityDetailPanelComponent {
   protected readonly formatDuration = formatDuration;
   protected readonly formatSpeedKmh = formatSpeedKmh;
   protected readonly formatElevation = formatElevation;
-  protected readonly formatSportType = formatSportType;
+  protected readonly formatTemperature = formatTemperature;
 
   private initMap(): void {
     if (this.mapInitialized()) {
@@ -548,4 +552,9 @@ export class ActivityDetailPanelComponent {
       this.close.emit();
     }, 250);
   }
+}
+
+/** Rounds a bpm value to an integer, preserving `undefined` (no data). */
+function roundBpm(bpm: number | undefined): number | undefined {
+  return bpm === undefined ? undefined : Math.round(bpm);
 }

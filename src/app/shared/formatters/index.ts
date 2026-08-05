@@ -76,3 +76,8 @@ export function formatHeartrate(bpm: number | undefined): string {
   if (bpm === undefined || bpm === 0) { return '\u2014'; }
   return `${bpm.toFixed(0)} bpm`;
 }
+
+export function formatTemperature(celsius: number | undefined): string {
+  if (celsius === undefined) { return '\u2014'; }
+  return `${Math.round(celsius)}\u00B0C`;
+}

@@ -240,32 +240,95 @@
 
       <div class="panel-details card">
         <h3 class="card-title">Activity Details</h3>
-        <dl class="details-list">
+        <div class="details-list">
           <div class="detail-row">
-            <dt>Type</dt>
-            <dd>{{ formatSportType(activity()!.sportType) }}</dd>
+            <span class="detail-icon" aria-hidden="true">
+              <app-icon name="clock" [size]="16" strokeWidth="2"></app-icon>
+            </span>
+            <span class="detail-label">Moving Time</span>
+            <span class="detail-spacer"></span>
+            <span class="detail-value">{{ formatDuration(activity()!.movingTimeSeconds) }}</span>
           </div>
+
           <div class="detail-row">
-            <dt>Moving Time</dt>
-            <dd>{{ formatDuration(activity()!.movingTimeSeconds) }}</dd>
+            <span class="detail-icon" aria-hidden="true">
+              <app-icon name="gauge" [size]="16" strokeWidth="2"></app-icon>
+            </span>
+            <span class="detail-label">Max Speed</span>
+            <span class="detail-spacer"></span>
+            <span class="detail-value">{{ formatSpeedKmh(maxSpeedMs()) }}</span>
           </div>
+
+          @if (hasHr()) {
+            <div class="detail-row detail-row--hr">
+              <span class="detail-icon" aria-hidden="true">
+                <app-icon name="heart" [size]="16" strokeWidth="2"></app-icon>
+              </span>
+              <span class="detail-label">Heart Rate</span>
+              <span class="detail-spacer"></span>
+              <span class="hr-group">
+                <span class="sr-only">Heart rate in beats per minute.</span>
+                @if (hrAvg() !== undefined) {
+                  <span class="hr-stat">
+                    <span class="hr-stat-label">Avg</span>
+                    <span class="hr-stat-value">{{ hrAvg() }}</span>
+                  </span>
+                }
+                @if (hrMin() !== undefined) {
+                  <span class="hr-stat">
+                    <span class="hr-stat-label">Min</span>
+                    <span class="hr-stat-value">{{ hrMin() }}</span>
+                  </span>
+                }
+                @if (hrMax() !== undefined) {
+                  <span class="hr-stat">
+                    <span class="hr-stat-label">Max</span>
+                    <span class="hr-stat-value">{{ hrMax() }}</span>
+                  </span>
+                }
+                <span class="hr-unit">bpm</span>
+              </span>
+            </div>
+          }
+
           <div class="detail-row">
-            <dt>Calories</dt>
-            <dd>{{ calories() }}</dd>
+            <span class="detail-icon" aria-hidden="true">
+              <app-icon name="thermometer" [size]="16" strokeWidth="2"></app-icon>
+            </span>
+            <span class="detail-label">Temperature</span>
+            <span class="detail-spacer"></span>
+            <span class="detail-value">{{ temperature() }}</span>
           </div>
+
+          <div class="details-divider" role="separator" aria-label="Elevation metrics"></div>
+
           <div class="detail-row">
-            <dt>Start Elevation</dt>
-            <dd>{{ formatElevation(startElevation()) }}</dd>
+            <span class="detail-icon" aria-hidden="true">
+              <app-icon name="mountain" [size]="16" strokeWidth="2"></app-icon>
+            </span>
+            <span class="detail-label">Start Elevation</span>
+            <span class="detail-spacer"></span>
+            <span class="detail-value">{{ formatElevation(startElevation()) }}</span>
           </div>
+
           <div class="detail-row">
-            <dt>Max Elevation</dt>
-            <dd>{{ formatElevation(maxElevation()) }}</dd>
+            <span class="detail-icon" aria-hidden="true">
+              <app-icon name="mountain" [size]="16" strokeWidth="2"></app-icon>
+            </span>
+            <span class="detail-label">Max Elevation</span>
+            <span class="detail-spacer"></span>
+            <span class="detail-value">{{ formatElevation(maxElevation()) }}</span>
           </div>
-          <div class="detail-row">
-            <dt>Total Elev Gain</dt>
-            <dd>{{ formatElevation(activity()!.totalElevationGainMeters) }}</dd>
+
+          <div class="detail-row detail-row--accent">
+            <span class="detail-icon" aria-hidden="true">
+              <app-icon name="trending-up" [size]="16" strokeWidth="2"></app-icon>
+            </span>
+            <span class="detail-label">Total Elev Gain</span>
+            <span class="detail-spacer"></span>
+            <span class="detail-value">{{ formatElevation(activity()!.totalElevationGainMeters) }}</span>
           </div>
-        </dl>
+        </div>
       </div>
     </div>
   }

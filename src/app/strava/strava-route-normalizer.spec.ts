@@ -111,4 +111,41 @@ describe('StravaRouteNormalizer', () => {
       expect(result.errorCode).toBe('STRAVA_LOGIN_REQUIRED');
     }
   });
+
+  it('should compute performance stats from the sensor streams when present', () => {
+    const fetchResult: RouteFetchResult = {
+      success: true,
+      coordinates: [
+        [19.94, 50.06],
+        [19.95, 50.07],
+      ],
+      heartrate: [120, 140, 160],
+      velocitySmooth: [3.0, 5.5, 4.2],
+      temp: [18, 20],
+      timeStream: [0, 10, 20],
+    } as RouteFetchResult;
+
+    const result = normalizer.normalize('strava:100', '100', fetchResult);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.stats).toBeDefined();
+      expect(result.stats!.maxHeartrateBpm).toBe(160);
+      expect(result.stats!.minHeartrateBpm).toBe(120);
+      expect(result.stats!.maxSpeedMetersPerSecond).toBe(5.5);
+      expect(result.stats!.averageTemperatureCelsius).toBeDefined();
+    }
+  });
+
+  it('should omit stats when no sensor streams are present', () => {
+    const result = normalizer.normalize('strava:100', '100', successfulFetch([
+      [19.94, 50.06],
+      [19.95, 50.07],
+    ]));
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.stats).toEqual({});
+    }
+  });
 });

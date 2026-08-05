@@ -121,6 +121,11 @@ describe('StravaHeatmapAuthService', () => {
       (h: { header: string }) => h.header === 'Access-Control-Allow-Origin',
     );
     expect(corsHeader.value).toBe('*');
+    // Rule is scoped to image loads only. Strava's own heatmap renderer fetches
+    // the same tiles via credentialed XHRs; rewriting those responses with
+    // Access-Control-Allow-Origin: * is rejected by the browser, so we must not
+    // match `xmlhttprequest`.
+    expect(rule.condition.resourceTypes).toEqual(['image']);
     mock.restore();
   });
 

@@ -241,6 +241,13 @@ export class StravaHeatmapAuthService {
    *  - adds `Access-Control-Allow-Origin: *` to the response so MapLibre's
    *    cross-origin tile loads are not blocked.
    *
+   * The rule is intentionally scoped to `image` requests only. Strava's own
+   * Global Heatmap renderer fetches the same tiles from `content-a.strava.com`
+   * via credentialed XHRs (`xmlhttprequest`, `withCredentials = true`), and
+   * `Access-Control-Allow-Origin: *` is rejected by the browser for credentialed
+   * requests — rewriting those responses would break Strava's page. Our own
+   * MapLibre raster tiles load anonymously as images, where `*` is valid.
+   *
    * Dynamic rules persist across service-worker restarts and are removed by
    * {@link removeDnrRule} when auth fails, so expired cookies never stay injected.
    */
@@ -264,7 +271,7 @@ export class StravaHeatmapAuthService {
           },
           condition: {
             urlFilter: '||content-a.strava.com/identified/globalheat',
-            resourceTypes: ['image', 'xmlhttprequest'],
+            resourceTypes: ['image'],
           },
         },
       ],

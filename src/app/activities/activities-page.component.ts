@@ -9,7 +9,11 @@ import {
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivityParserService, estimateMovingTime, typicalSpeedMs } from '../shared/activity-parser.service';
+import {
+  ActivityParserService,
+  estimateMovingTime,
+  typicalSpeedMs,
+} from '../shared/activity-parser.service';
 import { ImportActivityDialog } from '../shared/import-activity-dialog.component';
 import { EditActivityDialog } from '../shared/edit-activity-dialog.component';
 import { generateId } from '../shared/uuid';
@@ -1350,57 +1354,65 @@ export class ActivitiesPageComponent {
   }
 
   protected toggleActivityMenu(event: MouseEvent, activityId: string): void {
-    event.stopPropagation();
-    const opening = this.openMenuId() !== activityId;
-    if (opening) {
-      const btn = event.currentTarget as HTMLElement;
-      const rect = btn.getBoundingClientRect();
-      const menuHeight = 160;
-      const spaceBelow = window.innerHeight - rect.bottom;
-      if (spaceBelow >= menuHeight) {
-        this.menuStyle.set({
-          position: 'fixed',
-          top: rect.bottom + 'px',
-          right: window.innerWidth - rect.right + 12 + 'px',
-          bottom: 'auto',
-        });
-      } else {
-        this.menuStyle.set({
-          position: 'fixed',
-          top: 'auto',
-          right: window.innerWidth - rect.right + 12 + 'px',
-          bottom: window.innerHeight - rect.top + 'px',
-        });
-      }
-    }
-    this.openMenuId.set(opening ? activityId : null);
+    this.toggleMenu(event, activityId);
   }
 
   protected togglePlaceMenu(event: MouseEvent, placeId: string): void {
+    this.toggleMenu(event, placeId);
+  }
+
+  private toggleMenu(event: MouseEvent, id: string): void {
     event.stopPropagation();
-    const opening = this.openMenuId() !== placeId;
-    if (opening) {
-      const btn = event.currentTarget as HTMLElement;
-      const rect = btn.getBoundingClientRect();
-      const menuHeight = 160;
-      const spaceBelow = window.innerHeight - rect.bottom;
-      if (spaceBelow >= menuHeight) {
-        this.menuStyle.set({
-          position: 'fixed',
-          top: rect.bottom + 'px',
-          right: window.innerWidth - rect.right + 12 + 'px',
-          bottom: 'auto',
-        });
-      } else {
-        this.menuStyle.set({
-          position: 'fixed',
-          top: 'auto',
-          right: window.innerWidth - rect.right + 12 + 'px',
-          bottom: window.innerHeight - rect.top + 'px',
-        });
-      }
+    const opening = this.openMenuId() !== id;
+    if (!opening) {
+      this.openMenuId.set(null);
+      return;
     }
-    this.openMenuId.set(opening ? placeId : null);
+    const trigger = event.currentTarget as HTMLElement;
+    // Place the dropdown from the trigger rect right away (so it appears next to
+    // the trigger), then refine it against the rendered menu size so it is always
+    // fully visible within the viewport. The trigger sits in a scrollable table,
+    // so we rely on `position: fixed` with viewport coords and never anchor the
+    // dropdown to table-relative offsets.
+    this.positionActivityMenu(trigger);
+    this.openMenuId.set(id);
+    requestAnimationFrame(() => this.positionActivityMenu(trigger, true));
+  }
+
+  private positionActivityMenu(trigger: HTMLElement, measure = false): void {
+    const wrapper = trigger.closest('.activity-menu-wrapper');
+    const menu = measure ? wrapper?.querySelector<HTMLElement>('.activity-dropdown') : null;
+    const rect = trigger.getBoundingClientRect();
+    const menuWidth = menu?.offsetWidth ?? 176;
+    const menuHeight = menu?.offsetHeight ?? 240;
+    const gap = 6;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    let top: number;
+    if (rect.bottom + menuHeight + gap <= viewportHeight) {
+      // Enough room below the trigger.
+      top = rect.bottom + gap;
+    } else if (rect.top - menuHeight - gap >= 0) {
+      // Not enough room below; open above the trigger.
+      top = rect.top - menuHeight - gap;
+    } else {
+      // Not enough room on either side; clamp it inside the viewport.
+      top = Math.max(gap, viewportHeight - menuHeight - gap);
+    }
+
+    let right = Math.max(gap, viewportWidth - rect.right + 12);
+    if (viewportWidth - right - menuWidth < gap) {
+      // Keep the dropdown's left edge inside the viewport.
+      right = Math.max(gap, viewportWidth - menuWidth - gap);
+    }
+
+    this.menuStyle.set({
+      position: 'fixed',
+      top: `${top}px`,
+      right: `${right}px`,
+      bottom: 'auto',
+    });
   }
 
   protected closeAllMenus(): void {

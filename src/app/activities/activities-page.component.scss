@@ -1079,8 +1079,12 @@ app-logbook-nav {
   }
 }
 
+// NOTE: the fill mode must not persist the keyframe's `transform` (it would turn
+// the row into a containing block for `position: fixed` descendants, breaking the
+// dropdown position — see the activity menu positioning). `backwards` keeps the
+// fade-in look without leaving a lingering transform after the animation ends.
 .activity-row--child {
-  animation: trail-child-fade-in 0.2s ease both;
+  animation: trail-child-fade-in 0.2s ease backwards;
   border-left: 2px solid $border-green-trail;
 
   &:last-child {

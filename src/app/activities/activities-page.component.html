@@ -496,85 +496,84 @@
                                         </button>
                                       </li>
                                     }
-                                  } @else {
-                                    <li role="none">
-                                      <button
-                                        class="act-dropdown-item"
-                                        role="menuitem"
-                                        (click)="openOnStrava($event, child)"
-                                      >
-                                        <app-icon
-                                          name="external-link"
-                                          [size]="16"
-                                          strokeWidth="2"
-                                          [class]="'act-dropdown-icon'"
-                                        ></app-icon>
-                                        Strava
-                                      </button>
-                                    </li>
-                                    <li role="none">
-                                      <button
-                                        class="act-dropdown-item"
-                                        [class.act-dropdown-item-disabled]="!child.hasRoute"
-                                        [disabled]="!child.hasRoute"
-                                        role="menuitem"
-                                        (click)="downloadGpx($event, child)"
-                                      >
-                                        <app-icon
-                                          name="download"
-                                          [size]="16"
-                                          strokeWidth="2"
-                                          [class]="'act-dropdown-icon'"
-                                        ></app-icon>
-                                        Download GPX
-                                      </button>
-                                    </li>
-                                    <li role="none">
-                                      <button
-                                        class="act-dropdown-item"
-                                        role="menuitem"
-                                        (click)="editActivity($event, child)"
-                                      >
-                                        <app-icon
-                                          name="pencil"
-                                          [size]="16"
-                                          strokeWidth="2"
-                                          [class]="'act-dropdown-icon'"
-                                        ></app-icon>
-                                        Edit
-                                      </button>
-                                    </li>
-                                    <li role="none">
-                                      <button
-                                        class="act-dropdown-item act-dropdown-item-danger"
-                                        role="menuitem"
-                                        (click)="deleteActivity($event, child)"
-                                      >
-                                        <app-icon
-                                          name="trash-2"
-                                          [size]="16"
-                                          strokeWidth="2"
-                                          [class]="'act-dropdown-icon'"
-                                        ></app-icon>
-                                        Delete
-                                      </button>
-                                    </li>
-                                    <li role="none">
-                                      <button
-                                        class="act-dropdown-item"
-                                        role="menuitem"
-                                        (click)="retrySyncRoute($event, child)"
-                                      >
-                                        <app-icon
-                                          name="rotate-ccw"
-                                          [size]="16"
-                                          strokeWidth="2"
-                                          [class]="'act-dropdown-icon'"
-                                        ></app-icon>
-                                        Retry sync
-                                      </button>
-                                    </li>
                                   }
+                                  <li role="none">
+                                    <button
+                                      class="act-dropdown-item"
+                                      role="menuitem"
+                                      (click)="openOnStrava($event, child)"
+                                    >
+                                      <app-icon
+                                        name="external-link"
+                                        [size]="16"
+                                        strokeWidth="2"
+                                        [class]="'act-dropdown-icon'"
+                                      ></app-icon>
+                                      Strava
+                                    </button>
+                                  </li>
+                                  <li role="none">
+                                    <button
+                                      class="act-dropdown-item"
+                                      [class.act-dropdown-item-disabled]="!child.hasRoute"
+                                      [disabled]="!child.hasRoute"
+                                      role="menuitem"
+                                      (click)="downloadGpx($event, child)"
+                                    >
+                                      <app-icon
+                                        name="download"
+                                        [size]="16"
+                                        strokeWidth="2"
+                                        [class]="'act-dropdown-icon'"
+                                      ></app-icon>
+                                      Download GPX
+                                    </button>
+                                  </li>
+                                  <li role="none">
+                                    <button
+                                      class="act-dropdown-item"
+                                      role="menuitem"
+                                      (click)="editActivity($event, child)"
+                                    >
+                                      <app-icon
+                                        name="pencil"
+                                        [size]="16"
+                                        strokeWidth="2"
+                                        [class]="'act-dropdown-icon'"
+                                      ></app-icon>
+                                      Edit
+                                    </button>
+                                  </li>
+                                  <li role="none">
+                                    <button
+                                      class="act-dropdown-item act-dropdown-item-danger"
+                                      role="menuitem"
+                                      (click)="deleteActivity($event, child)"
+                                    >
+                                      <app-icon
+                                        name="trash-2"
+                                        [size]="16"
+                                        strokeWidth="2"
+                                        [class]="'act-dropdown-icon'"
+                                      ></app-icon>
+                                      Delete
+                                    </button>
+                                  </li>
+                                  <li role="none">
+                                    <button
+                                      class="act-dropdown-item"
+                                      role="menuitem"
+                                      (click)="retrySyncRoute($event, child)"
+                                    >
+                                      <app-icon
+                                        name="rotate-ccw"
+                                        [size]="16"
+                                        strokeWidth="2"
+                                        [class]="'act-dropdown-icon'"
+                                      ></app-icon>
+                                      Retry sync
+                                    </button>
+                                  </li>
                                 </ul>
                               }
                             </div>

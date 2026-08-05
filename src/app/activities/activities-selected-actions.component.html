@@ -15,6 +15,7 @@
       class="selected-action selected-action--primary"
       type="button"
       [disabled]="selectionCount < 2"
+      data-tooltip="Select 2 or more activities to create a trail"
       (click)="createTrail.emit()"
     >
       <app-icon name="globe" [size]="16" strokeWidth="2"></app-icon>

@@ -111,6 +111,24 @@ export function mapSportTypeToCategory(sportType: string): ActivityCategory {
   return DEFAULT_CATEGORY;
 }
 
+/**
+ * Shared sport-filter predicate used by both the activity list and the trail
+ * list on the map explorer so they apply identical matching.
+ *
+ * - No filter → matches everything.
+ * - Category filter (encoded as `__cat__<category>` by MapPage) → matches any
+ *   sport whose category equals the requested one (e.g. `__cat__run` matches
+ *   both `Run` and `TrailRun`).
+ * - Otherwise an exact sport-type match (e.g. `Run`).
+ */
+export function matchesSportFilter(sportType: string, sportFilter: string | null): boolean {
+  if (!sportFilter) return true;
+  if (sportFilter.startsWith('__cat__')) {
+    return mapSportTypeToCategory(sportType) === (sportFilter.slice(7) as ActivityCategory);
+  }
+  return sportType === sportFilter;
+}
+
 const SPECIAL_SPORT_TYPE_NAMES: Record<string, string> = {
   // --- Strava display names ---
   GravelRide: 'Gravel',

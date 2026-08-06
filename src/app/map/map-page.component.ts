@@ -34,6 +34,7 @@ import {
   formatSportType,
   formatCategory,
   mapSportTypeToCategory,
+  matchesSportFilter,
 } from '../shared/activity-category';
 import {
   formatDurationHours,
@@ -189,10 +190,21 @@ export class MapPage implements AfterViewInit {
   protected readonly sidebarTrailItems = computed<SidebarTrailItem[]>(() => {
     const allRoutes = this.allRoutes();
     const trails = this.trailsService.trails();
+    const sportFilter = this.sportTypeFilter();
     const result: SidebarTrailItem[] = [];
     for (const trail of trails) {
       const memberActivities = allRoutes.filter((r) => trail.activityIds.includes(r.activityId));
       if (memberActivities.length < 2) continue;
+      // When a sport filter is active, only keep trails that have at least one
+      // member activity of that sport. The trail's full contents (count,
+      // distance, dates, members) are preserved downstream — this only gates
+      // whether the trail appears at all.
+      if (
+        sportFilter &&
+        !memberActivities.some((r) => matchesSportFilter(r.activity.sportType, sportFilter))
+      ) {
+        continue;
+      }
       const totalDistanceMeters = memberActivities.reduce(
         (s, r) => s + (r.activity.distanceMeters ?? 0),
         0,
@@ -360,17 +372,8 @@ export class MapPage implements AfterViewInit {
           (srcFilter.has('planned') && isPlanned);
         if (!matchesSource) return false;
       }
-      if (sportFilter) {
-        if (sportFilter.startsWith('__cat__')) {
-          const cat = sportFilter.slice(7) as ActivityCategory;
-          if (mapSportTypeToCategory(r.activity.sportType) !== cat) {
-            return false;
-          }
-        } else {
-          if (r.activity.sportType !== sportFilter) {
-            return false;
-          }
-        }
+      if (sportFilter && !matchesSportFilter(r.activity.sportType, sportFilter)) {
+        return false;
       }
       if (fromDate && r.activity.startDate && !isAfterOrEqual(r.activity.startDate, fromDate)) {
         return false;

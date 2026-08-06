@@ -197,7 +197,9 @@
   padding: 4px;
   position: absolute;
   top: 100%;
-  z-index: 20;
+  // Keep the dropdown above sticky content (e.g. the selected-actions-bar at
+  // z-index 50) while staying below full-screen overlays (z-index 100+).
+  z-index: 60;
 }
 
 // ═══════════════════════════════════════════════════════════════════════

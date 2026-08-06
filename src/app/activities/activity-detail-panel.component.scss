@@ -451,6 +451,15 @@
   margin: 0 16px 20px;
 }
 
+.panel-details-actions {
+  display: flex;
+  margin: 0 16px 20px;
+}
+
+.panel-resync-btn {
+  width: 100%;
+}
+
 .sr-only {
   border: 0;
   clip: rect(0 0 0 0);

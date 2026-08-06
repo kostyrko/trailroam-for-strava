@@ -66,6 +66,14 @@ export class RouteSyncService {
 
     const routeResult = await this.repositories.activityRoutes.upsert(normalized.route);
 
+    // Persist the full-resolution geometry (coordinates/elevations/distances) so that
+    // consumers that read both the route and geometry records (e.g. the activity detail
+    // panel via repositories.routeGeometry.get) see a consistent, usable track after a
+    // resync. Matches the content-script sync path in extension-bridge.service.ts.
+    if (normalized.geometry) {
+      await this.repositories.routeGeometry.put(normalized.geometry);
+    }
+
     await this.repositories.activities.updateRouteSyncStatus(
       activityId,
       true,

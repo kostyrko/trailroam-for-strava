@@ -243,15 +243,6 @@
         <div class="details-list">
           <div class="detail-row">
             <span class="detail-icon" aria-hidden="true">
-              <app-icon name="clock" [size]="16" strokeWidth="2"></app-icon>
-            </span>
-            <span class="detail-label">Moving Time</span>
-            <span class="detail-spacer"></span>
-            <span class="detail-value">{{ formatDuration(activity()!.movingTimeSeconds) }}</span>
-          </div>
-
-          <div class="detail-row">
-            <span class="detail-icon" aria-hidden="true">
               <app-icon name="gauge" [size]="16" strokeWidth="2"></app-icon>
             </span>
             <span class="detail-label">Max Speed</span>
@@ -319,17 +310,22 @@
             <span class="detail-spacer"></span>
             <span class="detail-value">{{ formatElevation(maxElevation()) }}</span>
           </div>
-
-          <div class="detail-row detail-row--accent">
-            <span class="detail-icon" aria-hidden="true">
-              <app-icon name="trending-up" [size]="16" strokeWidth="2"></app-icon>
-            </span>
-            <span class="detail-label">Total Elev Gain</span>
-            <span class="detail-spacer"></span>
-            <span class="detail-value">{{ formatElevation(activity()!.totalElevationGainMeters) }}</span>
-          </div>
         </div>
       </div>
+
+      @if (a.provider === 'strava' && a.providerActivityId) {
+        <div class="panel-details-actions">
+          <button
+            class="action-btn action-btn--secondary panel-resync-btn"
+            type="button"
+            (click)="resyncFromStrava($event)"
+            [disabled]="resyncing()"
+          >
+            <app-icon name="refresh-cw" [size]="16" strokeWidth="2"></app-icon>
+            {{ resyncing() ? 'Syncing…' : 'Resync data from Strava' }}
+          </button>
+        </div>
+      }
     </div>
   }
 </aside>

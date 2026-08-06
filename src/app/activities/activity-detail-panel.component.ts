@@ -23,6 +23,8 @@ import { DataRefreshService } from '../shared/data-refresh.service';
 import { MatDialog } from '@angular/material/dialog';
 import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
 import { type ActivityRecord, type ActivityRouteRecord } from '../storage/storage.models';
+import { RouteSyncService } from '../storage/route-sync.service';
+import { StravaSessionService } from '../strava/strava-session.service';
 import { IconComponent } from '../shared/icon.component';
 import { EditActivityDialog } from '../shared/edit-activity-dialog.component';
 import {
@@ -51,6 +53,8 @@ export class ActivityDetailPanelComponent {
   private readonly dialog = inject(MatDialog);
   private readonly repositories = inject(TRAILROAM_REPOSITORIES);
   private readonly dataRefresh = inject(DataRefreshService);
+  private readonly stravaSessionService = inject(StravaSessionService);
+  private readonly routeSyncService = inject(RouteSyncService);
 
   readonly activity = input<ActivityRecord | null>(null);
   readonly route = input<
@@ -78,17 +82,34 @@ export class ActivityDetailPanelComponent {
   protected readonly panelExpanded = signal(false);
   protected readonly layerMenuOpen = signal(false);
   protected readonly menuOpen = signal(false);
+  protected readonly resyncing = signal(false);
   protected readonly activeLayerId = signal('openfreemap');
   protected readonly AVAILABLE_PROVIDERS = AVAILABLE_PROVIDERS;
 
+  /**
+   * Freshly fetched route from an in-panel resync, preferred over the parent-supplied
+   * `route()` input so the map and elevation chart re-render instantly without waiting
+   * for the parent to reload. Cleared when the input activity changes.
+   */
+  private readonly routeOverride = signal<
+    | (ActivityRouteRecord & {
+        coordinates: [number, number][];
+        elevations?: number[];
+        cumulativeDistances?: number[];
+      })
+    | null
+  >(null);
+
+  protected readonly displayRoute = computed(() => this.routeOverride() ?? this.route());
+
   protected readonly routeCoords = computed<[number, number][] | undefined>(
-    () => this.route()?.coordinates ?? undefined,
+    () => this.displayRoute()?.coordinates ?? undefined,
   );
   protected readonly routeElevations = computed<number[] | undefined>(
-    () => this.route()?.elevations,
+    () => this.displayRoute()?.elevations,
   );
   protected readonly routeDistances = computed<number[] | undefined>(
-    () => this.route()?.cumulativeDistances,
+    () => this.displayRoute()?.cumulativeDistances,
   );
 
   protected readonly speedMs = computed(() => {
@@ -138,6 +159,7 @@ export class ActivityDetailPanelComponent {
   private readonly mapInitialized = signal(false);
   private mapRerenderPending = false;
   private rerenderLoadHandler: (() => void) | null = null;
+  private lastActivityId: string | null = null;
 
   constructor() {
     afterNextRender(() => {
@@ -155,7 +177,7 @@ export class ActivityDetailPanelComponent {
 
     effect(() => {
       const a = this.activity();
-      const r = this.route();
+      const r = this.displayRoute();
       if (a && r) {
         this.routeLoading.set(true);
         this.speedLegend.set(false);
@@ -164,13 +186,23 @@ export class ActivityDetailPanelComponent {
 
     effect(() => {
       const a = this.activity();
-      const r = this.route();
+      const r = this.displayRoute();
       const mi = this.mapInitialized();
       if (mi && this.mapInstance && a && r) {
         this.renderRouteOnMap();
         if (!this.mapInstance.isStyleLoaded()) {
           this.mapInstance.once('load', () => this.renderRouteOnMap());
         }
+      }
+    });
+
+    // Clear any resync override when the selected activity changes, so stale route
+    // data from a previously viewed activity is never shown for the new one.
+    effect(() => {
+      const id = this.activity()?.id ?? null;
+      if (id !== this.lastActivityId) {
+        this.lastActivityId = id;
+        this.routeOverride.set(null);
       }
     });
 
@@ -224,7 +256,7 @@ export class ActivityDetailPanelComponent {
 
   private renderRouteOnMap(): void {
     const map = this.mapInstance;
-    const route = this.route();
+    const route = this.displayRoute();
     if (!map || !route || route.coordinates.length < 2) {
       this.doneLoading();
       return;
@@ -543,6 +575,59 @@ export class ActivityDetailPanelComponent {
     this.dataRefresh.emitRefresh();
   }
 
+  protected async resyncFromStrava(event: MouseEvent): Promise<void> {
+    event.stopPropagation();
+    const a = this.activity();
+    if (!a || a.provider !== 'strava' || !a.providerActivityId || this.resyncing()) {
+      return;
+    }
+    this.resyncing.set(true);
+    try {
+      const fetchResult = await this.stravaSessionService.fetchActivityRoute(
+        Number(a.providerActivityId),
+      );
+      if (!fetchResult.success) {
+        if (fetchResult.errorCode === 'STRAVA_LOGIN_REQUIRED') {
+          this.toastService.show('Log into Strava first to resync this activity.');
+          openStravaLogin();
+        } else if (isRateLimited(fetchResult)) {
+          this.toastService.show(
+            `Strava rate limit reached. Try again in ${fetchResult.retryAfterSeconds}s.`,
+          );
+        } else {
+          this.toastService.show(`Could not resync "${a.name}" from Strava.`);
+        }
+        return;
+      }
+      const result = await this.routeSyncService.syncRoute(a.id, a.providerActivityId, fetchResult);
+      if (result.routeStored) {
+        this.toastService.show(`Resynced "${a.name}" from Strava.`);
+        // Apply the freshly synced route to the view immediately: re-read the stored
+        // route + geometry and surface them via `routeOverride` so the map and
+        // elevation chart re-render without waiting for the parent to reload.
+        const [storedRoute, storedGeometry] = await Promise.all([
+          this.repositories.activityRoutes.get(a.id),
+          this.repositories.routeGeometry.get(a.id),
+        ]);
+        if (storedRoute && storedGeometry) {
+          this.routeOverride.set({
+            ...storedRoute,
+            coordinates: storedGeometry.coordinates,
+            elevations: storedGeometry.elevations,
+            cumulativeDistances: storedGeometry.cumulativeDistances,
+          });
+        }
+      } else if (result.routeSyncStatus === 'no_route') {
+        this.toastService.show(`No GPS route available for "${a.name}".`);
+      } else {
+        this.toastService.show(`Could not resync "${a.name}" from Strava.`);
+      }
+      this.dataRefresh.emitRefresh();
+    } finally {
+      this.resyncing.set(false);
+    }
+  }
+
   protected closePanel(): void {
     this.panelVisible.set(false);
     setTimeout(() => {
@@ -557,4 +642,22 @@ export class ActivityDetailPanelComponent {
 /** Rounds a bpm value to an integer, preserving `undefined` (no data). */
 function roundBpm(bpm: number | undefined): number | undefined {
   return bpm === undefined ? undefined : Math.round(bpm);
+}
+
+/** Narrows a failed `RouteFetchResult` to the rate-limited variant that carries `retryAfterSeconds`. */
+function isRateLimited(
+  result: { success: false; errorCode: string },
+): result is { success: false; errorCode: 'STRAVA_RATE_LIMITED'; retryAfterSeconds: number } {
+  return result.errorCode === 'STRAVA_RATE_LIMITED';
+}
+
+/** Opens Strava in a new tab so the user can log in, using the extension tabs API when available. */
+function openStravaLogin(): void {
+  const c = (globalThis as any).chrome;
+  const url = 'https://www.strava.com/dashboard?trailroamSync=true';
+  if (c?.tabs?.create) {
+    c.tabs.create({ url });
+  } else {
+    window.open(url, '_blank');
+  }
 }

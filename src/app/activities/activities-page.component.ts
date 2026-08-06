@@ -1097,7 +1097,7 @@ export class ActivitiesPageComponent {
     });
     this.dataRefresh.refresh$
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(() => this.loadPage(1));
+      .subscribe(() => this.onDataRefresh());
     effect(() => {
       const focusId = this.focusActivityId();
       const items = this.activities();
@@ -1306,37 +1306,46 @@ export class ActivitiesPageComponent {
     this.selectedActivity.set(activity);
     // Sync expanded state from the trail panel when activity is opened from a trail.
     this.activityDetailExpanded.set(!!this.selectedTrail() && this.trailMapExpanded());
-    if (activity.hasRoute) {
-      Promise.all([
-        this.repositories.activityRoutes.get(activity.id),
-        this.repositories.routeGeometry.get(activity.id),
-      ]).then(([route, geometry]) => {
-        if (route && geometry) {
+    this.loadSelectedRoute(activity);
+  }
+
+  /**
+   * Loads the full route (simplified record + full-resolution geometry) for the given
+   * activity into `selectedRoute`. Reused when opening an activity and when a data
+   * refresh (e.g. a resync) should update the currently-open detail panel.
+   */
+  private loadSelectedRoute(activity: ActivityRecord): void {
+    if (!activity.hasRoute) {
+      this.selectedRoute.set(null);
+      return;
+    }
+    Promise.all([
+      this.repositories.activityRoutes.get(activity.id),
+      this.repositories.routeGeometry.get(activity.id),
+    ]).then(([route, geometry]) => {
+      if (route && geometry) {
+        this.selectedRoute.set({
+          ...route,
+          coordinates: geometry.coordinates,
+          elevations: geometry.elevations,
+          cumulativeDistances: geometry.cumulativeDistances,
+        });
+      } else if (route) {
+        const oldCoords = (route as any).coordinates;
+        if (oldCoords && oldCoords.length > 0) {
           this.selectedRoute.set({
             ...route,
-            coordinates: geometry.coordinates,
-            elevations: geometry.elevations,
-            cumulativeDistances: geometry.cumulativeDistances,
+            coordinates: oldCoords,
+            elevations: (route as any).elevations,
+            cumulativeDistances: (route as any).cumulativeDistances,
           });
-        } else if (route) {
-          const oldCoords = (route as any).coordinates;
-          if (oldCoords && oldCoords.length > 0) {
-            this.selectedRoute.set({
-              ...route,
-              coordinates: oldCoords,
-              elevations: (route as any).elevations,
-              cumulativeDistances: (route as any).cumulativeDistances,
-            });
-          } else {
-            this.selectedRoute.set(null);
-          }
         } else {
           this.selectedRoute.set(null);
         }
-      });
-    } else {
-      this.selectedRoute.set(null);
-    }
+      } else {
+        this.selectedRoute.set(null);
+      }
+    });
   }
 
   protected clearSelectedActivity(): void {
@@ -1861,6 +1870,25 @@ export class ActivitiesPageComponent {
     } catch {
       this.status.set('empty');
     }
+  }
+
+  /**
+   * Handles a `DataRefreshService` refresh: reloads the list, and if an activity is
+   * currently open in the detail panel, refreshes its record and route so the panel
+   * reflects any changes (e.g. after a per-activity resync from Strava).
+   */
+  private async onDataRefresh(): Promise<void> {
+    await this.loadPage(1);
+    const selected = this.selectedActivity();
+    if (!selected) {
+      return;
+    }
+    const refreshed = await this.repositories.activities.get(selected.id);
+    if (!refreshed) {
+      return;
+    }
+    this.selectedActivity.set(refreshed);
+    this.loadSelectedRoute(refreshed);
   }
 
   private lastFocusedId: string | null = null;

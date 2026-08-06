@@ -114,6 +114,13 @@ export class StravaHeatmapService {
         paint: { 'raster-opacity': this.opacity },
       };
       map.addLayer(layer);
+      // The layer was added hidden (`visibility: 'none'`). Restore the current
+      // sport/opacity/visibility so a basemap switch (`setStyle`) re-creates the
+      // overlay in the same on/off state the user had before the switch. Without
+      // this the heatmap vanishes when switching base layers even when it was on.
+      this.syncTiles();
+      this.applyOpacity();
+      this.applyVisibility();
       return;
     }
 

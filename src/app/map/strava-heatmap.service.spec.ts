@@ -73,10 +73,12 @@ describe('StravaHeatmapService', () => {
 
     service.setSport('ride');
 
-    expect(source.setTiles).toHaveBeenCalledTimes(1);
-    const url = source.setTiles.mock.calls[0][0][0] as string;
-    expect(url).toContain('/ride/');
-    expect(url).not.toContain('/all/');
+    // ensureOverlay seeds the tile URL during creation, then setSport re-binds it
+    // to the new sport. The most recent call must reflect the selected sport.
+    expect(source.setTiles).toHaveBeenCalled();
+    const lastCall = source.setTiles.mock.calls.at(-1)![0][0] as string;
+    expect(lastCall).toContain('/ride/');
+    expect(lastCall).not.toContain('/all/');
   });
 
   it('changing opacity sets raster-opacity on the layer', () => {
@@ -111,7 +113,7 @@ describe('StravaHeatmapService', () => {
     service.ensureOverlay();
 
     // Source re-created (addSource called a second time), with the current sport
-    // baked into the initial tiles URL — there is no setTiles call on the fresh path.
+    // baked into the initial tiles URL.
     expect(map.addSource).toHaveBeenCalledTimes(2);
     const recreatedTiles = (
       map.addSource as ReturnType<typeof vi.fn>
@@ -128,5 +130,35 @@ describe('StravaHeatmapService', () => {
       'visibility',
       'visible',
     );
+  });
+
+  it('re-creates the overlay visible after a style switch with no intervening toggle', () => {
+    // Reproduces T-138: the user turns the heatmap on, then switches the base map
+    // layer. setStyle wipes sources/layers; ensureOverlay must rebuild the overlay
+    // in the visible state without the user toggling anything in between.
+    service.ensureOverlay();
+    service.setVisible(true);
+    // Capture the visibility state right after the explicit toggle.
+    expect(map.setLayoutProperty).toHaveBeenLastCalledWith(
+      STRAVA_HEATMAP_LAYER_ID,
+      'visibility',
+      'visible',
+    );
+
+    // Simulate the basemap switch: style is wiped, then the component calls
+    // ensureOverlay() from its style.load handler. No setVisible call happens.
+    (map.getSource as ReturnType<typeof vi.fn>).mockReturnValue(undefined);
+    const layoutCallsBefore = (map.setLayoutProperty as ReturnType<typeof vi.fn>).mock.calls
+      .length;
+    service.ensureOverlay();
+
+    // The re-created layer's visibility must be flipped back to 'visible'.
+    const layoutCalls = (map.setLayoutProperty as ReturnType<typeof vi.fn>).mock.calls;
+    expect(layoutCalls.length).toBeGreaterThan(layoutCallsBefore);
+    expect(layoutCalls[layoutCalls.length - 1]).toEqual([
+      STRAVA_HEATMAP_LAYER_ID,
+      'visibility',
+      'visible',
+    ]);
   });
 });

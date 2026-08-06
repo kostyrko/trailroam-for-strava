@@ -18,8 +18,7 @@ import { type MapRouteFeature } from './mock-routes';
 import {
   FiltersService,
   CATEGORY_COLORS,
-  isAfterOrEqual,
-  isBeforeOrEqual,
+  matchesDateFilter,
   type DatePreset,
 } from '../shared/filters.service';
 import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
@@ -191,17 +190,26 @@ export class MapPage implements AfterViewInit {
     const allRoutes = this.allRoutes();
     const trails = this.trailsService.trails();
     const sportFilter = this.sportTypeFilter();
+    const fromDate = this.filtersService.dateFrom();
+    const toDate = this.filtersService.dateTo();
     const result: SidebarTrailItem[] = [];
     for (const trail of trails) {
       const memberActivities = allRoutes.filter((r) => trail.activityIds.includes(r.activityId));
       if (memberActivities.length < 2) continue;
-      // When a sport filter is active, only keep trails that have at least one
-      // member activity of that sport. The trail's full contents (count,
+      // When a sport/date filter is active, only keep trails that have at least
+      // one member activity matching it. The trail's full contents (count,
       // distance, dates, members) are preserved downstream — this only gates
-      // whether the trail appears at all.
+      // whether the trail appears at all, matching the standalone-activity
+      // filter behaviour in filteredRoutes.
       if (
         sportFilter &&
         !memberActivities.some((r) => matchesSportFilter(r.activity.sportType, sportFilter))
+      ) {
+        continue;
+      }
+      if (
+        (fromDate || toDate) &&
+        !memberActivities.some((r) => matchesDateFilter(r.activity.startDate, fromDate, toDate))
       ) {
         continue;
       }
@@ -375,10 +383,7 @@ export class MapPage implements AfterViewInit {
       if (sportFilter && !matchesSportFilter(r.activity.sportType, sportFilter)) {
         return false;
       }
-      if (fromDate && r.activity.startDate && !isAfterOrEqual(r.activity.startDate, fromDate)) {
-        return false;
-      }
-      if (toDate && r.activity.startDate && !isBeforeOrEqual(r.activity.startDate, toDate)) {
+      if ((fromDate || toDate) && !matchesDateFilter(r.activity.startDate, fromDate, toDate)) {
         return false;
       }
       if (search && !r.activity.name.toLowerCase().includes(search)) {

@@ -1,4 +1,4 @@
-import { isAfterOrEqual, isBeforeOrEqual, FiltersService } from './filters.service';
+import { isAfterOrEqual, isBeforeOrEqual, matchesDateFilter, FiltersService } from './filters.service';
 
 describe('filters helpers', () => {
   describe('isAfterOrEqual', () => {
@@ -26,6 +26,43 @@ describe('filters helpers', () => {
     it('should return false for later date', () => {
       expect(isBeforeOrEqual('2024-01-02', '2024-01-01')).toBe(false);
     });
+  });
+});
+
+describe('matchesDateFilter', () => {
+  it('should match any date when both bounds are null', () => {
+    expect(matchesDateFilter('2024-06-15T10:00:00Z', null, null)).toBe(true);
+  });
+
+  it('should match any date when bounds are empty', () => {
+    expect(matchesDateFilter('2024-06-15T10:00:00Z', '', '')).toBe(true);
+  });
+
+  it('should match a date inside the range', () => {
+    expect(matchesDateFilter('2024-06-15T10:00:00Z', '2024-06-01', '2024-06-30')).toBe(true);
+  });
+
+  it('should not match a date before the from bound', () => {
+    expect(matchesDateFilter('2024-05-15T10:00:00Z', '2024-06-01', null)).toBe(false);
+  });
+
+  it('should not match a date after the to bound', () => {
+    expect(matchesDateFilter('2024-07-15T10:00:00Z', null, '2024-06-30')).toBe(false);
+  });
+
+  it('should treat the bounds as inclusive on both ends', () => {
+    expect(matchesDateFilter('2024-06-01T00:00:00Z', '2024-06-01', '2024-06-30')).toBe(true);
+    expect(matchesDateFilter('2024-06-30T23:59:59Z', '2024-06-01', '2024-06-30')).toBe(true);
+  });
+
+  it('should compare date portion only, ignoring time', () => {
+    expect(matchesDateFilter('2024-06-01T23:00:00Z', '2024-06-01', '2024-06-01')).toBe(true);
+  });
+
+  it('should not exclude an activity with a missing start date', () => {
+    expect(matchesDateFilter(undefined, '2024-06-01', '2024-06-30')).toBe(true);
+    expect(matchesDateFilter(null, '2024-06-01', '2024-06-30')).toBe(true);
+    expect(matchesDateFilter('', '2024-06-01', '2024-06-30')).toBe(true);
   });
 });
 

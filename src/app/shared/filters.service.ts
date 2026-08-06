@@ -40,6 +40,28 @@ export function isBeforeOrEqual(isoDate: string, isoBound: string): boolean {
   return isoDate.slice(0, 10) <= isoBound.slice(0, 10);
 }
 
+/**
+ * Shared date-range predicate used by both the activity list and the trail
+ * list on the map explorer so they apply identical matching.
+ *
+ * - No bounds → matches everything.
+ * - Missing `isoDate` → matches (an activity without a start date is not
+ *   excluded by date), preserving the historical filteredRoutes behaviour.
+ * - Otherwise the date must fall within [fromDate, toDate] (inclusive),
+ *   comparing the date portion only.
+ */
+export function matchesDateFilter(
+  isoDate: string | undefined | null,
+  fromDate: string | null,
+  toDate: string | null,
+): boolean {
+  if (!fromDate && !toDate) return true;
+  if (!isoDate) return true;
+  if (fromDate && !isAfterOrEqual(isoDate, fromDate)) return false;
+  if (toDate && !isBeforeOrEqual(isoDate, toDate)) return false;
+  return true;
+}
+
 @Injectable({
   providedIn: 'root',
 })

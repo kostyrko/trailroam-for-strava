@@ -8,6 +8,9 @@ import {
   RouteRendererService,
 } from './route-renderer.service';
 
+/** Global lib `Map` type, unshadowed from the maplibre-gl `Map` imported above. */
+type StageColorMap = globalThis.Map<string, string>;
+
 function makeMockRoute(overrides: Partial<MapRouteFeature> = {}): MapRouteFeature {
   return {
     activityId: 'test:1',
@@ -196,6 +199,117 @@ describe('RouteRendererService', () => {
         vi.useRealTimers();
         (map.isStyleLoaded as () => boolean) = () => true;
       }
+    });
+  });
+
+  describe('per-stage trail colors (T-139)', () => {
+    /** Shape of the route LineString features pushed into the routes source. */
+    interface RouteFeatureProperties {
+      activityId: string;
+      name: string;
+      category: string;
+      emphasis: number;
+      stageColor: string | null;
+    }
+    interface RouteFeature {
+      type: 'Feature';
+      properties: RouteFeatureProperties;
+      geometry: { type: 'LineString'; coordinates: unknown };
+    }
+
+    /** Alias to avoid clashing with the maplibre-gl `Map` type imported above. */
+    const StageColorMapCtor = globalThis.Map as unknown as new (
+      entries?: readonly (readonly [string, string])[],
+    ) => StageColorMap;
+
+    /** Builds a stage-color map from entries without fighting the `Map` shadow. */
+    function stageColorMap(entries: readonly (readonly [string, string])[]): StageColorMap {
+      return new StageColorMapCtor(entries);
+    }
+
+    /**
+     * Renders routes with the given stageColors and returns the features pushed
+     * to the ROUTES source. Several sources get `setData` calls during a sync
+     * (routes, centroids, heatmap); this picks the call whose features carry an
+     * `activityId` property, which is unique to the routes source.
+     */
+    function captureFeatures(stageColors: StageColorMap | null): RouteFeature[] {
+      const setData = vi.fn();
+      getSource.mockReturnValue({ setData });
+      service.init(map);
+      service.renderRoutes(mockRoutes, routeSelected);
+      const matchingIds = new Set(mockRoutes.map((r) => r.activityId));
+      service.setEmphasis(matchingIds, null, stageColors);
+      const routesCall = setData.mock.calls
+        .map((c) => c[0] as { features: RouteFeature[] })
+        .filter((data) =>
+          // Routes-source LineStrings carry a `stageColor` property (the
+          // heatmap source emits LineStrings with empty properties).
+          data.features.some(
+            (f) => f.geometry?.type === 'LineString' && 'stageColor' in (f.properties ?? {}),
+          ),
+        )
+        .at(-1)!;
+      return routesCall.features;
+    }
+
+    it('emits a stageColor property taken from the setEmphasis map', () => {
+      const stageColors = stageColorMap([
+        [mockRoutes[0].activityId, '#aaaaaaaa'],
+        [mockRoutes[1].activityId, '#bbbbbbbb'],
+      ]);
+      const features = captureFeatures(stageColors);
+      const first = features.find((f) => f.properties.activityId === mockRoutes[0].activityId)!;
+      const second = features.find((f) => f.properties.activityId === mockRoutes[1].activityId)!;
+      expect(first.properties.stageColor).toBe('#aaaaaaaa');
+      expect(second.properties.stageColor).toBe('#bbbbbbbb');
+    });
+
+    it('falls back to null stageColor when no stage-color map is provided', () => {
+      // Plain emphasis with no stageColors (e.g. filter/search highlight path).
+      const features = captureFeatures(null);
+      for (const f of features) {
+        expect(f.properties.stageColor).toBeNull();
+      }
+    });
+
+    it('clears stageColor on clearEmphasis', () => {
+      const features = captureFeatures(
+        stageColorMap([[mockRoutes[0].activityId, '#aaaaaaaa']]),
+      );
+      // clearEmphasis triggers a re-sync; capture the routes-source data pushed
+      // afterwards (identified by features carrying an `activityId`).
+      const setDataAfter = vi.fn();
+      getSource.mockReturnValue({ setData: setDataAfter });
+      service.clearEmphasis();
+      const routesCall = setDataAfter.mock.calls
+        .map((c) => c[0] as { features: RouteFeature[] })
+        .filter((data) =>
+          data.features.some(
+            (f) => f.geometry?.type === 'LineString' && 'stageColor' in (f.properties ?? {}),
+          ),
+        )
+        .at(-1)!;
+      for (const f of routesCall.features) {
+        expect(f.properties.stageColor).toBeNull();
+      }
+      // Sanity: features were non-empty (clearEmphasis restores all routes).
+      expect(features.length).toBeGreaterThan(0);
+    });
+
+    it('uses a line-color expression that prefers stageColor over category', () => {
+      service.init(map);
+      service.renderRoutes(mockRoutes, routeSelected);
+      const routesLayer = addLayer.mock.calls.find(
+        ([layer]) => layer.id === ROUTES_LAYER_ID,
+      )![0];
+      const expr = routesLayer.paint['line-color'] as unknown[];
+      // Expression shape: coalesce(get('stageColor'), <category match expr>).
+      expect(expr[0]).toBe('coalesce');
+      expect(expr[1]).toEqual(['get', 'stageColor']);
+      // The category fallback is preserved as the second coalesce argument.
+      const fallback = expr[2] as unknown[];
+      expect(fallback[0]).toBe('match');
     });
   });
 });

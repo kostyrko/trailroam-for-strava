@@ -42,6 +42,13 @@ export class RouteRendererService {
   private emphasisSelectedId: string | null = null;
   private heatmapMode = false;
   private opacityOverride: number | null = null;
+  /**
+   * Per-activity stage colors set when a multi-activity trail is selected, so
+   * consecutive stages are distinguishable even when they share a category.
+   * Map of `activityId` → hex color. `null` (or a missing id) falls back to the
+   * category color below.
+   */
+  private stageColors: Map<string, string> | null = null;
   private readonly categoryColorExpr = [
     'match', ['get', 'category'],
     'ride', '#1f6f50',
@@ -52,6 +59,16 @@ export class RouteRendererService {
     'paddling', '#3ca8a8',
     'winter', '#8ba8c8',
     '#63746a',
+  ] as unknown as string;
+  /**
+   * Prefers a per-stage color (T-139) when the feature carries one, falling
+   * back to the activity-category color otherwise. Features without a
+   * `stageColor` property render identically to the pre-T-139 category scheme.
+   */
+  private readonly lineColorExpr = [
+    'coalesce',
+    ['get', 'stageColor'],
+    this.categoryColorExpr,
   ] as unknown as string;
 
   init(map: MapLibreMap): void {
@@ -110,7 +127,7 @@ export class RouteRendererService {
       source: ROUTES_SOURCE_ID,
       minzoom: LINE_MIN_ZOOM,
       paint: {
-        'line-color': this.categoryColorExpr,
+        'line-color': this.lineColorExpr,
         'line-opacity': [ 'case', [ '==', [ 'get', 'emphasis' ], 0 ], 0.15, 0.85 ],
         'line-width': [ 'case', [ '==', [ 'get', 'emphasis' ], 0 ], 2, [ 'case', [ '==', [ 'get', 'emphasis' ], 3 ], 7, 4 ] ],
       },
@@ -123,7 +140,7 @@ export class RouteRendererService {
       minzoom: LINE_MIN_ZOOM,
       filter: ['==', ['get', 'activityId'], ''],
       paint: {
-        'line-color': this.categoryColorExpr,
+        'line-color': this.lineColorExpr,
         'line-opacity': 1,
         'line-width': 5,
       },
@@ -400,10 +417,21 @@ export class RouteRendererService {
     return this.heatmapMode;
   }
 
-  setEmphasis(matchingIds: Set<string> | null, selectedId: string | null): void {
+  /**
+   * Emphasizes a subset of routes (e.g. a selected trail's activities). When
+   * `stageColors` is provided, each matching activity is rendered in its
+   * assigned color instead of the category color, so consecutive trail stages
+   * are distinguishable. Pass `null`/omit to fall back to category coloring.
+   */
+  setEmphasis(
+    matchingIds: Set<string> | null,
+    selectedId: string | null,
+    stageColors: Map<string, string> | null = null,
+  ): void {
     this.emphasisActive = true;
     this.emphasisMatchingIds = matchingIds;
     this.emphasisSelectedId = selectedId;
+    this.stageColors = stageColors;
     this.syncRouteSource();
   }
 
@@ -411,6 +439,7 @@ export class RouteRendererService {
     this.emphasisActive = false;
     this.emphasisMatchingIds = null;
     this.emphasisSelectedId = null;
+    this.stageColors = null;
     this.syncRouteSource();
   }
 
@@ -434,6 +463,7 @@ export class RouteRendererService {
 
     const matchingIds = this.emphasisMatchingIds;
     const selId = this.emphasisSelectedId;
+    const matching = this.stageColors;
     const hasMatching = matchingIds != null && matchingIds.size > 0;
     const hasFilter = matchingIds != null;
 
@@ -456,9 +486,16 @@ export class RouteRendererService {
         let emphasis = 2;
         if (isSelected) { emphasis = 3; }
         else if (selId) { emphasis = 0; }
+        const stageColor = matching?.get(route.activityId) ?? null;
         return {
           type: 'Feature' as const,
-          properties: { activityId: route.activityId, name: route.name, category: route.activity.activityCategory, emphasis },
+          properties: {
+            activityId: route.activityId,
+            name: route.name,
+            category: route.activity.activityCategory,
+            emphasis,
+            stageColor,
+          },
           geometry: { type: 'LineString' as const, coordinates: route.coordinates },
         };
       });

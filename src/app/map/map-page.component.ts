@@ -28,6 +28,7 @@ import { SavePlaceDialog, type SavePlaceDialogData } from '../shared/save-place-
 import type { SearchSelectedPayload } from './map-search-panel.component';
 import type { GeocodeResult } from './geocoding.service';
 import { RouteRendererService } from './route-renderer.service';
+import { stageColor } from './stage-colors';
 import { type ActivityCategory } from '../storage/storage.models';
 import {
   formatSportType,
@@ -672,9 +673,12 @@ export class MapPage implements AfterViewInit {
         // Compute collective bounds from all member routes
         const allCoords = trailRoutes.flatMap((r) => r.coordinates);
         const trailActivityIds = new Set(trailRoutes.map((r) => r.activityId));
+        // Assign each stage a distinct color (T-139) so consecutive stages are
+        // distinguishable even when they share an activity category.
+        const stageColors = this.computeStageColors(trail.activityIds);
         // Set emphasis/hide non-trail routes via the renderer's emphasis mechanism.
         // This stores the state; syncRouteSource applies it when the map source exists.
-        this.routeRendererService.setEmphasis(trailActivityIds, null);
+        this.routeRendererService.setEmphasis(trailActivityIds, null, stageColors);
         // Fit the map to trail bounds. The map may not be fully initialized yet
         // (MapLibreMapComponent.ngAfterViewInit is async), so retry until the
         // route renderer has a map reference and the style is loaded.
@@ -683,6 +687,24 @@ export class MapPage implements AfterViewInit {
         }
       }
     }
+  }
+
+  /**
+   * Builds a stable per-stage color map for a trail's activities, indexed by
+   * each activity's position in the trail's chronological `activityIds`. Only
+   * activities that have a rendered route are included, since the renderer only
+   * colors features it actually draws.
+   */
+  private computeStageColors(activityIds: string[]): Map<string, string> {
+    const renderedIds = new Set(this.allRoutes().map((r) => r.activityId));
+    const colors = new Map<string, string>();
+    let stageIndex = 0;
+    for (const id of activityIds) {
+      if (!renderedIds.has(id)) { continue; }
+      colors.set(id, stageColor(stageIndex));
+      stageIndex++;
+    }
+    return colors;
   }
 
   /**
@@ -743,7 +765,8 @@ export class MapPage implements AfterViewInit {
       const trail = this.trailsService.trails().find((t) => t.id === trailId);
       if (trail) {
         const trailActivityIds = new Set(trail.activityIds);
-        this.routeRendererService.setEmphasis(trailActivityIds, null);
+        const stageColors = this.computeStageColors(trail.activityIds);
+        this.routeRendererService.setEmphasis(trailActivityIds, null, stageColors);
         const trailRoutes = this.allRoutes().filter((r) =>
           trail.activityIds.includes(r.activityId),
         );

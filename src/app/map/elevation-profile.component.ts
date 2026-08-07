@@ -1,4 +1,5 @@
 import { Component, input, output, computed, signal } from '@angular/core';
+import { GRADIENT_BUCKETS } from '../shared/formatters/gradient-color';
 
 const CHART_WIDTH = 280;
 const CHART_HEIGHT = 120;
@@ -8,6 +9,9 @@ const PADDING_TOP = 6;
 const PADDING_BOTTOM = 18;
 const PLOT_WIDTH = CHART_WIDTH - PADDING_LEFT - PADDING_RIGHT;
 const PLOT_HEIGHT = CHART_HEIGHT - PADDING_TOP - PADDING_BOTTOM;
+/** Hover tooltip box width (SVG units). Kept wide enough for "Xkm / Ym / ±Z%". */
+const TOOLTIP_WIDTH = 108;
+const TOOLTIP_HALF_WIDTH = TOOLTIP_WIDTH / 2;
 
 @Component({
   selector: 'app-elevation-profile',
@@ -26,10 +30,24 @@ export class ElevationProfileComponent {
   protected readonly Math = Math;
   protected readonly PADDING_LEFT = PADDING_LEFT;
   protected readonly PADDING_TOP = PADDING_TOP;
+  protected readonly gradientBuckets = GRADIENT_BUCKETS;
 
   readonly crosshairX = signal<number | null>(null);
   readonly hoverElevation = signal<number | null>(null);
   readonly hoverDistance = signal<number | null>(null);
+  readonly hoverGradient = signal<number | null>(null);
+
+  protected readonly tooltipHalfWidth = TOOLTIP_HALF_WIDTH;
+  /**
+   * Clamped centre x for the hover tooltip box. The crosshair line follows the
+   * true mouse position ({@link crosshairX}); the box slides inward so its
+   * edges stay within the chart bounds and the label text is never clipped.
+   */
+  protected readonly tooltipX = computed<number | null>(() => {
+    const cx = this.crosshairX();
+    if (cx === null) { return null; }
+    return Math.max(TOOLTIP_HALF_WIDTH, Math.min(CHART_WIDTH - TOOLTIP_HALF_WIDTH, cx));
+  });
 
   protected readonly hasElevation = computed(() => {
     const els = this.elevations();
@@ -136,6 +154,9 @@ export class ElevationProfileComponent {
     if (!els || !dists) { return null; }
 
     const smoothed = smoothElevations(els, dists);
+    // Smooth the per-point gradient too, so bucket boundaries don't flicker as
+    // the raw gradient oscillates around a threshold (e.g. 4.9% ↔ 5.1%).
+    const gradients = smoothGradients(smoothed, dists);
 
     const yR = this.yRange();
     const yMn = this.yMin();
@@ -143,25 +164,32 @@ export class ElevationProfileComponent {
     return smoothed.map((el, i) => ({
       x: PADDING_LEFT + (dists[i] / maxDist) * PLOT_WIDTH,
       y: PADDING_TOP + (1 - (el - yMn) / yR) * PLOT_HEIGHT,
+      gradient: gradients[i] ?? 0,
     }));
   });
 
-  protected readonly linePath = computed(() => {
+  /**
+   * Per-bucket coloured line + fill segments. Consecutive segments share their
+   * boundary point (the end of one is the start of the next) so round line caps
+   * join without gaps and the area fills tile seamlessly along the baseline.
+   * Empty when there is no elevation data.
+   */
+  protected readonly elevationSegments = computed<{ line: string; fill: string; color: string }[]>(() => {
     const pts = this.points();
-    if (!pts || pts.length < 2) { return ''; }
-    return pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
-  });
+    if (!pts || pts.length < 2) { return []; }
 
-  protected readonly fillPath = computed(() => {
-    const pts = this.points();
-    if (!pts || pts.length < 2) { return ''; }
-    const bottomY = CHART_HEIGHT - PADDING_BOTTOM;
-    let d = `M${pts[0].x},${bottomY}`;
-    for (const p of pts) {
-      d += `L${p.x},${p.y}`;
+    const segments: { line: string; fill: string; color: string }[] = [];
+    let start = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const prevBucket = gradientBucketIndexOf(pts[start]!.gradient);
+      const curBucket = gradientBucketIndexOf(pts[i]!.gradient);
+      if (curBucket !== prevBucket) {
+        segments.push(buildPath(pts, start, i, prevBucket));
+        start = i;
+      }
     }
-    d += `L${pts[pts.length - 1].x},${bottomY}Z`;
-    return d;
+    segments.push(buildPath(pts, start, pts.length - 1, gradientBucketIndexOf(pts[start]!.gradient)));
+    return segments;
   });
 
   protected onMouseMove(event: MouseEvent): void {
@@ -186,10 +214,14 @@ export class ElevationProfileComponent {
     const interpEl = idx < dists.length - 1
       ? this.effectiveElevations()![idx] + (this.effectiveElevations()![idx + 1] - this.effectiveElevations()![idx]) * Math.max(0, Math.min(1, t))
       : this.effectiveElevations()![idx];
+    const interpGrad = idx < pts.length - 1
+      ? pts[idx]!.gradient + ((pts[idx + 1]?.gradient ?? pts[idx]!.gradient) - pts[idx]!.gradient) * Math.max(0, Math.min(1, t))
+      : pts[idx]!.gradient;
 
     this.crosshairX.set(clampedX);
     this.hoverElevation.set(interpEl);
     this.hoverDistance.set(targetDist);
+    this.hoverGradient.set(interpGrad);
 
     const routeCoords = this.coordinates();
     if (routeCoords && routeCoords.length === dists.length) {
@@ -205,6 +237,7 @@ export class ElevationProfileComponent {
     this.crosshairX.set(null);
     this.hoverElevation.set(null);
     this.hoverDistance.set(null);
+    this.hoverGradient.set(null);
     this.hoveredPosition.emit(null);
   }
 }
@@ -237,6 +270,85 @@ export function smoothElevations(elevations: number[], distances: number[]): num
   }
 
   return result;
+}
+
+interface ProfilePoint {
+  x: number;
+  y: number;
+  gradient: number;
+}
+
+/**
+ * Per-point gradient (%) between consecutive smoothed-elevation points, then
+ * moving-average-smoothed with the same distance-aware window as
+ * {@link smoothElevations} so bucket boundaries stay stable. The last point
+ * repeats the previous gradient (no following point to diff against).
+ */
+function smoothGradients(smoothedElevations: number[], distances: number[]): number[] {
+  const n = smoothedElevations.length;
+  if (n < 2) { return new Array(n).fill(0); }
+
+  const raw: number[] = new Array(n);
+  raw[0] = 0;
+  for (let i = 1; i < n; i++) {
+    const dDist = distances[i] - distances[i - 1];
+    raw[i] = dDist > 0 ? ((smoothedElevations[i] - smoothedElevations[i - 1]) / dDist) * 100 : 0;
+  }
+
+  if (n < 4) { return raw; }
+
+  const totalDist = distances[distances.length - 1];
+  const pointsPerKm = n / (totalDist / 1000);
+  const WINDOW_MAX = 51;
+  const WINDOW_MIN = 3;
+  const rawWindow = Math.round(pointsPerKm * 0.15);
+  const windowSize = Math.max(WINDOW_MIN, Math.min(WINDOW_MAX, rawWindow));
+  const half = Math.floor(windowSize / 2);
+
+  const result: number[] = new Array(n);
+  for (let i = 0; i < n; i++) {
+    const start = Math.max(0, i - half);
+    const end = Math.min(n - 1, i + half);
+    let sum = 0;
+    for (let j = start; j <= end; j++) {
+      sum += raw[j];
+    }
+    result[i] = sum / (end - start + 1);
+  }
+  return result;
+}
+
+/** Bucket index for a single point's gradient. Kept local to avoid extra imports in the hot loop. */
+function gradientBucketIndexOf(gradPercent: number): number {
+  if (Number.isNaN(gradPercent)) { return 0; }
+  for (let i = 0; i < GRADIENT_BUCKETS.length; i++) {
+    if (gradPercent < GRADIENT_BUCKETS[i]!.maxPercent) { return i; }
+  }
+  return GRADIENT_BUCKETS.length - 1;
+}
+
+/** Baseline (y of the chart bottom) that area fills close down to. */
+const FILL_BASE_Y = CHART_HEIGHT - PADDING_BOTTOM;
+
+/**
+ * Builds the line `d` and the area-fill `d` for `pts[start..end]` (inclusive),
+ * coloured by `bucket`. The line traces the top of the profile; the fill closes
+ * that line down to the chart baseline. Consecutive segments share their
+ * boundary point so the fills tile seamlessly along the shared vertical edge.
+ */
+function buildPath(
+  pts: ProfilePoint[],
+  start: number,
+  end: number,
+  bucket: number,
+): { line: string; fill: string; color: string } {
+  let line = `M${pts[start]!.x},${pts[start]!.y}`;
+  for (let i = start + 1; i <= end; i++) {
+    line += `L${pts[i]!.x},${pts[i]!.y}`;
+  }
+  // Fill: same top line, then drop to baseline at `end`, run back to `start`, close.
+  const fill = `${line}L${pts[end]!.x},${FILL_BASE_Y}L${pts[start]!.x},${FILL_BASE_Y}Z`;
+  return { line, fill, color: GRADIENT_BUCKETS[bucket]!.color };
 }
 
 export function niceRound(value: number): number {

@@ -1,3 +1,5 @@
+@use 'variables' as *;
+
 .elevation-chart-wrap {
   cursor: crosshair;
   margin-top: 8px;
@@ -9,4 +11,29 @@
   display: block;
   overflow: visible;
   width: 100%;
+}
+
+.elevation-legend {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 6px;
+}
+
+.elevation-legend-item {
+  align-items: center;
+  color: $text-secondary;
+  display: inline-flex;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  gap: 4px;
+}
+
+.elevation-legend-swatch {
+  border-radius: 2px;
+  display: inline-block;
+  height: 8px;
+  width: 12px;
 }

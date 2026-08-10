@@ -310,6 +310,7 @@ describe('MapPage', () => {
       addControl: vi.fn(),
       isStyleLoaded: () => true,
       getSource: vi.fn().mockReturnValue(undefined),
+      getLayer: vi.fn().mockReturnValue({}),
       addSource: vi.fn(),
       addLayer: vi.fn(),
       setPaintProperty: vi.fn(),

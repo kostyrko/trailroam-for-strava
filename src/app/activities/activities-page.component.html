@@ -6,10 +6,12 @@
   <div class="activities-header">
     <div class="activities-header__title-row">
       <h1 id="activities-title">Logbook</h1>
-      <div class="local-storage-indicator" title="Activity data is stored locally in this browser">
+      <div class="local-storage-indicator">
         <app-icon name="lock" [size]="14" strokeWidth="2" [class]="'ls-icon'"></app-icon>
         <span>Stored locally in this browser</span>
-        <app-icon name="info" [size]="14" strokeWidth="2" [class]="'ls-info-icon'"></app-icon>
+        <span class="ls-info-tip" data-tooltip="Activity data is stored locally in this browser">
+          <app-icon name="info" [size]="14" strokeWidth="2" [class]="'ls-info-icon'"></app-icon>
+        </span>
       </div>
     </div>
   </div>
@@ -231,9 +233,6 @@
                     <td class="cell-sparkline">
                       <button
                         class="trail-expand-btn"
-                        [class.trail-expand-btn--open]="
-                          expandedTrailIds().has(group.trailRow.trail.id)
-                        "
                         type="button"
                         (click)="
                           toggleExpandTrail(group.trailRow.trail.id); $event.stopPropagation()
@@ -241,8 +240,21 @@
                         attr.aria-label="{{
                           expandedTrailIds().has(group.trailRow.trail.id) ? 'Collapse' : 'Expand'
                         }} trail"
+                        [attr.data-tooltip]="
+                          (expandedTrailIds().has(group.trailRow.trail.id)
+                            ? 'Collapse'
+                            : 'Expand') + ' trail'
+                        "
                       >
-                        <app-icon name="chevron-right" [size]="14" strokeWidth="3"></app-icon>
+                        <app-icon
+                          [name]="
+                            expandedTrailIds().has(group.trailRow.trail.id)
+                              ? 'chevron-down'
+                              : 'chevron-right'
+                          "
+                          [size]="14"
+                          strokeWidth="3"
+                        ></app-icon>
                       </button>
                     </td>
                     <td class="cell-name">
@@ -292,9 +304,10 @@
                         class="trail-detail-btn"
                         type="button"
                         (click)="onSelectTrail(group.trailRow.trail); $event.stopPropagation()"
-                        title="Open trail details"
+                        aria-label="Open trail details"
+                        data-tooltip="Open trail details"
                       >
-                        <app-icon name="sidebar-collapse" [size]="18" strokeWidth="1.5"></app-icon>
+                        <app-icon name="sidebar-collapse" [size]="21" strokeWidth="1.5"></app-icon>
                       </button>
                     </td>
                     <td class="cell-actions">
@@ -305,7 +318,7 @@
                           (click)="
                             navigateToTrailOnMap(group.trailRow.trail); $event.stopPropagation()
                           "
-                          title="View on map"
+                          data-tooltip="View on map"
                           attr.aria-label="View '{{ group.trailRow.trail.name }}' on map"
                         >
                           <app-icon name="map" [size]="16" strokeWidth="2"></app-icon>
@@ -315,6 +328,7 @@
                             class="activity-menu-trigger"
                             type="button"
                             aria-haspopup="menu"
+                            data-tooltip="More actions"
                             [attr.aria-expanded]="openMenuId() === group.trailRow.trail.id"
                             (click)="toggleActivityMenu($event, group.trailRow.trail.id)"
                           >
@@ -452,7 +466,7 @@
                                 type="button"
                                 (click)="navigateToMap($event, child)"
                                 attr.aria-label="View '{{ child.name }}' on map"
-                                title="View on map"
+                                data-tooltip="View on map"
                               >
                                 <app-icon name="map" [size]="16" strokeWidth="2"></app-icon>
                               </button>
@@ -462,6 +476,7 @@
                                 class="activity-menu-trigger"
                                 type="button"
                                 aria-haspopup="menu"
+                                data-tooltip="More actions"
                                 [attr.aria-expanded]="openMenuId() === child.id"
                                 (click)="toggleActivityMenu($event, child.id)"
                               >
@@ -496,85 +511,84 @@
                                         </button>
                                       </li>
                                     }
-                                  } @else {
-                                    <li role="none">
-                                      <button
-                                        class="act-dropdown-item"
-                                        role="menuitem"
-                                        (click)="openOnStrava($event, child)"
-                                      >
-                                        <app-icon
-                                          name="external-link"
-                                          [size]="16"
-                                          strokeWidth="2"
-                                          [class]="'act-dropdown-icon'"
-                                        ></app-icon>
-                                        Strava
-                                      </button>
-                                    </li>
-                                    <li role="none">
-                                      <button
-                                        class="act-dropdown-item"
-                                        [class.act-dropdown-item-disabled]="!child.hasRoute"
-                                        [disabled]="!child.hasRoute"
-                                        role="menuitem"
-                                        (click)="downloadGpx($event, child)"
-                                      >
-                                        <app-icon
-                                          name="download"
-                                          [size]="16"
-                                          strokeWidth="2"
-                                          [class]="'act-dropdown-icon'"
-                                        ></app-icon>
-                                        Download GPX
-                                      </button>
-                                    </li>
-                                    <li role="none">
-                                      <button
-                                        class="act-dropdown-item"
-                                        role="menuitem"
-                                        (click)="editActivity($event, child)"
-                                      >
-                                        <app-icon
-                                          name="pencil"
-                                          [size]="16"
-                                          strokeWidth="2"
-                                          [class]="'act-dropdown-icon'"
-                                        ></app-icon>
-                                        Edit
-                                      </button>
-                                    </li>
-                                    <li role="none">
-                                      <button
-                                        class="act-dropdown-item act-dropdown-item-danger"
-                                        role="menuitem"
-                                        (click)="deleteActivity($event, child)"
-                                      >
-                                        <app-icon
-                                          name="trash-2"
-                                          [size]="16"
-                                          strokeWidth="2"
-                                          [class]="'act-dropdown-icon'"
-                                        ></app-icon>
-                                        Delete
-                                      </button>
-                                    </li>
-                                    <li role="none">
-                                      <button
-                                        class="act-dropdown-item"
-                                        role="menuitem"
-                                        (click)="retrySyncRoute($event, child)"
-                                      >
-                                        <app-icon
-                                          name="rotate-ccw"
-                                          [size]="16"
-                                          strokeWidth="2"
-                                          [class]="'act-dropdown-icon'"
-                                        ></app-icon>
-                                        Retry sync
-                                      </button>
-                                    </li>
                                   }
+                                  <li role="none">
+                                    <button
+                                      class="act-dropdown-item"
+                                      role="menuitem"
+                                      (click)="openOnStrava($event, child)"
+                                    >
+                                      <app-icon
+                                        name="external-link"
+                                        [size]="16"
+                                        strokeWidth="2"
+                                        [class]="'act-dropdown-icon'"
+                                      ></app-icon>
+                                      Strava
+                                    </button>
+                                  </li>
+                                  <li role="none">
+                                    <button
+                                      class="act-dropdown-item"
+                                      [class.act-dropdown-item-disabled]="!child.hasRoute"
+                                      [disabled]="!child.hasRoute"
+                                      role="menuitem"
+                                      (click)="downloadGpx($event, child)"
+                                    >
+                                      <app-icon
+                                        name="download"
+                                        [size]="16"
+                                        strokeWidth="2"
+                                        [class]="'act-dropdown-icon'"
+                                      ></app-icon>
+                                      Download GPX
+                                    </button>
+                                  </li>
+                                  <li role="none">
+                                    <button
+                                      class="act-dropdown-item"
+                                      role="menuitem"
+                                      (click)="editActivity($event, child)"
+                                    >
+                                      <app-icon
+                                        name="pencil"
+                                        [size]="16"
+                                        strokeWidth="2"
+                                        [class]="'act-dropdown-icon'"
+                                      ></app-icon>
+                                      Edit
+                                    </button>
+                                  </li>
+                                  <li role="none">
+                                    <button
+                                      class="act-dropdown-item act-dropdown-item-danger"
+                                      role="menuitem"
+                                      (click)="deleteActivity($event, child)"
+                                    >
+                                      <app-icon
+                                        name="trash-2"
+                                        [size]="16"
+                                        strokeWidth="2"
+                                        [class]="'act-dropdown-icon'"
+                                      ></app-icon>
+                                      Delete
+                                    </button>
+                                  </li>
+                                  <li role="none">
+                                    <button
+                                      class="act-dropdown-item"
+                                      role="menuitem"
+                                      (click)="retrySyncRoute($event, child)"
+                                    >
+                                      <app-icon
+                                        name="rotate-ccw"
+                                        [size]="16"
+                                        strokeWidth="2"
+                                        [class]="'act-dropdown-icon'"
+                                      ></app-icon>
+                                      Retry sync
+                                    </button>
+                                  </li>
                                 </ul>
                               }
                             </div>
@@ -668,7 +682,7 @@
                             type="button"
                             (click)="navigateToMap($event, group.activity)"
                             attr.aria-label="View '{{ group.activity.name }}' on map"
-                            title="View on map"
+                            data-tooltip="View on map"
                           >
                             <app-icon name="map" [size]="16" strokeWidth="2"></app-icon>
                           </button>
@@ -678,6 +692,7 @@
                             class="activity-menu-trigger"
                             type="button"
                             aria-haspopup="menu"
+                            data-tooltip="More actions"
                             [attr.aria-expanded]="openMenuId() === group.activity.id"
                             (click)="toggleActivityMenu($event, group.activity.id)"
                           >
@@ -1272,7 +1287,7 @@
                           type="button"
                           (click)="onSelectPlace(place); $event.stopPropagation()"
                           attr.aria-label="View '{{ place.name }}' on map"
-                          title="View on map"
+                          data-tooltip="View on map"
                         >
                           <app-icon name="map" [size]="16" strokeWidth="2"></app-icon>
                         </button>
@@ -1281,6 +1296,7 @@
                             class="activity-menu-trigger"
                             type="button"
                             aria-haspopup="menu"
+                            data-tooltip="More actions"
                             [attr.aria-expanded]="openMenuId() === place.id"
                             (click)="togglePlaceMenu($event, place.id)"
                           >
@@ -1486,7 +1502,7 @@
                             type="button"
                             (click)="navigateToMap($event, row.activity)"
                             attr.aria-label="View '{{ row.activity.name }}' on map"
-                            title="View on map"
+                            data-tooltip="View on map"
                           >
                             <app-icon name="map" [size]="16" strokeWidth="2"></app-icon>
                           </button>
@@ -1521,7 +1537,7 @@
                             type="button"
                             (click)="onSelectPlace(row.place, 'all'); $event.stopPropagation()"
                             attr.aria-label="View '{{ row.place.name }}' on map"
-                            title="View on map"
+                            data-tooltip="View on map"
                           >
                             <app-icon name="map" [size]="16" strokeWidth="2"></app-icon>
                           </button>

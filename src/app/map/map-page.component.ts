@@ -18,8 +18,7 @@ import { type MapRouteFeature } from './mock-routes';
 import {
   FiltersService,
   CATEGORY_COLORS,
-  isAfterOrEqual,
-  isBeforeOrEqual,
+  matchesDateFilter,
   type DatePreset,
 } from '../shared/filters.service';
 import { TRAILROAM_REPOSITORIES } from '../storage/repositories/repositories.token';
@@ -29,11 +28,13 @@ import { SavePlaceDialog, type SavePlaceDialogData } from '../shared/save-place-
 import type { SearchSelectedPayload } from './map-search-panel.component';
 import type { GeocodeResult } from './geocoding.service';
 import { RouteRendererService } from './route-renderer.service';
+import { stageColor } from './stage-colors';
 import { type ActivityCategory } from '../storage/storage.models';
 import {
   formatSportType,
   formatCategory,
   mapSportTypeToCategory,
+  matchesSportFilter,
 } from '../shared/activity-category';
 import {
   formatDurationHours,
@@ -189,10 +190,30 @@ export class MapPage implements AfterViewInit {
   protected readonly sidebarTrailItems = computed<SidebarTrailItem[]>(() => {
     const allRoutes = this.allRoutes();
     const trails = this.trailsService.trails();
+    const sportFilter = this.sportTypeFilter();
+    const fromDate = this.filtersService.dateFrom();
+    const toDate = this.filtersService.dateTo();
     const result: SidebarTrailItem[] = [];
     for (const trail of trails) {
       const memberActivities = allRoutes.filter((r) => trail.activityIds.includes(r.activityId));
       if (memberActivities.length < 2) continue;
+      // When a sport/date filter is active, only keep trails that have at least
+      // one member activity matching it. The trail's full contents (count,
+      // distance, dates, members) are preserved downstream — this only gates
+      // whether the trail appears at all, matching the standalone-activity
+      // filter behaviour in filteredRoutes.
+      if (
+        sportFilter &&
+        !memberActivities.some((r) => matchesSportFilter(r.activity.sportType, sportFilter))
+      ) {
+        continue;
+      }
+      if (
+        (fromDate || toDate) &&
+        !memberActivities.some((r) => matchesDateFilter(r.activity.startDate, fromDate, toDate))
+      ) {
+        continue;
+      }
       const totalDistanceMeters = memberActivities.reduce(
         (s, r) => s + (r.activity.distanceMeters ?? 0),
         0,
@@ -360,22 +381,10 @@ export class MapPage implements AfterViewInit {
           (srcFilter.has('planned') && isPlanned);
         if (!matchesSource) return false;
       }
-      if (sportFilter) {
-        if (sportFilter.startsWith('__cat__')) {
-          const cat = sportFilter.slice(7) as ActivityCategory;
-          if (mapSportTypeToCategory(r.activity.sportType) !== cat) {
-            return false;
-          }
-        } else {
-          if (r.activity.sportType !== sportFilter) {
-            return false;
-          }
-        }
-      }
-      if (fromDate && r.activity.startDate && !isAfterOrEqual(r.activity.startDate, fromDate)) {
+      if (sportFilter && !matchesSportFilter(r.activity.sportType, sportFilter)) {
         return false;
       }
-      if (toDate && r.activity.startDate && !isBeforeOrEqual(r.activity.startDate, toDate)) {
+      if ((fromDate || toDate) && !matchesDateFilter(r.activity.startDate, fromDate, toDate)) {
         return false;
       }
       if (search && !r.activity.name.toLowerCase().includes(search)) {
@@ -664,9 +673,12 @@ export class MapPage implements AfterViewInit {
         // Compute collective bounds from all member routes
         const allCoords = trailRoutes.flatMap((r) => r.coordinates);
         const trailActivityIds = new Set(trailRoutes.map((r) => r.activityId));
+        // Assign each stage a distinct color (T-139) so consecutive stages are
+        // distinguishable even when they share an activity category.
+        const stageColors = this.computeStageColors(trail.activityIds);
         // Set emphasis/hide non-trail routes via the renderer's emphasis mechanism.
         // This stores the state; syncRouteSource applies it when the map source exists.
-        this.routeRendererService.setEmphasis(trailActivityIds, null);
+        this.routeRendererService.setEmphasis(trailActivityIds, null, stageColors);
         // Fit the map to trail bounds. The map may not be fully initialized yet
         // (MapLibreMapComponent.ngAfterViewInit is async), so retry until the
         // route renderer has a map reference and the style is loaded.
@@ -675,6 +687,24 @@ export class MapPage implements AfterViewInit {
         }
       }
     }
+  }
+
+  /**
+   * Builds a stable per-stage color map for a trail's activities, indexed by
+   * each activity's position in the trail's chronological `activityIds`. Only
+   * activities that have a rendered route are included, since the renderer only
+   * colors features it actually draws.
+   */
+  private computeStageColors(activityIds: string[]): Map<string, string> {
+    const renderedIds = new Set(this.allRoutes().map((r) => r.activityId));
+    const colors = new Map<string, string>();
+    let stageIndex = 0;
+    for (const id of activityIds) {
+      if (!renderedIds.has(id)) { continue; }
+      colors.set(id, stageColor(stageIndex));
+      stageIndex++;
+    }
+    return colors;
   }
 
   /**
@@ -735,7 +765,8 @@ export class MapPage implements AfterViewInit {
       const trail = this.trailsService.trails().find((t) => t.id === trailId);
       if (trail) {
         const trailActivityIds = new Set(trail.activityIds);
-        this.routeRendererService.setEmphasis(trailActivityIds, null);
+        const stageColors = this.computeStageColors(trail.activityIds);
+        this.routeRendererService.setEmphasis(trailActivityIds, null, stageColors);
         const trailRoutes = this.allRoutes().filter((r) =>
           trail.activityIds.includes(r.activityId),
         );

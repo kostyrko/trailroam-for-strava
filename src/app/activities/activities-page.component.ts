@@ -9,7 +9,11 @@ import {
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivityParserService } from '../shared/activity-parser.service';
+import {
+  ActivityParserService,
+  estimateMovingTime,
+  typicalSpeedMs,
+} from '../shared/activity-parser.service';
 import { ImportActivityDialog } from '../shared/import-activity-dialog.component';
 import { EditActivityDialog } from '../shared/edit-activity-dialog.component';
 import { generateId } from '../shared/uuid';
@@ -1093,7 +1097,7 @@ export class ActivitiesPageComponent {
     });
     this.dataRefresh.refresh$
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(() => this.loadPage(1));
+      .subscribe(() => this.onDataRefresh());
     effect(() => {
       const focusId = this.focusActivityId();
       const items = this.activities();
@@ -1302,37 +1306,46 @@ export class ActivitiesPageComponent {
     this.selectedActivity.set(activity);
     // Sync expanded state from the trail panel when activity is opened from a trail.
     this.activityDetailExpanded.set(!!this.selectedTrail() && this.trailMapExpanded());
-    if (activity.hasRoute) {
-      Promise.all([
-        this.repositories.activityRoutes.get(activity.id),
-        this.repositories.routeGeometry.get(activity.id),
-      ]).then(([route, geometry]) => {
-        if (route && geometry) {
+    this.loadSelectedRoute(activity);
+  }
+
+  /**
+   * Loads the full route (simplified record + full-resolution geometry) for the given
+   * activity into `selectedRoute`. Reused when opening an activity and when a data
+   * refresh (e.g. a resync) should update the currently-open detail panel.
+   */
+  private loadSelectedRoute(activity: ActivityRecord): void {
+    if (!activity.hasRoute) {
+      this.selectedRoute.set(null);
+      return;
+    }
+    Promise.all([
+      this.repositories.activityRoutes.get(activity.id),
+      this.repositories.routeGeometry.get(activity.id),
+    ]).then(([route, geometry]) => {
+      if (route && geometry) {
+        this.selectedRoute.set({
+          ...route,
+          coordinates: geometry.coordinates,
+          elevations: geometry.elevations,
+          cumulativeDistances: geometry.cumulativeDistances,
+        });
+      } else if (route) {
+        const oldCoords = (route as any).coordinates;
+        if (oldCoords && oldCoords.length > 0) {
           this.selectedRoute.set({
             ...route,
-            coordinates: geometry.coordinates,
-            elevations: geometry.elevations,
-            cumulativeDistances: geometry.cumulativeDistances,
+            coordinates: oldCoords,
+            elevations: (route as any).elevations,
+            cumulativeDistances: (route as any).cumulativeDistances,
           });
-        } else if (route) {
-          const oldCoords = (route as any).coordinates;
-          if (oldCoords && oldCoords.length > 0) {
-            this.selectedRoute.set({
-              ...route,
-              coordinates: oldCoords,
-              elevations: (route as any).elevations,
-              cumulativeDistances: (route as any).cumulativeDistances,
-            });
-          } else {
-            this.selectedRoute.set(null);
-          }
         } else {
           this.selectedRoute.set(null);
         }
-      });
-    } else {
-      this.selectedRoute.set(null);
-    }
+      } else {
+        this.selectedRoute.set(null);
+      }
+    });
   }
 
   protected clearSelectedActivity(): void {
@@ -1350,57 +1363,65 @@ export class ActivitiesPageComponent {
   }
 
   protected toggleActivityMenu(event: MouseEvent, activityId: string): void {
-    event.stopPropagation();
-    const opening = this.openMenuId() !== activityId;
-    if (opening) {
-      const btn = event.currentTarget as HTMLElement;
-      const rect = btn.getBoundingClientRect();
-      const menuHeight = 160;
-      const spaceBelow = window.innerHeight - rect.bottom;
-      if (spaceBelow >= menuHeight) {
-        this.menuStyle.set({
-          position: 'fixed',
-          top: rect.bottom + 'px',
-          right: window.innerWidth - rect.right + 12 + 'px',
-          bottom: 'auto',
-        });
-      } else {
-        this.menuStyle.set({
-          position: 'fixed',
-          top: 'auto',
-          right: window.innerWidth - rect.right + 12 + 'px',
-          bottom: window.innerHeight - rect.top + 'px',
-        });
-      }
-    }
-    this.openMenuId.set(opening ? activityId : null);
+    this.toggleMenu(event, activityId);
   }
 
   protected togglePlaceMenu(event: MouseEvent, placeId: string): void {
+    this.toggleMenu(event, placeId);
+  }
+
+  private toggleMenu(event: MouseEvent, id: string): void {
     event.stopPropagation();
-    const opening = this.openMenuId() !== placeId;
-    if (opening) {
-      const btn = event.currentTarget as HTMLElement;
-      const rect = btn.getBoundingClientRect();
-      const menuHeight = 160;
-      const spaceBelow = window.innerHeight - rect.bottom;
-      if (spaceBelow >= menuHeight) {
-        this.menuStyle.set({
-          position: 'fixed',
-          top: rect.bottom + 'px',
-          right: window.innerWidth - rect.right + 12 + 'px',
-          bottom: 'auto',
-        });
-      } else {
-        this.menuStyle.set({
-          position: 'fixed',
-          top: 'auto',
-          right: window.innerWidth - rect.right + 12 + 'px',
-          bottom: window.innerHeight - rect.top + 'px',
-        });
-      }
+    const opening = this.openMenuId() !== id;
+    if (!opening) {
+      this.openMenuId.set(null);
+      return;
     }
-    this.openMenuId.set(opening ? placeId : null);
+    const trigger = event.currentTarget as HTMLElement;
+    // Place the dropdown from the trigger rect right away (so it appears next to
+    // the trigger), then refine it against the rendered menu size so it is always
+    // fully visible within the viewport. The trigger sits in a scrollable table,
+    // so we rely on `position: fixed` with viewport coords and never anchor the
+    // dropdown to table-relative offsets.
+    this.positionActivityMenu(trigger);
+    this.openMenuId.set(id);
+    requestAnimationFrame(() => this.positionActivityMenu(trigger, true));
+  }
+
+  private positionActivityMenu(trigger: HTMLElement, measure = false): void {
+    const wrapper = trigger.closest('.activity-menu-wrapper');
+    const menu = measure ? wrapper?.querySelector<HTMLElement>('.activity-dropdown') : null;
+    const rect = trigger.getBoundingClientRect();
+    const menuWidth = menu?.offsetWidth ?? 176;
+    const menuHeight = menu?.offsetHeight ?? 240;
+    const gap = 6;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    let top: number;
+    if (rect.bottom + menuHeight + gap <= viewportHeight) {
+      // Enough room below the trigger.
+      top = rect.bottom + gap;
+    } else if (rect.top - menuHeight - gap >= 0) {
+      // Not enough room below; open above the trigger.
+      top = rect.top - menuHeight - gap;
+    } else {
+      // Not enough room on either side; clamp it inside the viewport.
+      top = Math.max(gap, viewportHeight - menuHeight - gap);
+    }
+
+    let right = Math.max(gap, viewportWidth - rect.right + 12);
+    if (viewportWidth - right - menuWidth < gap) {
+      // Keep the dropdown's left edge inside the viewport.
+      right = Math.max(gap, viewportWidth - menuWidth - gap);
+    }
+
+    this.menuStyle.set({
+      position: 'fixed',
+      top: `${top}px`,
+      right: `${right}px`,
+      bottom: 'auto',
+    });
   }
 
   protected closeAllMenus(): void {
@@ -1597,6 +1618,18 @@ export class ActivitiesPageComponent {
     const now = new Date().toISOString();
     const category = mapSportTypeToCategory(result.sportType);
 
+    // Tracks without usable timestamps (absent or sparser than the 5-minute moving window) yield
+    // movingTimeSeconds = 0. In that case, estimate moving time and average speed from the chosen
+    // sport type's typical pace so the activity's duration and speed are still meaningful. When the
+    // parsed file has a real moving time, keep it unchanged.
+    const hasUsableMovingTime = parsed.movingTimeSeconds > 0;
+    const movingTimeSeconds = hasUsableMovingTime
+      ? parsed.movingTimeSeconds
+      : estimateMovingTime(parsed.totalDistanceMeters, result.sportType);
+    const averageSpeedMetersPerSecond = hasUsableMovingTime
+      ? parsed.averageSpeedMetersPerSecond
+      : typicalSpeedMs(result.sportType);
+
     const activityRecord: ActivityRecord = {
       id,
       provider: 'local',
@@ -1606,10 +1639,10 @@ export class ActivitiesPageComponent {
       activityCategory: category,
       startDate: parsed.startTime,
       distanceMeters: parsed.totalDistanceMeters,
-      movingTimeSeconds: parsed.movingTimeSeconds,
-      elapsedTimeSeconds: parsed.elapsedTimeSeconds,
+      movingTimeSeconds,
+      elapsedTimeSeconds: movingTimeSeconds,
       totalElevationGainMeters: parsed.totalElevationGainMeters,
-      averageSpeedMetersPerSecond: parsed.averageSpeedMetersPerSecond,
+      averageSpeedMetersPerSecond,
       activityStatus: result.activityStatus,
       hasRoute: true,
       routeSyncStatus: 'route_synced',
@@ -1634,7 +1667,7 @@ export class ActivitiesPageComponent {
       activityId: id,
       providerActivityId: id,
       coordinates: parsed.coordinates,
-      elevations: parsed.elevations.length > 0 ? parsed.elevations : undefined,
+      elevations: parsed.elevations.some((e) => e !== 0) ? parsed.elevations : undefined,
       cumulativeDistances: parsed.cumulativeDistances,
       syncedAt: now,
       updatedAt: now,
@@ -1837,6 +1870,25 @@ export class ActivitiesPageComponent {
     } catch {
       this.status.set('empty');
     }
+  }
+
+  /**
+   * Handles a `DataRefreshService` refresh: reloads the list, and if an activity is
+   * currently open in the detail panel, refreshes its record and route so the panel
+   * reflects any changes (e.g. after a per-activity resync from Strava).
+   */
+  private async onDataRefresh(): Promise<void> {
+    await this.loadPage(1);
+    const selected = this.selectedActivity();
+    if (!selected) {
+      return;
+    }
+    const refreshed = await this.repositories.activities.get(selected.id);
+    if (!refreshed) {
+      return;
+    }
+    this.selectedActivity.set(refreshed);
+    this.loadSelectedRoute(refreshed);
   }
 
   private lastFocusedId: string | null = null;

@@ -7,6 +7,7 @@ import { SyncHistoryService } from '../storage/sync-history.service';
 import { DataRefreshService } from '../shared/data-refresh.service';
 import { simplifyCoordinates } from '../strava/route-coordinate-utils';
 import type { StravaActivityResponse } from '../strava/strava-session.service';
+import { computeStreamStats } from '../shared/stream-stats';
 import { logger } from '../shared/logger';
 
 export interface BridgeCallbacks {
@@ -162,6 +163,12 @@ export class ExtensionBridgeService {
           if (existing) {
             existing.hasRoute = true;
             existing.routeSyncStatus = 'route_synced';
+            // Merge performance aggregates (HR avg/max/min, max speed, avg temperature)
+            // computed from the sensor streams the content-script now requests alongside
+            // the route. Only fields with usable data are returned, so absent sensor data
+            // never overwrites a value fetched previously.
+            const stats = computeStreamStats(extractStreams(rawRoute));
+            Object.assign(existing, stats);
             existing.updatedAt = now;
             await this.repositories.activities.put(existing);
           }
@@ -278,4 +285,27 @@ export class ExtensionBridgeService {
     }
     return result;
   }
+}
+
+/**
+ * Maps the raw keyed streams object emitted by the content-script
+ * (`{ heartrate: { data: [...] }, velocity_smooth: { data: [...] }, ... }`) onto the
+ * flat {@link ActivityStreams} shape consumed by {@link computeStreamStats}.
+ */
+function extractStreams(rawRoute: any): {
+  heartrate?: number[];
+  velocitySmooth?: number[];
+  temp?: number[];
+  timeStream?: number[];
+} {
+  const pick = (key: string): number[] | undefined => {
+    const arr = rawRoute?.[key]?.data;
+    return Array.isArray(arr) ? arr : undefined;
+  };
+  return {
+    heartrate: pick('heartrate'),
+    velocitySmooth: pick('velocity_smooth'),
+    temp: pick('temp'),
+    timeStream: pick('time'),
+  };
 }

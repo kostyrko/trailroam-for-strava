@@ -41,8 +41,12 @@ export interface ActivityRecord {
   elapsedTimeSeconds?: number;
   totalElevationGainMeters?: number;
   averageSpeedMetersPerSecond?: number;
+  maxSpeedMetersPerSecond?: number;
   activityStatus?: ActivityStatus;
   averageHeartrateBpm?: number;
+  maxHeartrateBpm?: number;
+  minHeartrateBpm?: number;
+  averageTemperatureCelsius?: number;
   hasRoute: boolean;
   routeSyncStatus: RouteSyncStatus;
   sourceUrl?: string;

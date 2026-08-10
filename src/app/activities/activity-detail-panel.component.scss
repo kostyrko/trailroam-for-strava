@@ -451,28 +451,130 @@
   margin: 0 16px 20px;
 }
 
+.panel-details-actions {
+  display: flex;
+  margin: 0 16px 20px;
+}
+
+.panel-resync-btn {
+  width: 100%;
+}
+
+.sr-only {
+  border: 0;
+  clip: rect(0 0 0 0);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  width: 1px;
+}
+
 .details-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
   margin: 0;
 }
 
 .detail-row {
   align-items: center;
+  border-radius: 8px;
   display: flex;
-  justify-content: space-between;
+  gap: 10px;
+  min-height: 38px;
+  padding: 2px 4px;
+}
 
-  dt {
-    color: $text-secondary;
-    font-size: 0.8125rem;
+.detail-icon {
+  align-items: center;
+  color: $text-muted;
+  display: inline-flex;
+  flex-shrink: 0;
+  height: 18px;
+  justify-content: center;
+  width: 18px;
+}
+
+.detail-label {
+  color: $text-secondary;
+  flex-shrink: 0;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.detail-spacer {
+  flex: 1;
+}
+
+.detail-value {
+  color: $text-primary;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-align: right;
+}
+
+// Heart-rate grouped value: Avg / Min / Max on one line, wrapping to two on narrow widths.
+.hr-group {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  justify-content: flex-end;
+}
+
+.hr-stat {
+  align-items: baseline;
+  display: inline-flex;
+  gap: 3px;
+}
+
+.hr-stat-label {
+  color: $text-muted;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.hr-stat-value {
+  color: $text-primary;
+  font-size: 0.875rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.hr-unit {
+  color: $text-muted;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+// Understated separation between the activity and elevation groups.
+.details-divider {
+  background: $border-primary;
+  height: 1px;
+  margin: 8px 0;
+  opacity: 0.6;
+}
+
+// Subtle emphasis on Total Elev Gain (the headline elevation metric).
+.detail-row--accent {
+  background: $bg-green-subtle;
+  margin-top: 4px;
+  padding: 2px 8px;
+
+  .detail-label {
+    color: $green-medium;
     font-weight: 600;
   }
 
-  dd {
-    color: $text-primary;
-    font-size: 0.8125rem;
+  .detail-value {
+    color: $green-medium;
     font-weight: 700;
-    margin: 0;
+  }
+
+  .detail-icon {
+    color: $green-muted;
   }
 }

@@ -88,6 +88,93 @@
         </div>
       }
       <button
+        class="map-strava-btn"
+        type="button"
+        [class.active]="stravaActiveSport() !== 'none'"
+        [class.strava-not-ready]="stravaAuthState() === 'not-ready'"
+        (click)="toggleStravaMenu()"
+        [attr.aria-label]="
+          stravaActiveSport() === 'none'
+            ? 'Show Strava global heatmap'
+            : 'Hide Strava global heatmap'
+        "
+        [attr.data-tooltip]="
+          stravaAuthState() === 'not-ready'
+            ? 'Strava Heatmap — log in to enable'
+            : 'Strava Heatmap'
+        "
+      >
+        <app-icon name="zap" [size]="18" strokeWidth="2"></app-icon>
+        @if (stravaAuthState() === 'not-ready') {
+          <span class="map-strava-badge" aria-hidden="true">!</span>
+        }
+      </button>
+      @if (stravaMenuOpen()) {
+        <div class="map-layer-menu" (click)="$event.stopPropagation()">
+          @if (stravaAuthChecking()) {
+            <div class="map-strava-checking" aria-live="polite">Checking Strava login…</div>
+          } @else if (stravaAuthState() === 'not-ready') {
+            <div class="map-strava-login">
+              <span class="map-strava-login-hint"
+                >A free Strava login is required to show the global heatmap.</span
+              >
+              <button
+                class="map-strava-login-btn"
+                type="button"
+                (click)="onStravaLoginRequested()"
+              >
+                Log in to Strava
+              </button>
+            </div>
+          } @else {
+            <button
+              class="map-layer-menu-item"
+              type="button"
+              [class.active]="stravaActiveSport() === 'none'"
+              (click)="selectStravaSport('none')"
+            >
+              <app-icon
+                name="layers"
+                [size]="20"
+                strokeWidth="2"
+                [class]="'map-layer-icon'"
+              ></app-icon>
+              <span class="map-layer-name">None</span>
+              @if (stravaActiveSport() === 'none') {
+                <span class="map-layer-check">✓</span>
+              }
+            </button>
+            @for (sport of STRAVA_HEATMAP_SPORT_OPTIONS; track sport.token) {
+              <button
+                class="map-layer-menu-item"
+                type="button"
+                [class.active]="stravaActiveSport() === sport.token"
+                (click)="selectStravaSport(sport.token)"
+              >
+                <app-icon name="flame" [size]="20" strokeWidth="2" [class]="'map-layer-icon'"></app-icon>
+                <span class="map-layer-name">{{ sport.label }}</span>
+                @if (stravaActiveSport() === sport.token) {
+                  <span class="map-layer-check">✓</span>
+                }
+              </button>
+            }
+          }
+        </div>
+      }
+      @if (stravaOpacityVisible()) {
+        <div class="map-opacity-slider-wrapper">
+          <input
+            class="map-opacity-slider"
+            type="range"
+            min="0"
+            max="100"
+            [value]="stravaOpacityValue()"
+            (input)="onStravaOpacityChange($any($event.target).value)"
+            aria-label="Adjust Strava heatmap opacity"
+          />
+        </div>
+      }
+      <button
         class="map-heatmap-btn"
         type="button"
         [class.active]="heatmapActive()"

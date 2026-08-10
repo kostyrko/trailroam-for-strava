@@ -62,6 +62,15 @@ app-logbook-nav {
   flex-shrink: 0;
 }
 
+.ls-info-tip {
+  cursor: help;
+  display: inline-flex;
+  flex-shrink: 0;
+  position: relative;
+
+  @include minimap-btn-tooltip;
+}
+
 // ═════════════════════════════════════════════════════════════════
 // TOOLBAR (logbook places/all controls — activities-toolbar is owned
 // by app-activities-toolbar and styled in its own component file)
@@ -685,11 +694,16 @@ app-logbook-nav {
   min-height: 32px;
   min-width: 32px;
   padding: 0;
+  position: relative;
 
   &:hover {
     background: $bg-green-light;
     border-color: $border-primary;
     color: $green-primary;
+  }
+
+  &[data-tooltip] {
+    @include minimap-btn-tooltip;
   }
 }
 
@@ -718,11 +732,16 @@ app-logbook-nav {
   min-height: 36px;
   min-width: 36px;
   padding: 0;
+  position: relative;
 
   &:hover {
     background: $bg-green-light;
     border-color: $border-primary;
     color: $text-primary;
+  }
+
+  &[data-tooltip] {
+    @include minimap-btn-tooltip;
   }
 
   @extend %active-bg-border;
@@ -1018,22 +1037,26 @@ app-logbook-nav {
   }
 }
 
+// The chevron direction is handled by swapping the icon (`chevron-right` when
+// collapsed, `chevron-down` when expanded) rather than rotating the button — a
+// transform on the button would also rotate its tooltip (a descendant), making
+// it render vertically.
 .trail-expand-btn {
   @extend %btn-sm-base;
   background: $bg-green-light;
   border: 1px solid $border-primary;
+  position: relative;
   transition:
-    transform 0.2s ease,
     background 0.15s,
     color 0.15s;
 
   &:hover {
     color: $text-primary;
   }
-}
 
-.trail-expand-btn--open {
-  transform: rotate(90deg);
+  &[data-tooltip] {
+    @include minimap-btn-tooltip;
+  }
 }
 
 %icon-btn-sm {
@@ -1062,6 +1085,25 @@ app-logbook-nav {
 
 .trail-detail-btn {
   @extend %icon-btn-sm;
+  background: $bg-green-light;
+  border-color: $border-primary;
+  color: $green-primary;
+  height: 25px;
+  position: relative;
+  width: 25px;
+
+  &:hover {
+    background: $border-primary;
+    color: $text-primary;
+  }
+
+  svg {
+    display: block;
+  }
+
+  &[data-tooltip] {
+    @include minimap-btn-tooltip;
+  }
 }
 
 // ═════════════════════════════════════════════════════════════════
@@ -1079,8 +1121,12 @@ app-logbook-nav {
   }
 }
 
+// NOTE: the fill mode must not persist the keyframe's `transform` (it would turn
+// the row into a containing block for `position: fixed` descendants, breaking the
+// dropdown position — see the activity menu positioning). `backwards` keeps the
+// fade-in look without leaving a lingering transform after the animation ends.
 .activity-row--child {
-  animation: trail-child-fade-in 0.2s ease both;
+  animation: trail-child-fade-in 0.2s ease backwards;
   border-left: 2px solid $border-green-trail;
 
   &:last-child {

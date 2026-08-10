@@ -175,10 +175,15 @@
             <div class="panel-item-body">
               <div class="panel-item-name-row">
                 <span class="panel-item-name">{{ item.route.activity.name }}</span>
+                @if (item.route.activity.provider !== 'strava') {
+                  <span class="panel-source-mark panel-source-mark--imported" title="Imported"
+                    >&#11014;</span
+                  >
+                }
                 @let st = item.route.activity.activityStatus ?? 'completed';
-                @if (st === 'completed') {
+                @if (item.route.activity.provider === 'strava' && st === 'completed') {
                   <span class="panel-status-badge panel-status-badge--completed">&#10003;</span>
-                } @else {
+                } @else if (st === 'planned') {
                   <span class="panel-status-badge panel-status-badge--planned">&#9711;</span>
                 }
               </div>

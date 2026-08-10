@@ -68,5 +68,21 @@ describe('gpx-export pure functions', () => {
       const gpx = buildGpx({ ...activity, startDate: '' }, route);
       expect(gpx).not.toContain('<time>');
     });
+
+    it('should include per-point elevation when the route has elevations', () => {
+      const gpx = buildGpx(activity, route);
+      expect(gpx).toContain('<ele>200</ele>');
+      expect(gpx).toContain('<ele>210</ele>');
+    });
+
+    it('should omit elevation when the route has no elevations', () => {
+      const gpx = buildGpx(activity, { ...route, elevations: undefined });
+      expect(gpx).not.toContain('<ele>');
+    });
+
+    it('should omit elevation when elevations length does not match coordinates', () => {
+      const gpx = buildGpx(activity, { ...route, elevations: [200] });
+      expect(gpx).not.toContain('<ele>');
+    });
   });
 });

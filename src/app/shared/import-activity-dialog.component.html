@@ -73,8 +73,10 @@
                 <span class="import-stat-label">Distance</span>
               </div>
               <div class="import-stat">
-                <span class="import-stat-value">{{ formatDuration(data.parsed.movingTimeSeconds) }}</span>
-                <span class="import-stat-label">Moving time</span>
+                <span class="import-stat-value">{{ formatDuration(movingTimeSeconds()) }}</span>
+                <span class="import-stat-label">{{
+                  movingTimeIsEstimated ? 'Moving time (est.)' : 'Moving time'
+                }}</span>
               </div>
               <div class="import-stat">
                 <span class="import-stat-value">{{ data.parsed.totalElevationGainMeters.toFixed(0) }} m</span>

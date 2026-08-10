@@ -207,6 +207,41 @@ export function suggestSportType(
   return { sportType: 'Other', category: 'other' };
 }
 
+/**
+ * Typical sustained speeds (m/s) per sport type, used to estimate moving time for tracks whose
+ * timestamps are absent or too sparse to compute a real moving time (e.g. GPX files exported
+ * without per-point times, or with intervals longer than the 5-minute moving window). Values are
+ * conservative recreational paces, not race paces.
+ */
+export const TYPICAL_SPEED_MS: Record<string, number> = {
+  Walk: 1.4, Hike: 1.2, Snowshoe: 1.2,
+  Run: 3.0, TrailRun: 2.6, VirtualRun: 3.0,
+  Ride: 6.5, GravelRide: 5.5, MountainBikeRide: 4.5,
+  EBikeRide: 6.0, EMountainBikeRide: 4.5, VirtualRide: 7.0,
+  Swim: 0.8,
+  Kayaking: 1.8, Canoeing: 1.8, StandUpPaddling: 1.5, Rowing: 1.8,
+  AlpineSki: 4.0, BackcountrySki: 2.0, NordicSki: 2.8, Snowboard: 3.5,
+  RockClimbing: 0.4, Golf: 1.1,
+  Other: 2.0, Workout: 2.0,
+};
+
+const DEFAULT_TYPICAL_SPEED_MS = 2.5;
+
+/** Typical sustained speed (m/s) for a sport type, falling back to a generic pace. */
+export function typicalSpeedMs(sportType: string): number {
+  return TYPICAL_SPEED_MS[sportType] ?? DEFAULT_TYPICAL_SPEED_MS;
+}
+
+/**
+ * Estimated moving time (seconds) for a distance given the chosen sport type's typical speed.
+ * Used when a track has no usable timestamps to compute a real moving time.
+ */
+export function estimateMovingTime(totalDistanceMeters: number, sportType: string): number {
+  const speed = typicalSpeedMs(sportType);
+  if (speed <= 0 || totalDistanceMeters <= 0) return 0;
+  return totalDistanceMeters / speed;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ActivityParserService {
 
@@ -226,7 +261,13 @@ export class ActivityParserService {
   async parseGpx(buffer: ArrayBuffer, fileName: string): Promise<ParsedActivity> {
     const text = new TextDecoder().decode(buffer);
 
-    const trkptRe = /<trkpt\s+lat="([^"]*)"\s+lon="([^"]*)"[^>]*>([\s\S]*?)<\/trkpt>/gi;
+    // Match the opening <trkpt ...> tag and capture its full attribute list (group 1) so we can
+    // read lat/lon in either order — real-world exports (e.g. Strava) put lon before lat. The
+    // second alternative handles self-closing <trkpt ... /> tags; group 2 holds the inner content
+    // (undefined for self-closing tags).
+    const trkptRe = /<trkpt\s+([^>]*?)(?:\/>|>([\s\S]*?)<\/trkpt>)/gi;
+    const latAttrRe = /lat="([^"]*)"/i;
+    const lonAttrRe = /lon="([^"]*)"/i;
     const eleRe = /<ele[^>]*>([^<]*)<\/ele>/i;
     const timeRe = /<time[^>]*>([^<]*)<\/time>/i;
 
@@ -242,15 +283,17 @@ export class ActivityParserService {
     let prevCoord: string | null = null;
     let match: RegExpExecArray | null;
     while ((match = trkptRe.exec(text)) !== null) {
-      const lat = parseFloat(match[1]);
-      const lng = parseFloat(match[2]);
+      const latM = latAttrRe.exec(match[1]);
+      const lonM = lonAttrRe.exec(match[1]);
+      const lat = latM ? parseFloat(latM[1]) : NaN;
+      const lng = lonM ? parseFloat(lonM[1]) : NaN;
       if (isNaN(lat) || isNaN(lng)) continue;
 
       const coordKey = `${lat.toFixed(6)},${lng.toFixed(6)}`;
       if (coordKey === prevCoord) continue;
       prevCoord = coordKey;
 
-      const content = match[3];
+      const content = match[2] ?? '';
       coordinates.push([lng, lat]);
 
       const eleM = eleRe.exec(content);

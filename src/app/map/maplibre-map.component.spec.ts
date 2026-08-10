@@ -7,6 +7,8 @@ import { MapLibreMapComponent } from './maplibre-map.component';
 import { MapLibreService } from './maplibre.service';
 import { type MapRouteFeature } from './mock-routes';
 import { RouteRendererService } from './route-renderer.service';
+import { StravaHeatmapService } from './strava-heatmap.service';
+import { StravaHeatmapAuthService } from '../extension/strava-heatmap-auth.service';
 import type { SavedPlaceRecord } from '../storage/storage.models';
 
 function makePopupMock() {
@@ -120,6 +122,21 @@ describe('MapLibreMapComponent', () => {
   let mapFitBounds: ReturnType<typeof vi.fn>;
   let mapGetZoom: ReturnType<typeof vi.fn>;
   let mockRenderer: Record<string, any>;
+  let stravaHeatmap: {
+    init: ReturnType<typeof vi.fn>;
+    ensureOverlay: ReturnType<typeof vi.fn>;
+    setSport: ReturnType<typeof vi.fn>;
+    setOpacity: ReturnType<typeof vi.fn>;
+    setVisible: ReturnType<typeof vi.fn>;
+  };
+  let stravaAuth: {
+    authState: ReturnType<typeof vi.fn>;
+    ensureAuth: ReturnType<typeof vi.fn>;
+    openStravaLogin: ReturnType<typeof vi.fn>;
+    markNotReady: ReturnType<typeof vi.fn>;
+  };
+  /** Map event-name -> handler captured from `map.on(...)`, for dispatching in tests. */
+  let mapOnHandlers: globalThis.Map<string, (...args: unknown[]) => void>;
   let remove: ReturnType<typeof vi.fn>;
   let resolvedProvider: ResolvedBasemapProvider;
   let fixture: ComponentFixture<MapLibreMapComponent>;
@@ -150,9 +167,26 @@ describe('MapLibreMapComponent', () => {
       clearEmphasis: vi.fn(),
       setEmphasis: vi.fn(),
     };
+    stravaHeatmap = {
+      init: vi.fn(),
+      ensureOverlay: vi.fn(),
+      setSport: vi.fn(),
+      setOpacity: vi.fn(),
+      setVisible: vi.fn(),
+    };
+    stravaAuth = {
+      authState: vi.fn().mockReturnValue('ready'),
+      ensureAuth: vi.fn().mockResolvedValue('ready'),
+      openStravaLogin: vi.fn(),
+      markNotReady: vi.fn().mockResolvedValue(undefined),
+    };
+    mapOnHandlers = new globalThis.Map();
     createMap = vi.fn().mockResolvedValue({
       once,
-      on: vi.fn(),
+      on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+        // Record handlers so tests can dispatch them (e.g. the 'error' listener).
+        mapOnHandlers.set(event, handler);
+      }),
       remove,
       addControl: vi.fn(),
       isStyleLoaded: () => true,
@@ -180,6 +214,8 @@ describe('MapLibreMapComponent', () => {
           provide: RouteRendererService,
           useValue: mockRenderer,
         },
+        { provide: StravaHeatmapService, useValue: stravaHeatmap },
+        { provide: StravaHeatmapAuthService, useValue: stravaAuth },
       ],
     });
   });
@@ -340,6 +376,155 @@ describe('MapLibreMapComponent', () => {
     searchBtn.click();
     fixture.detectChanges();
     expect(native.querySelector('app-map-search-panel')).toBeNull();
+  });
+
+  describe('Strava heatmap dropdown', () => {
+    it('opens the dropdown and triggers an auth check on button click', async () => {
+      fixture = TestBed.createComponent(MapLibreMapComponent);
+      const instance = fixture.componentInstance as any;
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      const btn = fixture.nativeElement.querySelector('.map-strava-btn') as HTMLButtonElement;
+      expect(btn).toBeTruthy();
+      btn.click();
+      fixture.detectChanges();
+
+      expect(instance.stravaMenuOpen()).toBe(true);
+      expect(stravaAuth.ensureAuth).toHaveBeenCalledTimes(1);
+      // Dropdown body renders when open.
+      expect(fixture.nativeElement.querySelector('.map-layer-menu')).toBeTruthy();
+    });
+
+    it('selecting a sport turns the overlay on and switches the sport', async () => {
+      fixture = TestBed.createComponent(MapLibreMapComponent);
+      const instance = fixture.componentInstance as any;
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      instance.selectStravaSport('ride');
+      fixture.detectChanges();
+
+      expect(instance.stravaActiveSport()).toBe('ride');
+      expect(stravaHeatmap.setSport).toHaveBeenCalledWith('ride');
+      expect(stravaHeatmap.setVisible).toHaveBeenCalledWith(true);
+      expect(stravaHeatmap.setOpacity).toHaveBeenCalledTimes(1); // default applied on first activation
+      expect(instance.stravaOpacityVisible()).toBe(true);
+    });
+
+    it("selecting 'none' turns the overlay off and hides the opacity slider", async () => {
+      fixture = TestBed.createComponent(MapLibreMapComponent);
+      const instance = fixture.componentInstance as any;
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      instance.selectStravaSport('run');
+      instance.selectStravaSport('none');
+      fixture.detectChanges();
+
+      expect(instance.stravaActiveSport()).toBe('none');
+      expect(stravaHeatmap.setVisible).toHaveBeenLastCalledWith(false);
+      expect(instance.stravaOpacityVisible()).toBe(false);
+    });
+
+    it('the opacity slider drives the raster-opacity value', async () => {
+      fixture = TestBed.createComponent(MapLibreMapComponent);
+      const instance = fixture.componentInstance as any;
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      instance.selectStravaSport('all');
+      instance.onStravaOpacityChange('70');
+
+      expect(stravaHeatmap.setOpacity).toHaveBeenLastCalledWith(0.7);
+      expect(instance.stravaOpacityValue()).toBe(70);
+    });
+
+    it("the login CTA is routed through the auth service's openStravaLogin", async () => {
+      fixture = TestBed.createComponent(MapLibreMapComponent);
+      const instance = fixture.componentInstance as any;
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      instance.onStravaLoginRequested();
+      expect(stravaAuth.openStravaLogin).toHaveBeenCalledTimes(1);
+    });
+
+    it('renders the login view (not sport list) when auth is not-ready', async () => {
+      stravaAuth.authState.mockReturnValue('not-ready');
+      fixture = TestBed.createComponent(MapLibreMapComponent);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      const btn = fixture.nativeElement.querySelector('.map-strava-btn') as HTMLButtonElement;
+      btn.click();
+      // Let the ensureAuth promise + its .finally(checking=false) settle so the
+      // spinner clears and the not-ready login view renders.
+      await new Promise((r) => setTimeout(r, 0));
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('.map-strava-login')).toBeTruthy();
+      // Sport rows are absent in the not-ready state.
+      expect(
+        fixture.nativeElement.querySelectorAll('.map-layer-menu-item').length,
+      ).toBe(0);
+    });
+  });
+
+  describe('Strava tile error handling', () => {
+    it('routes a Strava-host tile error to markNotReady, not emitBasemapLoadFailed', async () => {
+      const basemapFailed = vi.fn();
+      fixture = TestBed.createComponent(MapLibreMapComponent);
+      fixture.componentInstance.basemapLoadFailed.subscribe(basemapFailed);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      const errorHandler = mapOnHandlers.get('error')!;
+      errorHandler({
+        error: {
+          message: 'AJAXError: Forbidden (403): https://content-a.strava.com/identified/globalheat/all/hot/8/198/114.png?v=19',
+        },
+      });
+
+      expect(stravaAuth.markNotReady).toHaveBeenCalledTimes(1);
+      expect(basemapFailed).not.toHaveBeenCalled();
+    });
+
+    it('still treats a non-Strava tile error as a basemap failure', async () => {
+      const basemapFailed = vi.fn();
+      fixture = TestBed.createComponent(MapLibreMapComponent);
+      fixture.componentInstance.basemapLoadFailed.subscribe(basemapFailed);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      const errorHandler = mapOnHandlers.get('error')!;
+      errorHandler({ error: { status: 404, message: 'AJAXError: Not Found (404): https://tiles.openfreemap.org/0/0/0' } });
+
+      expect(basemapFailed).toHaveBeenCalledTimes(1);
+      expect(stravaAuth.markNotReady).not.toHaveBeenCalled();
+    });
+
+    it('shows the checking state during ensureAuth and clears it after', async () => {
+      // Tie ensureAuth's resolution to a controllable promise so we can observe
+      // the in-flight checking state.
+      let resolveEnsure!: (v: 'ready') => void;
+      stravaAuth.ensureAuth.mockReturnValue(
+        new Promise<'ready'>((r) => {
+          resolveEnsure = r;
+        }),
+      );
+      fixture = TestBed.createComponent(MapLibreMapComponent);
+      const instance = fixture.componentInstance as any;
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      instance.toggleStravaMenu();
+      expect(instance.stravaAuthChecking()).toBe(true);
+
+      resolveEnsure('ready');
+      await new Promise((r) => setTimeout(r, 0));
+      expect(instance.stravaAuthChecking()).toBe(false);
+    });
   });
 
   describe('saved-place markers', () => {

@@ -5,7 +5,7 @@ import { IconComponent } from './icon.component';
 import { formatSportType } from './activity-category';
 import { formatDistance, formatDuration, formatDate } from './formatters';
 import { sportTypeEmojiFromString } from './activity-display';
-import type { ParsedActivity } from './activity-parser.service';
+import { estimateMovingTime, type ParsedActivity } from './activity-parser.service';
 import type { ActivityStatus } from '../storage/storage.models';
 
 const AVG_SPEED_FALLBACK = ['Walk', 'Hike', 'TrailRun', 'Run'];
@@ -77,6 +77,18 @@ export class ImportActivityDialog {
       return `Suggested: ${suggestedEmoji} ${formatSportType(st)}. Based on average speed (${speedKmh.toFixed(1)} km/h) and distance.`;
     }
     return `Suggested: ${suggestedEmoji} ${formatSportType(st)}. From embedded activity metadata.`;
+  });
+
+  // Moving time shown in the preview. Tracks without usable timestamps (absent or too sparse for
+  // the 5-minute moving window) yield 0 from the parser; in that case estimate it from the
+  // currently selected sport type's typical pace so the duration updates as the user changes sport.
+  protected readonly movingTimeIsEstimated = this.data.parsed.movingTimeSeconds <= 0;
+  protected readonly movingTimeSeconds = computed(() => {
+    const parsed = this.data.parsed;
+    if (parsed.movingTimeSeconds > 0) {
+      return parsed.movingTimeSeconds;
+    }
+    return estimateMovingTime(parsed.totalDistanceMeters, this.sportType());
   });
 
   protected canImport = (): boolean => {

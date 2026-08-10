@@ -271,6 +271,17 @@
   }
 }
 
+// Imported-activity source mark shown next to the name in activity rows.
+.panel-source-mark {
+  flex-shrink: 0;
+  font-size: 0.6875rem;
+  line-height: 1;
+
+  &--imported {
+    color: $text-source-imported;
+  }
+}
+
 .panel-item-meta {
   color: $text-secondary;
   font-size: 0.6875rem;

@@ -66,11 +66,25 @@ export class RouteSyncService {
 
     const routeResult = await this.repositories.activityRoutes.upsert(normalized.route);
 
+    // Persist the full-resolution geometry (coordinates/elevations/distances) so that
+    // consumers that read both the route and geometry records (e.g. the activity detail
+    // panel via repositories.routeGeometry.get) see a consistent, usable track after a
+    // resync. Matches the content-script sync path in extension-bridge.service.ts.
+    if (normalized.geometry) {
+      await this.repositories.routeGeometry.put(normalized.geometry);
+    }
+
     await this.repositories.activities.updateRouteSyncStatus(
       activityId,
       true,
       'route_synced',
     );
+
+    // Merge performance-stream aggregates (HR avg/max/min, max speed, avg temperature)
+    // onto the activity. Only fields with usable data are written.
+    if (normalized.stats && Object.keys(normalized.stats).length > 0) {
+      await this.repositories.activities.updateStreamStats(activityId, normalized.stats);
+    }
 
     return { routeStored: true, routeSyncStatus: 'route_synced', route: routeResult };
   }

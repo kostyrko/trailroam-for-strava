@@ -1,4 +1,4 @@
-import { formatSportType, mapSportTypeToCategory } from './activity-category';
+import { formatSportType, mapSportTypeToCategory, matchesSportFilter } from './activity-category';
 
 describe('mapSportTypeToCategory', () => {
   it('should map Ride to ride', () => {
@@ -187,6 +187,45 @@ describe('mapSportTypeToCategory', () => {
 
   it('should use prefix fallback for SkiTouring', () => {
     expect(mapSportTypeToCategory('SkiTouring')).toBe('winter');
+  });
+});
+
+describe('matchesSportFilter', () => {
+  it('should match any sport when the filter is null', () => {
+    expect(matchesSportFilter('Run', null)).toBe(true);
+    expect(matchesSportFilter('Ride', null)).toBe(true);
+  });
+
+  it('should match any sport when the filter is empty', () => {
+    expect(matchesSportFilter('Run', '')).toBe(true);
+  });
+
+  it('should match an exact sport type', () => {
+    expect(matchesSportFilter('Run', 'Run')).toBe(true);
+  });
+
+  it('should not match a different exact sport type', () => {
+    expect(matchesSportFilter('Ride', 'Run')).toBe(false);
+  });
+
+  it('should be case-sensitive for exact sport types', () => {
+    expect(matchesSportFilter('run', 'Run')).toBe(false);
+  });
+
+  it('should match every sport in a category via the __cat__ prefix', () => {
+    expect(matchesSportFilter('Run', '__cat__run')).toBe(true);
+    expect(matchesSportFilter('TrailRun', '__cat__run')).toBe(true);
+    expect(matchesSportFilter('VirtualRun', '__cat__run')).toBe(true);
+  });
+
+  it('should not match sports from a different category via the __cat__ prefix', () => {
+    expect(matchesSportFilter('Ride', '__cat__run')).toBe(false);
+    expect(matchesSportFilter('MountainBikeRide', '__cat__run')).toBe(false);
+  });
+
+  it('should treat unknown sports as the "other" category', () => {
+    expect(matchesSportFilter('Skateboarding', '__cat__other')).toBe(true);
+    expect(matchesSportFilter('Skateboarding', '__cat__run')).toBe(false);
   });
 });
 

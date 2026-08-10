@@ -39,6 +39,10 @@ const ICONS: Record<string, string> = {
   globe:
     '<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
   mountain: '<path d="M8 3l4 8 5-5 5 15H2L8 3z"/><path d="M8 3l4 8 5-5 5 15H2L8 3z"/>',
+  'trending-up':
+    '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
+  thermometer:
+    '<path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/>',
   'refresh-cw':
     '<path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>',
   'refresh-cw-alt':
@@ -70,6 +74,10 @@ const ICONS: Record<string, string> = {
   x: '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
   'sidebar-collapse':
     '<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><polyline points="12 9 9 12 12 15"/>',
+  // Lightning bolt — the Strava identifier used across the app (logbook badges,
+  // source filter chips use the ⚡ glyph). Registered here as a vector so the map
+  // layer button renders consistently with the other <app-icon> controls.
+  zap: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
 };
 
 const SVG_NS = 'http://www.w3.org/2000/svg';

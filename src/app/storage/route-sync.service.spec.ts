@@ -104,6 +104,126 @@ describe('RouteSyncService', () => {
     expect(updateRouteSyncStatus).toHaveBeenCalledWith('strava:100', true, 'route_synced');
   });
 
+  it('should persist full-resolution geometry on successful fetch', async () => {
+    const routeGeometryPut = vi.fn().mockResolvedValue(undefined);
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        RouteSyncService,
+        {
+          provide: TRAILROAM_REPOSITORIES,
+          useValue: createMockRepositories({
+            activities: {
+              put: vi.fn(),
+              get: vi.fn(),
+              list: vi.fn(),
+              clear: vi.fn(),
+              upsert: vi.fn(),
+              updateRouteSyncStatus,
+            } as any,
+            activityRoutes: { put: vi.fn(), get: vi.fn(), list: vi.fn(), clear: vi.fn(), upsert: activityRoutesUpsert } as any,
+            routeGeometry: { put: routeGeometryPut, get: vi.fn(), clear: vi.fn() } as any,
+          }),
+        },
+      ],
+    });
+    service = TestBed.inject(RouteSyncService);
+
+    const fetchResult: RouteFetchResult = {
+      success: true,
+      coordinates: [
+        [19.94, 50.06],
+        [19.95, 50.07],
+      ],
+    } as RouteFetchResult;
+
+    await service.syncRoute('strava:100', '100', fetchResult);
+
+    expect(routeGeometryPut).toHaveBeenCalledOnce();
+    const stored = routeGeometryPut.mock.calls[0][0];
+    expect(stored.activityId).toBe('strava:100');
+    expect(stored.coordinates).toHaveLength(2);
+  });
+
+  it('should merge performance-stream stats onto the activity when sensor data is present', async () => {
+    const updateStreamStats = vi.fn().mockResolvedValue(undefined);
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        RouteSyncService,
+        {
+          provide: TRAILROAM_REPOSITORIES,
+          useValue: createMockRepositories({
+            activities: {
+              put: vi.fn(),
+              get: vi.fn(),
+              list: vi.fn(),
+              clear: vi.fn(),
+              upsert: vi.fn(),
+              updateRouteSyncStatus,
+              updateStreamStats,
+            } as any,
+            activityRoutes: { put: vi.fn(), get: vi.fn(), list: vi.fn(), clear: vi.fn(), upsert: activityRoutesUpsert } as any,
+          }),
+        },
+      ],
+    });
+    service = TestBed.inject(RouteSyncService);
+
+    const fetchResult: RouteFetchResult = {
+      success: true,
+      coordinates: [
+        [19.94, 50.06],
+        [19.95, 50.07],
+      ],
+      heartrate: [140, 150, 160],
+      timeStream: [0, 1, 2],
+    } as RouteFetchResult;
+
+    await service.syncRoute('strava:100', '100', fetchResult);
+
+    expect(updateStreamStats).toHaveBeenCalledOnce();
+    expect(updateStreamStats).toHaveBeenCalledWith('strava:100', expect.objectContaining({ averageHeartrateBpm: expect.any(Number) }));
+  });
+
+  it('should not call updateStreamStats when no sensor streams are present', async () => {
+    const updateStreamStats = vi.fn().mockResolvedValue(undefined);
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        RouteSyncService,
+        {
+          provide: TRAILROAM_REPOSITORIES,
+          useValue: createMockRepositories({
+            activities: {
+              put: vi.fn(),
+              get: vi.fn(),
+              list: vi.fn(),
+              clear: vi.fn(),
+              upsert: vi.fn(),
+              updateRouteSyncStatus,
+              updateStreamStats,
+            } as any,
+            activityRoutes: { put: vi.fn(), get: vi.fn(), list: vi.fn(), clear: vi.fn(), upsert: activityRoutesUpsert } as any,
+          }),
+        },
+      ],
+    });
+    service = TestBed.inject(RouteSyncService);
+
+    const fetchResult: RouteFetchResult = {
+      success: true,
+      coordinates: [
+        [19.94, 50.06],
+        [19.95, 50.07],
+      ],
+    } as RouteFetchResult;
+
+    await service.syncRoute('strava:100', '100', fetchResult);
+
+    expect(updateStreamStats).not.toHaveBeenCalled();
+  });
+
   it('should set status to no_route when fetch returns NO_GPS_ROUTE', async () => {
     const fetchResult: RouteFetchResult = { success: false, errorCode: 'NO_GPS_ROUTE' };
 
